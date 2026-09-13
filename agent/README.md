@@ -44,3 +44,6 @@ The host exposes allowed target names through `createAgentTaskCapabilities({dele
 When the final permitted tool call has settled and model turns remain, Runtime offers one completion-only inference with no tools or delegation. The model may propose a final result for the unchanged application verifier or ask for essential input. A further tool/delegation proposal, invalid completion, or failed protocol recovery cannot obtain another completion-only request; the durable model_requested event records the opportunity. Uncertain external calls still wait for reconciliation before any inference.
 
 This does not raise maxCalls or maxTurns, forgive failed calls, or guarantee success. The extra inference within the existing turn budget uses normal model admission, allowance charging, authorization and deadlines. Once maxTurns is reached there is no final inference. Older task versions are not silently migrated. The retained real-model Session-continuity sample remains partial; this change has deterministic persistence coverage and does not certify that sample or general model quality.
+
+
+Optional shared provider concurrency admission is supplied by capacityModel and PostgresModelCapacity; see CAPACITY.md for metering composition, persisted uncertain holds and trusted reconciliation. It does not switch a pinned model or change platform allowance rules.

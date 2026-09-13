@@ -139,3 +139,6 @@ export {HmacEventIngress,createHmacEventHandler,eventSigningBytes,WEBHOOK_EVENT_
 
 export {KnowledgeIngestion,splitKnowledgeText} from './knowledge/ingestion.js';
 export {PostgresIngestedKnowledgeStore} from './knowledge/ingested-store.js';
+
+export {PostgresModelCapacity} from './agent/capacity-store.js';
+export {capacityModel,ModelCapacityReconciliation} from './agent/capacity.js';

@@ -22,7 +22,7 @@ export function meteredModel({model,ledger,scope,policy,mode='SYSTEM_MANAGED'}){
   }
   let response,providerError;
   try{response=await model.next(request);}catch(error){providerError=error;}
-  if(providerError?.providerNotCalled){await ledger.release(scope,{requestId,evidence:{providerAccepted:false,reference:'credential-preflight'}});throw providerError;}
+  if(providerError?.providerNotCalled){await ledger.release(scope,{requestId,evidence:{providerAccepted:false,reference:'provider-preflight'}});throw providerError;}
   const observed=providerError||response;
   const usage=observed?.usage;
   const integer=value=>Number.isSafeInteger(value)&&value>=0;

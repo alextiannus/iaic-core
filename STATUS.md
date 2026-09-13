@@ -87,3 +87,8 @@ KnowledgeIngestion and PostgresIngestedKnowledgeStore now import authorized, ver
 
 
 Knowledge ingestion context integration now verifies current body removal and derived Workspace invalidation after withdrawal. A reproduced adapter-replacement failure was fixed: syntactically valid legacy Catalog IDs now return not-found from the ingested store rather than invalid-input, allowing normal unavailable-reference projection. Malformed IDs still reject. Historical audit bodies are retained; no global-erasure claim is made.
+
+
+## Shared model capacity
+
+PostgresModelCapacity and capacityModel now enforce a host-configured concurrency pool across workers, preserving original Task-turn admission and uncertain reservations through process failure. A SIGKILL fixture verifies no automatic slot reclamation; current-authorized trusted terminal evidence releases the original slot. Real ledger integration proves busy preflight causes no provider call or platform debit, and an installed Runtime example combines capacity, metering and cost accounting. The module does not implement provider RPM/TPM, waiting fairness, routing/fallback, automatic unknown-release assumptions or real-provider liveness reconciliation. Full Note 30 acceptance remains incomplete.

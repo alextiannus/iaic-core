@@ -23,3 +23,6 @@ Focused verification: `node --test test/iaic-wallet.test.js test/iaic-token-ledg
 
 
 The optional costBasis admission snapshot and costCalls projection support the independent costs module. Provider currency estimates remain separate from platform allowance and do not add monetary charges; see costs/README.md.
+
+
+The providerNotCalled release evidence is now named provider-preflight to cover both credential and capacity admission checks. Optional capacityModel belongs inside meteredModel; see ../agent/CAPACITY.md. Busy capacity does not debit platform allowance, and capacity/usage reconciliation remain independent.
