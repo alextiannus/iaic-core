@@ -19,7 +19,7 @@ Use your own database connection. The examples create temporary synthetic schema
 The configured-jobs example combines user-plus-organization scopes, an organization-shared job, Memory, Workspace, sourced Knowledge, selected Skills, models and platform allowance, Session continuity, model-directed scheduling and an external MCP client. It includes application policy to illustrate composition; it does not prescribe job types or business flows.
 
 ```sh
-npm test                     # module checks and 24 standalone examples
+npm test                     # module checks and 25 standalone examples
 npm run verify:core-package  # pack, install elsewhere, run examples there
 npm pack                     # create a reusable Core npm archive
 ```
@@ -34,6 +34,7 @@ An application installs the resulting `.tgz` and imports `@immedi/iaic-core` or 
 | Resolve subscription access | [Subscriptions](subscriptions/README.md): versioned plan snapshots, current periods and entitlements |
 | Deliver background results | [Notifications](notifications/README.md): durable queue, channel ports, attempts and reconciliation |
 | Evaluate capability changes | [Evaluation](evaluation/README.md): independent grading, complete case coverage, baselines and evidence |
+| Select evaluated releases | [Releases](releases/README.md): immutable version bindings, canary selection, stop and rollback |
 | Describe executable operations | [Capabilities](capabilities/README.md): schemas, authorization, functions or Agent implementations, result verification |
 | Persistent work and model loop | [Agent](agent/README.md), [Tasks](tasks/README.md), [Context](context/README.md) |
 | Configure jobs and long-lived work identity | [Identities](identities/README.md): `AgentRegistry.register`, host JSON configuration, revision-bound tasks |
