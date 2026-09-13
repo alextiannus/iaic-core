@@ -134,3 +134,5 @@ export {OpenApiCatalog} from './http/openapi.js';
 export {ReleaseMonitor,createReleaseMonitorCapability} from './observation/monitor.js';
 
 export {createAgentTaskSchedules} from './recurring/agent.js';
+
+export {HmacEventIngress,createHmacEventHandler,eventSigningBytes,WEBHOOK_EVENT_PREFIX} from './events/ingress.js';

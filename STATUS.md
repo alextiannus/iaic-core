@@ -74,3 +74,8 @@ ReleaseObservation now discovers bounded trusted source references and assesses 
 ## Scheduled Agent task composition
 
 createAgentTaskSchedules now connects existing recurring/deferred services to shared Agent dispatch and scoped original Task receipt lookup with immutable input comparison and current schema/authorization checks. A separately installed example runs a scheduled monitoring Task across two worker processes after losing the successful admission response, then verifies one original Task, one monitor call and one rollback. This integration found and fixed ReleaseMonitor's missing history permission revalidator; historical evidence remains readable under current permission after the candidate stops. These are deterministic fixtures and orderly process replacement, not continuous production monitoring, a SIGKILL monitoring proof or full Note 30 acceptance. Production source discovery and uncertain protection receipt reconciliation remain incomplete.
+
+
+## Signed external event input
+
+HmacEventIngress now authenticates a bounded IAiC HMAC envelope using current host endpoint/key/scope resolution, raw bytes and freshness checks, then reuses immutable scoped EventStore publication. An optional Node HTTP handler and reserved ordinary-publisher namespace are supplied. Existing exact-key EventTriggers wake DeferredTasks without inference before publication; PostgreSQL integration checks one original follow-up Task after duplicate signed delivery. This is a generic documented profile, not vendor-specific webhook support, event streaming/retention or production deployment evidence. Signed signal content does not confer authority or establish business truth.

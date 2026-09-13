@@ -21,8 +21,8 @@ export class EventStore {
  async read(scope,{key}){if(!text(key))throw fail('Event key required');const row=(await this.pool.query('SELECT * FROM iaic_events WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3 AND event_key=$4',[...identity(scope),key])).rows[0];if(!row)throw fail('Event not found',404);if(eventDigest(row.data,row.source)!==row.digest)throw fail('Event data no longer matches its receipt',409);return view(row);}
 }
 export class AssistantEvents {
- constructor({store,resolveScope,sourceFor}){Object.assign(this,{store,resolveScope,sourceFor});}
+ constructor({store,resolveScope,sourceFor,reservedPrefixes=[]}){if(!Array.isArray(reservedPrefixes)||reservedPrefixes.some(p=>typeof p!=='string'||!p||p.length>200))throw fail('Valid reserved event prefixes required');Object.assign(this,{store,resolveScope,sourceFor});this.reservedPrefixes=[...reservedPrefixes];}
  async authorize(actor){await this.resolveScope(actor);return true;}
- async publish(actor,{key,data}){return this.store.publish(await this.resolveScope(actor),{key,data,source:await this.sourceFor(actor)});}
+ async publish(actor,{key,data}){if(typeof key==='string'&&this.reservedPrefixes.some(p=>key.startsWith(p)))throw fail('Event key prefix is reserved for trusted ingress',403);return this.store.publish(await this.resolveScope(actor),{key,data,source:await this.sourceFor(actor)});}
  async read(actor,{key}){return this.store.read(await this.resolveScope(actor),{key});}
 }
