@@ -1,26 +1,7 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import {Pool} from 'pg';
-import {CrossPrincipalDelegations,PostgresWorkspaceStore,AssistantWorkspace,DelegationArtifacts,DelegationParents,TaskStore,AgentRuntime,ContextAssembler,CapabilityDispatcher,defineCapability,TokenLedger,AllowanceBudgets,PostgresDelegationStore,DelegatedCapabilities,DelegatedTasks,delegationExecutorKey} from '@immedi/iaic-core';
-async function fixture(fn){
- const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL required');const schema='delegated_task_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let runtime,handoffs=null;
- try{
-  await pool.query('CREATE TABLE effects(id text PRIMARY KEY,owner text)');
-  const workspaceStore=new PostgresWorkspaceStore({pool});await workspaceStore.initialize();
-  const workspace=new AssistantWorkspace({store:workspaceStore,resolveScope:a=>({applicationId:a.scopeId,subjectId:a.subjectId,assistantId:'fixture-job'}),sourceFor:()=>({kind:'fixture-task'})});let outputArtifact=null;
-  const issuer={scopeId:'app',subjectId:'issuer'},delegate={scopeId:'app',subjectId:'delegate'},principal=a=>({applicationId:a.scopeId,subjectId:a.subjectId}),permitted=new Set(['issuer','delegate']);
-  const ledger=new TokenLedger({pool});await ledger.initialize();const budgets=new AllowanceBudgets({ledger});ledger.budgets=budgets;await budgets.initialize();await ledger.grant(principal(issuer),{reference:'initial',amount:100,evidence:{fixture:true}});
-  await budgets.create(principal(issuer),{id:'work',maximum:'10',executors:[delegationExecutorKey(principal(delegate))],deadlineAt:new Date(Date.now()+60000).toISOString(),overflow:'platform_absorbs'});
-  const object={type:'object'},cap=defineCapability({name:'records.write',description:'Fixture effect',input:object,output:object,effect:'write',retry:'never-replay',authorize:a=>permitted.has(a.subjectId),revalidate:async(_i,r)=>r,implementation:{kind:'function',execute:async(i,c)=>{await pool.query('INSERT INTO effects VALUES($1,$2)',[c.callId,c.actor.subjectId]);outputArtifact=await workspace.write(c.actor,{path:'output.md',content:'Verified delegated output',mediaType:'text/markdown'});return {done:true};}}});
-  const agent=defineCapability({name:'worker.run',description:'Fixture worker',input:object,output:object,effect:'write',retry:'never-replay',authorize:a=>permitted.has(a.subjectId),implementation:{kind:'agent',instructions:'Write once then finish',tools:['records.write'],verify:async()=>Number((await pool.query('SELECT count(*) FROM effects')).rows[0].count)===1}});
-  const dispatcher=new CapabilityDispatcher({capabilities:[cap,agent]}),grantStore=new PostgresDelegationStore({pool,namespace:'fixture'});await grantStore.initialize();
-  const grants=new DelegatedCapabilities({store:grantStore,dispatcher,resolvePrincipal:principal,restoreActor:r=>({scopeId:r.applicationId,subjectId:r.subjectId}),authorizeGrant:()=>true,allowInput:()=>true});
-  const authority=new DelegatedTasks({grants,ledger,modelPolicy:()=>({mode:'SYSTEM_MANAGED',policy:{maximum:'5',price:{revision:'fixture',input:'1',cachedInput:'1',output:'1'}}})});
-  const input={goal:'Write the fixture record and verify it',allowedTools:['records.write']};
-  await grants.issue(issuer,{id:'task-grant',delegate:principal(delegate),payer:principal(issuer),tools:['records.write'],constraints:{},deadlineAt:new Date(Date.now()+60000).toISOString(),maxCalls:1,task:{capability:agent.name,input,budgetId:'work'}});
-  let modelCalls=0;const model={name:'fixture-model',next:async r=>{modelCalls++;if(r.billingContext.capability==='parent.run')return {type:'wait',question:'Delegate the scoped work',usage:{inputTokens:1,outputTokens:1}};return {...(!outputArtifact?{type:'call',name:'records.write',input:{}}:{type:'finish',result:{done:true,summary:'Produced an artifact',artifacts:outputArtifact?[outputArtifact.reference]:[]}}),usage:{inputTokens:1,outputTokens:1}};}};
-  const build=async(enabled=true)=>{if(runtime)await runtime.stop();runtime=new AgentRuntime({store:new TaskStore({pool}),dispatcher,model,handoffs,authority:enabled?authority:null,context:new ContextAssembler({skillRoot:'/tmp',handoffProvider:({actor,task})=>handoffs?.context(actor,task.id)}),version:'fixture-v1'});dispatcher.tasks=runtime;await runtime.initialize();return runtime;};
-  await build();await fn({issuer,delegate,authority,grants,grantStore,dispatcher,workspace,ledger,budgets,principal,pool,build,permitted,model,setHandoffs:value=>{handoffs=value;},modelCalls:()=>modelCalls,getRuntime:()=>runtime});
- }finally{if(runtime)await runtime.stop();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
-}
+import {fileURLToPath} from 'node:url';import {spawn} from 'node:child_process';import {once} from 'node:events';
+import test from 'node:test';import assert from 'node:assert/strict';
+import {CrossPrincipalDelegations,DelegationArtifacts,DelegationParents,PostgresDelegationStore,defineCapability} from '@immedi/iaic-core';
+import {fixture} from '../test-support/delegated-fixture.mjs';
 test('Delegated persistent Task survives Runtime reconstruction and charges its explicit shared payer budget',async()=>fixture(async f=>{
  const task=await f.authority.submit(f.delegate,'task-grant');assert.equal((await f.authority.submit(f.delegate,'task-grant')).id,task.id);assert.equal(task.authority.grantId,'task-grant');
  const runtime=await f.build();const done=await runtime.tick();assert.equal(done.status,'succeeded',done.error);assert.equal(done.id,task.id);
@@ -161,7 +142,7 @@ async function automatic(f,{cancelChild=false}={}){
 test('Runtime delegates across principals and resumes its original parent with current artifact results',async()=>fixture(f=>automatic(f)));
 test('Cancelled child receipt restores parent work under its original verifier without duplicate effects',async()=>fixture(f=>automatic(f,{cancelChild:true})));
 
-for(const lostResponse of [false,true])test(`Parent takes over interrupted child using original effect receipt (lost response: ${lostResponse})`,async()=>fixture(async f=>{
+for(const lostResponse of [false,true,'SIGKILL'])test(`Parent takes over interrupted child using original effect receipt (lost response: ${lostResponse})`,async()=>fixture(async f=>{
  const {DelegationProgress,createDelegationProgressCapability}=await import('@immedi/iaic-core');
  const write=f.dispatcher.capabilities.get('records.write'),execute=write.implementation.execute;
  f.dispatcher.capabilities.set(write.name,defineCapability({...write,implementation:{...write.implementation,execute:async(i,c)=>{const r=await execute(i,c);if(lostResponse)throw Object.assign(new Error('Effect committed; response lost'),{outcomeUnknown:true});return r;}}}));
@@ -184,7 +165,7 @@ for(const lostResponse of [false,true])test(`Parent takes over interrupted child
   }
   if(!data.handoffs?.items?.length)return {type:'delegate',input:{goal:'Write one record',successCriteria:'One persisted effect',tools:['records.write']}};
   const p=data.handoffs.items[0].progress;
-  assert.equal(p.status,'cancelled');assert.equal(p.operations.length,1);assert.equal(p.requiresReconciliation,lostResponse);
+  assert.equal(p.status,'cancelled');assert.equal(p.operations.length,1);assert.equal(p.requiresReconciliation,Boolean(lostResponse));
   assert.equal(p.operations[0].status,lostResponse?'unknown':'succeeded');
   assert.deepEqual(Object.keys(p.operations[0]).sort(),['capability','effect','effectKey','status']);
   if(!data.calls.length)return {type:'call',name:'records.lookup',input:{effectKey:p.operations[0].effectKey}};
@@ -192,10 +173,32 @@ for(const lostResponse of [false,true])test(`Parent takes over interrupted child
  };
  f.setHandoffs(bridge);let runtime=await f.build();
  const parent=await runtime.create({capability:parentCap,input:{goal:'One verified effect despite worker failure',allowedTools:['records.write','records.lookup'],delegation:{capability:'worker.run',maxModelCalls:3,timeoutMs:60000}},actor:f.issuer,idempotencyKey:'recover-parent'});
- await runtime.tick();await runtime.tick();
+ await runtime.tick();
+ if(lostResponse==='SIGKILL'){
+  await bridge.createDelegation(f.issuer,await runtime.state(f.issuer,parent.id));
+  await runtime.stop();
+  const child=spawn(process.execPath,[fileURLToPath(new URL('../test-support/delegated-crash-worker.mjs',import.meta.url)),f.schema],{stdio:['ignore','pipe','pipe','ipc']});
+  let timer;let stderr='';child.stderr.on('data',data=>{stderr+=data;});
+  const exited=once(child,'exit');
+  try{
+   const [message]=await Promise.race([once(child,'message'),exited.then(([code,signal])=>{throw new Error('Worker exited before committed checkpoint: '+code+' '+signal+' '+stderr);}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Worker checkpoint timeout: '+stderr)),15000);timer.unref();})]);
+   assert.equal(message.phase,'effect-committed');
+   assert.equal((await f.pool.query('SELECT count(*) FROM effects')).rows[0].count,'1');
+   assert.equal((await f.pool.query('SELECT status FROM iaic_calls WHERE id=$1',[message.effectKey])).rows[0].status,'running');
+   child.kill('SIGKILL');assert.deepEqual(await exited,[null,'SIGKILL']);
+  }finally{clearTimeout(timer);if(child.exitCode===null&&child.signalCode===null){child.kill('SIGKILL');await exited;}}
+  runtime=await f.build();await runtime.tick();
+ }else await runtime.tick();
  const state=await runtime.state(f.issuer,parent.id),receipt=await bridge.delegationReceipt(f.issuer,state.delegation.id);
  assert.equal(receipt.childStatus,'waiting');await f.authority.cancel(f.issuer,receipt.id);
  runtime=await f.build();await runtime.tick();assert.equal((await runtime.get(f.issuer,parent.id)).status,'succeeded');
+ if(lostResponse==='SIGKILL'){
+  const grant=await f.grants.read(f.issuer,receipt.id),budget=await f.budgets.read(f.principal(f.issuer),'work');
+  assert.equal(grant.revoked,true);assert.equal(grant.calls.length,1);assert.equal(grant.calls[0].outcome,'admitted');
+  assert.equal(grant.modelCalls.length,1);assert.equal(budget.spent,'2');assert.equal(budget.held,'0');
+  assert.equal((await f.ledger.balance(f.principal(f.delegate))).balance,'0');
+  await assert.rejects(f.authority.submit(f.delegate,receipt.id),{statusCode:403});
+ }
  assert.equal((await f.pool.query('SELECT * FROM effects')).rowCount,1);
  const input={grantId:receipt.id};const projected=await f.dispatcher.invoke(pc.name,input,{actor:f.issuer});
  assert.equal(projected.operations.length,1);assert.equal(projected.operations[0].effectKey,(await f.pool.query('SELECT id FROM effects')).rows[0].id);
