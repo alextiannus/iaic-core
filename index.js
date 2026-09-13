@@ -128,3 +128,5 @@ export {DelegationProgress,createDelegationProgressCapability} from './collabora
 export {PostgresDeploymentActivations,RecoverableDockerDeployment} from './developer/activation.js';
 
 export {DirectoryResourceScopes} from './resources/scopes.js';
+
+export {OpenApiCatalog} from './http/openapi.js';
