@@ -117,3 +117,5 @@ export {DelegatedTasks,delegationExecutorKey} from "./collaboration/tasks.js";
 export {DelegationArtifacts,createDelegationArtifactCapabilities} from './collaboration/artifacts.js';
 
 export {DelegationParents} from './collaboration/parents.js';
+
+export {CrossPrincipalDelegations} from './collaboration/delegations.js';

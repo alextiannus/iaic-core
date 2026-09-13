@@ -13,7 +13,7 @@ export class DelegatedTasks {
   const issuerActor=await this.grants.restoreActor(terms.issuer);
   if(!same(await this.grants.principal(issuerActor),terms.issuer)||await this.grants.authorizeGrant(issuerActor,{action:'continue',terms})!==true)throw fail('Task issuer authority unavailable',403);
   const t=terms.task,cap=t&&this.grants.dispatcher.capabilities.get(t.capability);
-  if(!t||Object.keys(t).some(k=>!['capability','input','budgetId','parent'].includes(k))||typeof t.budgetId!=='string'||!t.budgetId||!cap||cap.implementation.kind!=='agent'||this.grants.dispatcher.validateActor(actor,cap)!==true||this.grants.dispatcher.validateActor(issuerActor,cap)!==true||!cap.validateInput(t.input)||!Array.isArray(t.input.allowedTools)||t.input.allowedTools.some(n=>!terms.tools.includes(n)||!cap.implementation.tools.includes(n))||t.input.delegation!==undefined||await cap.authorize(actor,t.input)!==true||await cap.authorize(issuerActor,t.input)!==true)throw fail('Task grant does not bind a valid narrowed Agent input',403);
+  if(!t||Object.keys(t).some(k=>!['capability','input','budgetId','parent','maxModelCalls'].includes(k))||(t.maxModelCalls!==undefined&&(!Number.isInteger(t.maxModelCalls)||t.maxModelCalls<1||t.maxModelCalls>100))||typeof t.budgetId!=='string'||!t.budgetId||!cap||cap.implementation.kind!=='agent'||this.grants.dispatcher.validateActor(actor,cap)!==true||this.grants.dispatcher.validateActor(issuerActor,cap)!==true||!cap.validateInput(t.input)||!Array.isArray(t.input.allowedTools)||t.input.allowedTools.some(n=>!terms.tools.includes(n)||!cap.implementation.tools.includes(n))||t.input.delegation!==undefined||await cap.authorize(actor,t.input)!==true||await cap.authorize(issuerActor,t.input)!==true)throw fail('Task grant does not bind a valid narrowed Agent input',403);
   if(t.parent){if(!this.parents)throw fail('Parent authority resolver required',503);await this.parents.check({terms});}
   return {row,issuerActor,cap};
  }
@@ -36,7 +36,12 @@ export class DelegatedTasks {
   if(!['SYSTEM_MANAGED','BYOK'].includes(config.mode))throw fail('Explicit delegated model credential mode required');
   const wrapped=meteredModel({model,ledger:this.ledger,scope:row.terms.payer,mode:config.mode,policy:{...config.policy,budget:{id:row.terms.task.budgetId,executor:delegationExecutorKey(row.terms.delegate)}}});
   // The current grant is checked again immediately before each inference.
-  return {...wrapped,next:async request=>{await this.check({actor,task});return wrapped.next(request);}};
+  return {...wrapped,next:async request=>{await this.check({actor,task});request.signal?.throwIfAborted();
+   if(row.terms.task.maxModelCalls!==undefined){
+    if(request.billingContext?.taskId!==task.id)throw fail('Model admission Task context mismatch',403);
+    await this.grants.store.admitModel(row.id,request.billingContext);
+   }
+   return wrapped.next(request);}};
  }
  async checkTool({actor,task,action}){
   const row=await this.check({actor,task}),issuerActor=await this.grants.restoreActor(row.terms.issuer),cap=this.grants.dispatcher.capabilities.get(action.name);

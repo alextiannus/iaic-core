@@ -2,7 +2,7 @@
 
 `DelegatedTasks({grants,ledger,modelPolicy})` connects the existing cross-principal grants and shared budgets to AgentRuntime. Supply it as `authority` when constructing the Runtime. This does not introduce another task store or executor.
 
-Issue a grant through DelegatedCapabilities with the ordinary terms plus `task: {capability, input, budgetId}`. The grant's input is an exact approved Agent input with explicit allowedTools, all within the grant tool ceiling and the Agent's declared tools. Nested delegation is currently rejected. The application's authorizeGrant port must approve the complete task, both identities, payer, scope, deadline and budget binding; models cannot select these terms themselves.
+Issue a grant through DelegatedCapabilities with the ordinary terms plus `task: {capability, input, budgetId, maxModelCalls?}`. The grant's input is an exact approved Agent input with explicit allowedTools, all within the grant tool ceiling and the Agent's declared tools. Nested delegation is currently rejected. The application's authorizeGrant port must approve the complete task, both identities, payer, scope, deadline and budget binding; models cannot select these terms themselves.
 
 Create the payer's budget with `delegationExecutorKey(delegatePrincipal)` as an allowed executor. This canonical principal key avoids ambiguity across identity domains. The grant stores the budget ID; the ledger enforces account ownership and reservation limits. `modelPolicy({actor,task,model,terms})` returns trusted `{mode, policy: {maximum, price}}`. The Runtime's ordinary model resolver supplies the executor's unmetered provider, retaining its pinned model identity. DelegatedTasks wraps it with the existing meteredModel, injecting the grant's payer and budget. Already metered providers are rejected to prevent double billing; hosts must resolve provider credentials and mode consistently. This API does not configure credentials or allow silent SYSTEM/BYOK fallback.
 
@@ -27,3 +27,11 @@ Missing Task receipts remain eligible for future scans: a Task admitted before r
 This is bounded Runtime-driven cancellation recovery, not an immediate provider hard kill, infrastructure daemon, parent/child failure takeover or compensation of external effects. The host must keep ticking a Runtime connected to the owning Task/grant stores. Large namespaces may require multiple ticks; normal execution authorization still checks deadlines and revocation on every attempt.
 
 DelegationParents optionally binds a grant to the exact issuer-owned parent waiting receipt and its current domain restrictions; see PARENTS.md.
+
+## Model admission ceiling
+
+Optional `task.maxModelCalls` (1..100) adds a persistent inference admission ceiling. CrossPrincipalDelegations always binds it from the parent policy. Existing manually issued grants can omit it and retain their explicit ledger budget; they do not thereby acquire a bounded inference-count guarantee. Admissions serialize against revocation using the grant row lock, and remain counted across Runtime reconstruction, provider failures and unknown results. The journal exposes attempt IDs, Task and turn, never prompts or provider bodies. Attempts rejected by the ceiling pause the Task with reason `limit`; resuming or changing its model does not replenish the grant.
+
+This counts admitted attempts, including an admission followed by a failed allowance reservation or a crash before provider dispatch. It is deliberately conservative and is separate from capability attempts, actual provider token usage, platform-issued units and money. Cancelled signals are checked before admission; a later cancellation does not erase committed admission evidence.
+
+Automatic parent intent processing, child submission and successful/cancelled-child continuation are now available in DELEGATIONS.md. Broader failed/unknown-effect reconciliation remains part of acceptance work.

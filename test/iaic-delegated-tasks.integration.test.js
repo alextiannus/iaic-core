@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import {Pool} from 'pg';
-import {PostgresWorkspaceStore,AssistantWorkspace,DelegationArtifacts,DelegationParents,TaskStore,AgentRuntime,ContextAssembler,CapabilityDispatcher,defineCapability,TokenLedger,AllowanceBudgets,PostgresDelegationStore,DelegatedCapabilities,DelegatedTasks,delegationExecutorKey} from '@immedi/iaic-core';
+import {CrossPrincipalDelegations,PostgresWorkspaceStore,AssistantWorkspace,DelegationArtifacts,DelegationParents,TaskStore,AgentRuntime,ContextAssembler,CapabilityDispatcher,defineCapability,TokenLedger,AllowanceBudgets,PostgresDelegationStore,DelegatedCapabilities,DelegatedTasks,delegationExecutorKey} from '@immedi/iaic-core';
 async function fixture(fn){
- const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL required');const schema='delegated_task_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let runtime;
+ const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL required');const schema='delegated_task_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let runtime,handoffs=null;
  try{
   await pool.query('CREATE TABLE effects(id text PRIMARY KEY,owner text)');
   const workspaceStore=new PostgresWorkspaceStore({pool});await workspaceStore.initialize();
@@ -17,8 +17,8 @@ async function fixture(fn){
   const input={goal:'Write the fixture record and verify it',allowedTools:['records.write']};
   await grants.issue(issuer,{id:'task-grant',delegate:principal(delegate),payer:principal(issuer),tools:['records.write'],constraints:{},deadlineAt:new Date(Date.now()+60000).toISOString(),maxCalls:1,task:{capability:agent.name,input,budgetId:'work'}});
   let modelCalls=0;const model={name:'fixture-model',next:async r=>{modelCalls++;if(r.billingContext.capability==='parent.run')return {type:'wait',question:'Delegate the scoped work',usage:{inputTokens:1,outputTokens:1}};return {...(!outputArtifact?{type:'call',name:'records.write',input:{}}:{type:'finish',result:{done:true,summary:'Produced an artifact',artifacts:outputArtifact?[outputArtifact.reference]:[]}}),usage:{inputTokens:1,outputTokens:1}};}};
-  const build=async(enabled=true)=>{if(runtime)await runtime.stop();runtime=new AgentRuntime({store:new TaskStore({pool}),dispatcher,model,authority:enabled?authority:null,context:new ContextAssembler({skillRoot:'/tmp'}),version:'fixture-v1'});dispatcher.tasks=runtime;await runtime.initialize();return runtime;};
-  await build();await fn({issuer,delegate,authority,grants,grantStore,dispatcher,workspace,ledger,budgets,principal,pool,build,permitted,modelCalls:()=>modelCalls,getRuntime:()=>runtime});
+  const build=async(enabled=true)=>{if(runtime)await runtime.stop();runtime=new AgentRuntime({store:new TaskStore({pool}),dispatcher,model,handoffs,authority:enabled?authority:null,context:new ContextAssembler({skillRoot:'/tmp',handoffProvider:({actor,task})=>handoffs?.context(actor,task.id)}),version:'fixture-v1'});dispatcher.tasks=runtime;await runtime.initialize();return runtime;};
+  await build();await fn({issuer,delegate,authority,grants,grantStore,dispatcher,workspace,ledger,budgets,principal,pool,build,permitted,model,setHandoffs:value=>{handoffs=value;},modelCalls:()=>modelCalls,getRuntime:()=>runtime});
  }finally{if(runtime)await runtime.stop();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
 }
 test('Delegated persistent Task survives Runtime reconstruction and charges its explicit shared payer budget',async()=>fixture(async f=>{
@@ -103,3 +103,60 @@ test('Parent model changes within one waiting episode do not cancel an approved 
  const after=await store.controlState(f.issuer,parent.id);assert.notEqual(after.controlSeq,before.controlSeq);assert.equal(after.waitingSeq,before.waitingSeq);
  await f.authority.submit(f.delegate,'linked');assert.equal((await f.getRuntime().tick()).status,'succeeded');
 }));
+
+test('Model admission ceiling persists across reconstruction and is independent of allowance',async()=>fixture(async f=>{
+ const prior=await f.grantStore.get('task-grant');await f.grants.issue(f.issuer,{...prior.terms,id:'limited',task:{...prior.terms.task,maxModelCalls:1}});
+ const task=await f.authority.submit(f.delegate,'limited');let runtime=f.getRuntime();const waiting=await runtime.tick();
+ assert.equal(waiting.id,task.id);assert.equal(waiting.waiting_reason,'limit');assert.equal(f.modelCalls(),1);
+ assert.equal((await f.budgets.read(f.principal(f.issuer),'work')).spent,'2');
+ assert.equal((await f.pool.query('SELECT * FROM effects')).rowCount,1);
+ runtime=await f.build();await runtime.transition(f.delegate,task.id,{action:'resume'});assert.equal((await runtime.tick()).waiting_reason,'limit');assert.equal(f.modelCalls(),1);
+ const grant=await f.grants.read(f.issuer,'limited');assert.equal(grant.modelCalls.length,1);assert.equal(grant.modelCalls[0].task_id,task.id);
+}));
+test('Concurrent model admissions share one durable grant ceiling and retain unknown attempts',async()=>fixture(async f=>{
+ const prior=await f.grantStore.get('task-grant');await f.grants.issue(f.issuer,{...prior.terms,id:'concurrent',task:{...prior.terms.task,maxModelCalls:1}});
+ const admissions=await Promise.allSettled([1,2,3].map(turn=>f.grantStore.admitModel('concurrent',{taskId:'fixture-task',turn})));
+ assert.equal(admissions.filter(r=>r.status==='fulfilled').length,1);
+ for(const r of admissions.filter(r=>r.status==='rejected'))assert.equal(r.reason.limitReached,true);
+ const rebuilt=new PostgresDelegationStore({pool:f.pool,namespace:'fixture'});await rebuilt.initialize();
+ await assert.rejects(rebuilt.admitModel('concurrent',{taskId:'fixture-task',turn:4}),{limitReached:true});
+ assert.equal((await rebuilt.modelCalls('concurrent')).length,1);
+ await f.grantStore.revoke('concurrent');await assert.rejects(rebuilt.admitModel('concurrent',{taskId:'fixture-task',turn:5}),{statusCode:403});
+}));
+
+async function automatic(f,{cancelChild=false}={}){
+ let parentCalls=0,childCalls=0;const original=f.model.next;
+ f.model.next=async r=>{
+  if(r.billingContext.capability==='parent.run'){
+   parentCalls++;const data=JSON.parse(r.messages.find(m=>m.role==='user').content);
+   if(parentCalls===1)return {type:'delegate',input:{goal:'Write the fixture record',successCriteria:'One stored effect and exact artifact',tools:['records.write']}};
+   const item=data.handoffs.items[0];assert.equal(item.childStatus,cancelChild?'cancelled':'succeeded');
+   if(cancelChild&&!data.calls.length)return {type:'call',name:'records.write',input:{}};
+   if(!cancelChild){assert.equal(item.result.artifacts.length,1);assert.equal(item.result.summary,'Produced an artifact');}
+   return {type:'finish',result:{done:true}};
+  }
+  childCalls++;if(cancelChild)return {type:'wait',question:'Unable to complete scoped work',usage:{inputTokens:1,outputTokens:1}};
+  return original(r);
+ };
+ const cap=defineCapability({name:'parent.run',description:'Parent integration',input:{type:'object'},output:{type:'object'},effect:'read',authorize:a=>f.permitted.has(a.subjectId),implementation:{kind:'agent',instructions:'Delegate and independently verify the outcome',tools:['records.write'],verify:async()=>Number((await f.pool.query('SELECT count(*) FROM effects')).rows[0].count)===1}});f.dispatcher.capabilities.set(cap.name,cap);
+ f.authority.parents=new DelegationParents({grants:f.grants,allowLink:()=>true});
+ const artifacts=new DelegationArtifacts({grants:f.grants,readOwned:(a,r)=>f.workspace.read(a,r),authorizeShare:()=>true});
+ const bridge=new CrossPrincipalDelegations({authority:f.authority,artifacts,readArtifact:(a,r)=>f.workspace.read(a,r),resolvePlan:({input})=>({input,delegate:f.principal(f.delegate),payer:f.principal(f.issuer),constraints:{},budgetId:'work',maxToolCalls:1})});
+ f.setHandoffs(bridge);let runtime=await f.build();const parent=await runtime.create({capability:cap,input:{goal:'Produce the independently verified fixture record',allowedTools:['records.write'],delegation:{capability:'worker.run',maxModelCalls:3,timeoutMs:60000}},actor:f.issuer,idempotencyKey:'automatic-parent'});
+ const first=await runtime.tick();assert.equal(first.waiting_reason,'external_result',first.error);
+ // Reconstruct after the immutable parent intent, before child admission.
+ runtime=await f.build();await runtime.tick();const state=await runtime.state(f.issuer,parent.id),receipt=await bridge.delegationReceipt(f.issuer,state.delegation.id);
+ assert.equal(receipt.childStatus,cancelChild?'waiting':'succeeded');
+ assert.equal((await f.grants.read(f.issuer,receipt.id)).terms.task.maxModelCalls,3);
+ if(cancelChild)await f.authority.cancel(f.issuer,receipt.id);
+ // Host configuration changes cannot rewrite the existing grant or child receipt.
+ bridge.resolvePlan=()=>{throw new Error('Existing intent must reuse its grant');};
+ runtime=await f.build();await runtime.tick();const done=await runtime.get(f.issuer,parent.id);
+ assert.equal(done.status,'succeeded',done.error);assert.equal(done.delegation.received,true);
+ assert.equal((await f.pool.query('SELECT * FROM effects')).rowCount,1);assert.equal((await f.pool.query('SELECT owner FROM effects')).rows[0].owner,cancelChild?'issuer':'delegate');
+ assert.equal(childCalls,cancelChild?1:2);
+ assert.equal((await runtime.store.history(f.issuer,parent.id)).events.filter(e=>e.kind==='delegation_received').length,1);
+ await runtime.tick();assert.equal((await f.pool.query('SELECT * FROM effects')).rowCount,1);
+}
+test('Runtime delegates across principals and resumes its original parent with current artifact results',async()=>fixture(f=>automatic(f)));
+test('Cancelled child receipt restores parent work under its original verifier without duplicate effects',async()=>fixture(f=>automatic(f,{cancelChild:true})));

@@ -26,6 +26,21 @@ export class PostgresDelegationStore {
    await c.query('INSERT INTO iaic_delegation_calls(namespace,grant_id,call_id,capability,input_digest,effect_key) VALUES($1,$2,$3,$4,$5,$6)',[this.namespace,id,callId,capability,inputDigest,effectKey]);await c.query('COMMIT');return {effectKey};
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
+ async admitModel(id,{taskId,turn}){
+  key(taskId);if(!Number.isInteger(turn)||turn<1)throw fail('Trusted model attempt context required');
+  const c=await this.pool.connect();try{await c.query('BEGIN');
+   const row=(await c.query('SELECT * FROM iaic_delegation_grants WHERE namespace=$1 AND id=$2 FOR UPDATE',[this.namespace,key(id)])).rows[0];
+   if(!row||row.revoked||Date.parse(row.terms.deadlineAt)<=Date.now()||evidenceDigest(row.terms)!==row.digest)throw fail('Model delegation unavailable',403);
+   const maximum=row.terms.task?.maxModelCalls;
+   if(!Number.isInteger(maximum)||maximum<1||maximum>100)throw fail('Bounded model admissions required',403);
+   const used=(await c.query('SELECT count(*)::int AS n FROM iaic_delegation_model_calls WHERE namespace=$1 AND grant_id=$2',[this.namespace,id])).rows[0].n;
+   if(used>=maximum)throw Object.assign(fail('Delegation model admission limit reached',409),{limitReached:true});
+   const attemptId=randomUUID();
+   await c.query('INSERT INTO iaic_delegation_model_calls(namespace,grant_id,attempt_id,task_id,turn) VALUES($1,$2,$3,$4,$5)',[this.namespace,id,attemptId,taskId,turn]);
+   await c.query('COMMIT');return {attemptId};
+  }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
+ }
+ async modelCalls(id){return (await this.pool.query('SELECT attempt_id,task_id,turn,created_at FROM iaic_delegation_model_calls WHERE namespace=$1 AND grant_id=$2 ORDER BY created_at,attempt_id',[this.namespace,key(id)])).rows;}
  async settled(id,callId,outcome){if(!['returned','unknown'].includes(outcome))throw fail('Invalid delegated attempt outcome');await this.pool.query("UPDATE iaic_delegation_calls SET outcome=$4 WHERE namespace=$1 AND grant_id=$2 AND call_id=$3 AND outcome='admitted'",[this.namespace,key(id),key(callId),outcome]);}
  async calls(id){return (await this.pool.query('SELECT call_id,effect_key,capability,input_digest,outcome,created_at FROM iaic_delegation_calls WHERE namespace=$1 AND grant_id=$2 ORDER BY created_at,call_id',[this.namespace,key(id)])).rows;}
 }
@@ -40,13 +55,14 @@ export class DelegatedCapabilities {
  async issue(actor,{id,delegate,payer,tools,constraints,deadlineAt,maxCalls,task=null,artifacts=[]}){
   const issuer=await this.principal(actor);delegate=ref(delegate);payer=ref(payer);
   if(!Array.isArray(tools)||!tools.length||tools.length>100||new Set(tools).size!==tools.length||tools.some(t=>typeof t!=='string'||!t)||!Number.isInteger(maxCalls)||maxCalls<1||maxCalls>10000||typeof deadlineAt!=='string'||!Number.isFinite(Date.parse(deadlineAt))||Date.parse(deadlineAt)<=Date.now()||!constraints||typeof constraints!=='object'||Array.isArray(constraints))throw fail('Bounded delegation terms required');
+  if(task?.maxModelCalls!==undefined&&(!Number.isInteger(task.maxModelCalls)||task.maxModelCalls<1||task.maxModelCalls>100))throw fail('Model admission limit must be 1..100');
   if(!Array.isArray(artifacts)||artifacts.length>100)throw fail('Bounded input Artifact references required');
   const terms=jsonValue({issuer,delegate,payer,tools:[...tools].sort(),constraints,deadlineAt:new Date(deadlineAt).toISOString(),maxCalls,...(task?{task}: {}),...(artifacts.length?{artifacts}: {})});
   if(await this.authorizeGrant(actor,{action:'issue',terms})!==true)throw fail('Delegation issue denied',403);
   return this.store.create(id,terms);
  }
  async access(actor,id,action){const row=await this.store.get(id),who=await this.principal(actor);if(!same(who,row.terms.issuer)&&!same(who,row.terms.delegate))throw fail('Delegation access denied',403);if(await this.authorizeGrant(actor,{action,terms:row.terms})!==true)throw fail('Delegation access denied',403);return row;}
- async read(actor,id){const row=await this.access(actor,id,'read');return {...row,calls:await this.store.calls(id)};}
+ async read(actor,id){const row=await this.access(actor,id,'read');return {...row,calls:await this.store.calls(id),modelCalls:await this.store.modelCalls(id)};}
  async revoke(actor,id){const row=await this.access(actor,id,'revoke');if(!same(await this.principal(actor),row.terms.issuer))throw fail('Only issuer may revoke this grant',403);return this.store.revoke(id);}
  async invoke(actor,{grantId,callId,capability,input},{signal}={}){
   input=jsonValue(input);
