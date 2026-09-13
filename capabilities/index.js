@@ -36,7 +36,9 @@ export function defineCapability(definition) {
 }
 
 export class CapabilityDispatcher {
-  constructor({ capabilities, tasks = null, validateActor = (actor,capability) => Boolean(actor?.subjectId && (capability.implementation.kind !== 'agent' || actor.scopeId)) }) {
+  constructor({ capabilities, tasks = null, executionPolicy = null, validateActor = (actor,capability) => Boolean(actor?.subjectId && (capability.implementation.kind !== 'agent' || actor.scopeId)) }) {
+    if(executionPolicy!==null&&typeof executionPolicy?.check!=='function')throw failure('Execution policy check port required');
+    this.executionPolicy=executionPolicy;
     this.capabilities = new Map(); this.tasks = tasks; this.validateActor = validateActor;
     for (const capability of capabilities) {
       if (this.capabilities.has(capability.name)) throw failure(`Duplicate capability: ${capability.name}`);
@@ -49,6 +51,13 @@ export class CapabilityDispatcher {
         if (!target || target.implementation.kind !== 'function') throw failure(`Agent tool must be a deterministic capability: ${name}`);
       }
     }
+  }
+
+  async checkPolicy(capability,input,{actor,phase,taskId=null,callId=null}){
+    if(!this.executionPolicy)return null;
+    const decision=await this.executionPolicy.check({actor,capability,input,phase,taskId,callId});
+    if(decision?.allowed!==true||['recordId','revision','reason'].some(key=>typeof decision[key]!=='string'||!decision[key].trim()))throw failure('Execution policy did not return a recorded allowance',503);
+    return decision;
   }
 
   async invoke(name, input, { actor, callId = null, signal = null, allowedCapabilities = null, taskId = null } = {}) {
@@ -66,11 +75,13 @@ export class CapabilityDispatcher {
     const context = { actor: identity, callId, signal, ...(taskId === null ? {} : {taskId}) };
     if (capability.implementation.kind === 'agent') {
       if (!this.tasks) throw failure('Persistent task runtime is unavailable', 503);
+      await this.checkPolicy(capability,value,{...context,phase:'admission'});
       return this.tasks.create({ capability, input: value, actor: identity, idempotencyKey: callId });
     }
     if (capability.effect === 'write' && !callId) throw failure('Write capability requires a stable call ID');
     // Preflight is read-only application validation, before the side-effect boundary.
     if (capability.preflight && await capability.preflight(value, context) !== true) throw failure('Capability input failed preflight before execution', 422, { preflightRejected: true });
+    await this.checkPolicy(capability,value,{...context,phase:'function'});
     if (signal?.aborted) throw failure('Execution cancelled', 409);
     let executed = false;
     try {

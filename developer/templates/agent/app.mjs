@@ -6,7 +6,7 @@ import {
 } from '@immedi/iaic-core';
 
 // This is application-owned composition. Each imported Core module remains independently replaceable.
-export async function openApplication({pool,skillRoot,job,profiles,resolveSecret,modelFactory,userModels=null,routing=null,tokenPolicies,authorize,verifyOutcome,version,runtimeLimits={},taskCursorKey=null,toolCallLimits,enablePlans=false,scheduling=null,eventWork=null}){
+export async function openApplication({pool,skillRoot,job,profiles,resolveSecret,modelFactory,userModels=null,routing=null,tokenPolicies,authorize,verifyOutcome,version,runtimeLimits={},taskCursorKey=null,toolCallLimits,enablePlans=false,scheduling=null,eventWork=null,executionPolicy=null}){
  if(eventWork!==null&&(!scheduling||typeof eventWork?.sourceFor!=='function'||typeof eventWork?.buildTask!=='function'))throw new Error('Event work requires scheduling identity restoration, sourceFor and buildTask ports');
  if(scheduling!==null&&(!scheduling||typeof scheduling.restoreActor!=='function'||(scheduling.isEnabled!==undefined&&typeof scheduling.isEnabled!=='function')))throw new Error('Scheduling requires a trusted restoreActor port and optional isEnabled function');
  if(typeof enablePlans!=='boolean')throw new Error('enablePlans must be a boolean');
@@ -43,7 +43,7 @@ export async function openApplication({pool,skillRoot,job,profiles,resolveSecret
  capabilities.push(...createTaskControlCapabilities({runtime:{get:(...args)=>runtime.get(...args),state:(...args)=>runtime.state(...args),transition:(...args)=>runtime.transition(...args),transitionReceipt:(...args)=>runtime.transitionReceipt(...args)},receipts:true,authorize:check,project:row=>row}));
  const taskListing=taskCursorKey===null?null:new TaskListing({store:tasks,readTask:(actor,id)=>runtime.state(actor,id),resolveOwner:async actor=>{await check(actor);return JSON.stringify([actor.scopeId,actor.subjectId]);},cursorKey:taskCursorKey});
  if(taskListing)capabilities.push(createTaskListCapability({listing:taskListing,authorize:check}));
- const dispatcher=new CapabilityDispatcher({capabilities});
+ const dispatcher=new CapabilityDispatcher({capabilities,executionPolicy});
  runtime=new AgentRuntime({...runtimeLimits,store:tasks,dispatcher,model:{name:'host-model-resolver'},resolveModel:request=>(modelRouting||models).resolve(request),context:new ContextAssembler({skillRoot,planProvider:plans?({actor,task})=>plans.read(actor,{id:task.id}):null,overflow:'omit-old-results',sessionProvider:({actor,task})=>task.input.session?sessions.context(actor,task.input.session):null}),version,agentIdentity:{bind:({actor,capability})=>registry.bind(actor,job.id,capability.name),check:({actor,task,binding})=>registry.check(actor,binding,task.capability)}});
  dispatcher.tasks=runtime;
  try{await runtime.initialize();}catch(error){await runtime.stop();throw error;}

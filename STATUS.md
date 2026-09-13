@@ -342,3 +342,20 @@ untrusted payload Tool names do not replace host scope; current revocation leave
 the next cursor unacknowledged. Queueing remains distinct from business outcome.
 No new execution engine, remote broker, actual-model run or production deployment
 is introduced by this application composition.
+
+## Shared current execution policy decisions
+
+ExecutionPolicy now defines optional strict allow/deny decisions with a rule
+revision, reason and optional host risk label, plus a required recording port.
+Dispatcher checks admission/function execution; Runtime checks direct admission
+and current Agent execution around its existing lifecycle boundaries. The Agent
+starter forwards the same policy. Base permissions still run independently and
+cannot be widened. Invalid verdicts or missing recording receipts block execution.
+
+PostgreSQL integration retains actor/Task/call-linked decisions, changes a switch
+while a model response is pending, verifies no subsequent write, reconstructs and
+resumes the original Task under current rules, and checks HTTP denial. Policy
+records do not automatically copy input payloads or count as business receipts.
+Host policy storage, feature flag values, risk classification and audit durability
+remain explicit ports; this is a shared enforcement/recording foundation, not a
+new approval product, policy database or full governance acceptance claim.

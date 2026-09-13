@@ -171,3 +171,4 @@ export {ReleaseBoundAgentIdentity} from './releases/agent.js';
 export {createTaskControlCapabilities} from './tasks/controls.js';
 export {TaskListing,createTaskListCapability} from './tasks/listing.js';
 export {TaskPlans,createTaskPlanCapabilities} from './workspace/plans.js';
+export {ExecutionPolicy} from './capabilities/policy.js';

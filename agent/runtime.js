@@ -29,6 +29,7 @@ export class AgentRuntime {
     if(await capability.authorize(actor,input)!==true)throw fail('Task access denied',403);
     this.taskTools(capability,input);this.delegations.policy(input);
     await this.checkMandate(actor,{capability:capability.name,input});
+    await this.dispatcher.checkPolicy?.(capability,input,{actor,phase:'admission',callId:idempotencyKey??null});
     if(typeof idempotencyKey==='string'&&idempotencyKey.startsWith('iaic-handoff:')&&!this.handoffs)throw fail('Handoff resolver unavailable',503);
     const handoff=this.handoffs?await this.handoffs.bind({actor,capability,input,idempotencyKey,version:this.version}):null;
     if(idempotencyKey?.startsWith('iaic-delegated-task:')&&!this.authority)throw fail('Task authority resolver unavailable',503);
@@ -56,6 +57,11 @@ export class AgentRuntime {
     if(this.handoffs)await this.handoffs.checkTask({actor,task});
     if(task.agent&&!this.agentIdentity)throw fail('Task Agent identity resolver is unavailable',503);
     if(this.agentIdentity)await this.agentIdentity.check({actor,task,binding:task.agent});
+    if(this.dispatcher.executionPolicy){
+      const capability=this.dispatcher.capabilities.get(task.capability);
+      if(!capability)throw fail('Task capability unavailable',503);
+      await this.dispatcher.checkPolicy(capability,task.input,{actor,phase:'agent',taskId:task.id});
+    }
   }
   async checkResultWait(actor,task,name){
     await this.state(actor,task.id);await this.checkExecution(actor,task);await this.checkMandate(actor,task,name);
