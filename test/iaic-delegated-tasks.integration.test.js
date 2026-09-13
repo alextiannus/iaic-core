@@ -49,3 +49,28 @@ test('Issuer reads exact artifacts from the completed cross-principal Runtime Ta
  const ref=result.result.artifacts[0];await assert.rejects(f.workspace.read(f.issuer,ref));
  const content=await shares.read(f.issuer,{grantId:'task-grant',owner:'delegate',reference:ref});assert.equal(content.content,'Verified delegated output');assert.deepEqual(content.reference,ref);
 }));
+test('Runtime reconstruction reconciles revocation committed before Task cancellation',async()=>fixture(async f=>{
+ const task=await f.authority.submit(f.delegate,'task-grant');await f.grantStore.revoke('task-grant');
+ const runtime=await f.build();assert.equal(await runtime.tick(),null);assert.equal((await runtime.store.get(f.delegate,task.id)).status,'cancelled');assert.equal(f.modelCalls(),0);
+ await runtime.tick();assert.equal((await runtime.store.get(f.delegate,task.id)).status,'cancelled');
+}));
+test('Cancellation sweep preserves completed results and supports bounded grant pages',async()=>fixture(async f=>{
+ const task=await f.authority.submit(f.delegate,'task-grant');await f.getRuntime().tick();await f.grantStore.revoke('task-grant');
+ await f.authority.tick();assert.equal((await f.getRuntime().store.get(f.delegate,task.id)).status,'succeeded');
+ const entries=await f.grantStore.taskPage({limit:1});assert.deepEqual(entries,['task-grant']);assert.deepEqual(await f.grantStore.taskPage({after:'task-grant'}),[]);
+}));
+
+test('Late Task admission after a revocation sweep is cancelled on the next tick',async()=>fixture(async f=>{
+ const store=f.getRuntime().store,original=store.create.bind(store);let release,entered;
+ const admitted=new Promise(r=>{entered=r;}),gate=new Promise(r=>{release=r;});
+ store.create=async args=>{entered();await gate;return original(args);};
+ const pending=f.authority.submit(f.delegate,'task-grant');
+ try{await admitted;await f.grantStore.revoke('task-grant');await f.authority.tick();release();const task=await pending;
+  assert.equal(task.status,'queued');await f.getRuntime().tick();assert.equal((await store.get(f.delegate,task.id)).status,'cancelled');assert.equal(f.modelCalls(),0);
+ }finally{release();store.create=original;}
+}));
+test('Expired unfinished delegation is cancelled while its original grant evidence is retained',async()=>fixture(async f=>{
+ const prior=await f.grantStore.get('task-grant');await f.grants.issue(f.issuer,{...prior.terms,id:'expiring',deadlineAt:new Date(Date.now()+3000).toISOString()});
+ const task=await f.authority.submit(f.delegate,'expiring');await new Promise(r=>setTimeout(r,3100));
+ await f.getRuntime().tick();assert.equal((await f.getRuntime().store.get(f.delegate,task.id)).status,'cancelled');assert.equal((await f.grantStore.get('expiring')).revoked,false);assert.equal(f.modelCalls(),0);
+}));

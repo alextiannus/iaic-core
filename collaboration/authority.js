@@ -12,6 +12,7 @@ export class PostgresDelegationStore {
   const row=await this.get(id);if(row.digest!==digest)throw fail('Delegation ID is bound to other terms',409);return row;
  }
  async get(id){const row=(await this.pool.query('SELECT id,digest,terms,revoked FROM iaic_delegation_grants WHERE namespace=$1 AND id=$2',[this.namespace,key(id)])).rows[0];if(!row)throw fail('Delegation unavailable',404);if(evidenceDigest(row.terms)!==row.digest)throw fail('Delegation integrity mismatch',409);return row;}
+ async taskPage({after=null,limit=20}={}){if(after!==null)key(after);if(!Number.isInteger(limit)||limit<1||limit>100)throw fail('Task grant page must be 1..100');return (await this.pool.query("SELECT id FROM iaic_delegation_grants WHERE namespace=$1 AND terms ? 'task' AND ($2::text IS NULL OR id>$2) ORDER BY id LIMIT $3",[this.namespace,after,limit])).rows.map(r=>r.id);}
  async revoke(id){await this.pool.query('UPDATE iaic_delegation_grants SET revoked=true WHERE namespace=$1 AND id=$2',[this.namespace,key(id)]);return this.get(id);}
  async admit(id,{callId,capability,inputDigest,effectKey:boundEffectKey=null}){
   const c=await this.pool.connect();try{await c.query('BEGIN');const row=(await c.query('SELECT * FROM iaic_delegation_grants WHERE namespace=$1 AND id=$2 FOR UPDATE',[this.namespace,key(id)])).rows[0];

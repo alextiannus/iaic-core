@@ -15,3 +15,13 @@ Execution rechecks both principals' Agent authority. Each inference checks the c
 The grant journal is supplementary: if outcome recording fails after Task settlement, it can retain admitted evidence. The Task/call history remains authoritative for that effect. DelegationArtifacts now provides explicit cross-principal input/output sharing and result projection (see ARTIFACTS.md). Parent/child scheduling, automatic cancellation sweeps and failed-child takeover still need integration. No transcript is copied to the issuer by these interfaces. Task owners retain their existing current-access Task reads; sharing results needs an approved projection.
 
 The PostgreSQL integration checks verify different issuer/executor identities, exact Task replay, Runtime reconstruction, actual tool effects, payer-budget settlement, missing-resolver pause and recovery, issuer cancellation after executor access is removed, and result polling respecting the grant call ceiling. They use deterministic models and service reconstruction, not new real-model or full-process crash evidence.
+
+## Cancellation recovery
+
+AgentRuntime now calls the optional authority.tick port before claiming work. DelegatedTasks scans a bounded page of 20 Task grants in its own namespace, advances a fair cursor and wraps to the start. Reconstructed services may discard the cursor and rescan safely. It cancels unfinished exact-bound Tasks whose grants are explicitly revoked or whose admission deadlines have elapsed. It does not mark a successful Task cancelled or mutate an expired grant into a revoked sharing grant.
+
+The sweep verifies immutable grant/Task and principal bindings, then uses the existing Task transition. It does not require an executor's now-revoked Agent permission to cancel that owned Task. Per-grant failures are left pending and do not stop unrelated records. The Task history remains the effect authority; no new job queue or replay engine is created.
+
+Missing Task receipts remain eligible for future scans: a Task admitted before revocation might commit after the first scan. The next scan cancels that late receipt. This deliberately avoids treating an absent receipt as proof that no admission can still arrive. Existing execution checks already block further tool/model admission under closed grants.
+
+This is bounded Runtime-driven cancellation recovery, not an immediate provider hard kill, infrastructure daemon, parent/child failure takeover or compensation of external effects. The host must keep ticking a Runtime connected to the owning Task/grant stores. Large namespaces may require multiple ticks; normal execution authorization still checks deadlines and revocation on every attempt.

@@ -6,7 +6,7 @@ const same=(a,b)=>evidenceDigest(a)===evidenceDigest(b);
 export const delegationExecutorKey=p=>JSON.stringify([p.applicationId,p.subjectId]);
 // Shared Runtime hook: durable authorization binding, not a new task engine.
 export class DelegatedTasks {
- constructor({grants,ledger,modelPolicy}){if(!grants||!ledger||typeof modelPolicy!=='function')throw fail('Grant, ledger and trusted model policy ports required');Object.assign(this,{grants,ledger,modelPolicy});}
+ constructor({grants,ledger,modelPolicy,logger=console}){if(!grants||!ledger||typeof modelPolicy!=='function')throw fail('Grant, ledger and trusted model policy ports required');Object.assign(this,{grants,ledger,modelPolicy,logger});this.cursor=null;}
  async current(actor,id){
   const row=await this.grants.access(actor,id,'execute'),terms=row.terms;
   if(row.revoked||Date.parse(terms.deadlineAt)<=Date.now()||!same(await this.grants.principal(actor),terms.delegate))throw fail('Task delegation unavailable',403);
@@ -47,12 +47,26 @@ export class DelegatedTasks {
   const row=await this.grants.access(actor,grantId,'revoke');if(!same(await this.grants.principal(actor),row.terms.issuer))throw fail('Only issuer can cancel delegated Task',403);
   if(!row.terms.task)throw fail('Grant has no delegated Task');
   await this.grants.store.revoke(grantId);
+  return this.#cancelClosed(await this.grants.store.get(grantId));
+ }
+ async #cancelClosed(row){
+  if(!row.revoked&&Date.parse(row.terms.deadlineAt)>Date.now())throw fail('Grant is still active',409);
+  const grantId=row.id;
   const delegate=await this.grants.restoreActor(row.terms.delegate),runtime=this.grants.dispatcher.tasks;
+  if(!same(await this.grants.principal(delegate),row.terms.delegate))throw fail('Cancellation principal mismatch',403);
   const task=await runtime.store.findRequest(delegate,row.terms.task.capability,prefix+grantId);
-  if(!task)return {grantId,taskId:null,status:'revoked'};
+  if(!task)return {grantId,taskId:null,status:row.revoked?'revoked':'expired'};
   if(!same(task.authority,{grantId,digest:row.digest}))throw fail('Cancellation Task binding mismatch',403);
   if(['succeeded','failed','cancelled'].includes(task.status))return {grantId,taskId:task.id,status:task.status};
   const cancelled=await runtime.store.transition(delegate,task.id,{action:'cancel',version:runtime.version});
   return {grantId,taskId:task.id,status:cancelled.status};
+ }
+ async tick(){
+  let ids=await this.grants.store.taskPage({after:this.cursor,limit:20});
+  if(!ids.length&&this.cursor!==null){this.cursor=null;ids=await this.grants.store.taskPage({limit:20});}
+  for(const id of ids){this.cursor=id;try{
+   const row=await this.grants.store.get(id);
+   if(row.revoked||Date.parse(row.terms.deadlineAt)<=Date.now())await this.#cancelClosed(row);
+  }catch(error){this.logger.warn('Delegated Task cancellation remains pending',{grantId:id,statusCode:error.statusCode||500});}}
  }
 }

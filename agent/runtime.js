@@ -88,6 +88,7 @@ export class AgentRuntime {
         this.executor=await this.store.acquireExecutor();
       }
       if(!this.ready)return null;
+      if(this.authority?.tick)await this.authority.tick();
       if(this.handoffs)await this.handoffs.tick();
       await this.delegations.tick();
       await this.resultWaits.tick();
