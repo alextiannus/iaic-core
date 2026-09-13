@@ -48,7 +48,7 @@ export class CapabilityDispatcher {
     }
   }
 
-  async invoke(name, input, { actor, callId = null, signal = null, allowedCapabilities = null } = {}) {
+  async invoke(name, input, { actor, callId = null, signal = null, allowedCapabilities = null, taskId = null } = {}) {
     const capability = this.capabilities.get(name);
     if (!capability) throw failure('Capability not found', 404);
     if (allowedCapabilities && !allowedCapabilities.includes(name)) throw failure('Capability is outside this task scope', 403);
@@ -59,7 +59,8 @@ export class CapabilityDispatcher {
     const identity = freeze(structuredClone(actor));
     if (await capability.authorize(identity, value) !== true) throw failure('Capability access denied', 403);
     if (signal?.aborted) throw failure('Execution cancelled', 409);
-    const context = { actor: identity, callId, signal };
+    if (taskId !== null && (typeof taskId !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(taskId))) throw failure('Invalid host Task reference');
+    const context = { actor: identity, callId, signal, ...(taskId === null ? {} : {taskId}) };
     if (capability.implementation.kind === 'agent') {
       if (!this.tasks) throw failure('Persistent task runtime is unavailable', 503);
       return this.tasks.create({ capability, input: value, actor: identity, idempotencyKey: callId });

@@ -21,3 +21,6 @@ The `my_write_workspace` descriptor provides `projectHistoryInput`, retaining pa
 Exact old revisions remain readable while the document exists. After deletion, their reads return404 and standard Assistant history marks those results unavailable; the omitted write arguments cannot reintroduce either the old or updated body. Original Task goals, Session input, raw audit/model-response events, downloaded files and derived copies retain their separate lifecycle. This does not claim global erasure or invalidate previously copied content everywhere. No schema change, UI or additional executor is required.
 
 Focused regression: `test/iaic-workspace-context-projection.integration.test.js` exercises write/read/edit/read-old/delete through the existing Runtime, checks subsequent model inputs and preserves original audit arguments. The independent Core Workspace example also forwards the hook and verifies deleted-body omission.
+
+
+Optional WorkspaceLineage now binds host-captured source versions, validates derived reads/lists transitively and supports authorized revision-safe purgeInvalid. See provenance/README.md. Existing stores remain independent; unconfigured services do not acquire these guarantees automatically.

@@ -24,8 +24,9 @@ export function createAgentTaskCapabilities({name='assistant.run',toolNamespace=
   for(const descriptor of descriptors){
    const name=descriptor.name;
    const writing=['my_dispute_assistant_memory','my_resolve_assistant_memory_dispute','my_relearn_assistant_memory','my_import_assistant_memories','my_remember_assistant_memory','my_forget_assistant_memory','my_write_workspace','my_delete_workspace'].includes(name);
-   const execute=async(input,{actor})=>{
-    const result=await provider(module,actor).find(tool=>tool.name===name).handler(input);
+   const execute=async(input,context)=>{
+    const {actor}=context;
+    const result=await provider(module,actor,context).find(tool=>tool.name===name).handler(input);
     // Keep memory-write receipts, not copies of content that was later forgotten.
     if(['my_dispute_assistant_memory','my_resolve_assistant_memory_dispute','my_remember_assistant_memory','my_relearn_assistant_memory'].includes(name))return {key:result.memory_key,revision:result.revision};
     return result;

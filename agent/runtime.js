@@ -205,7 +205,7 @@ export class AgentRuntime {
         if(task.authority)await this.authority.admitTool({actor,task,action,callId:call.id});
         await this.executor.dispatch(task.id,call.id);
         try{
-          const result=await this.dispatcher.invoke(action.name,action.input,{actor,callId:call.id,signal:executionSignal(),allowedCapabilities:allowedTools});
+          const result=await this.dispatcher.invoke(action.name,action.input,{actor,taskId:task.id,callId:call.id,signal:executionSignal(),allowedCapabilities:allowedTools});
           const wait=selected.waitReady?await selected.waitReady(action.input,result,{actor})!==true:false;
           await this.executor.settle(task.id,call.id,{result,wait});
           if(task.authority)await this.authority.settleTool({task,callId:call.id,outcome:'returned'}).catch(()=>{});
