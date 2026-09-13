@@ -80,3 +80,29 @@ Build business capabilities, Skills, configuration editors, billing/top-up integ
 ## Work on a module independently
 
 Existing Core-only checks are in `test/`. Set `SUBMISSION_TEST_DATABASE_URL` and run `npm run test:modules`, or run a relevant file with `node --test test/iaic-capabilities.test.js`. No application server or ERP client is imported. The Core workflow runs these checks and installs the packed library in a fresh consumer for the installed composition examples. Application integration checks remain with the application. Adding a module does not require reading its business implementation.
+
+### Explicit model invocation policy
+
+A `ModelProfiles` profile, an approved `UserModels` endpoint, or a direct
+`createModelProvider` call may include:
+
+```js
+invocation: {toolChoice: 'required', parallelToolCalls: false}
+```
+
+`toolChoice` accepts `auto` or `required`. With no policy, Responses retains
+`required` and Chat Completions retains `auto`. `parallelToolCalls: false`
+limits both the request and local response admission to one action, even if
+Runtime permits a larger batch. `true` still respects Runtime's batch bound.
+Plain text is never implicitly treated as a verified task result.
+
+Profiles and approved BYOK endpoints bind this configuration into their revision.
+An existing task cannot silently adopt a changed policy; a changed BYOK endpoint
+requires a newly validated user model configuration. Omitted policy preserves
+legacy identities. Unknown policy fields are rejected before credential lookup.
+
+Select a policy supported by the chosen provider and model. An upstream rejection
+is surfaced without automatic downgrade, retry or paid-provider fallback. This
+setting does not establish model capability or replace outcome evaluation. Direct
+provider consumers must bind configuration to their own persistent task identity;
+use ModelProfiles/UserModels for the built-in revision checks.

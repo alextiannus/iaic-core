@@ -1,11 +1,13 @@
+import {invocationConfig} from './invocation.js';
 import {OpenAIProvider,readBoundedResponse} from './openai-provider.js';
 
 // Translate the wire protocol only. The shared provider still enforces one
 // configured action, bounded responses and omission of hidden reasoning.
-export function createModelProvider({apiKey,model,provider='openai',baseUrl='',fetchImpl=fetch,maxOutputTokens=4096}){
+export function createModelProvider({apiKey,model,provider='openai',baseUrl='',fetchImpl=fetch,maxOutputTokens=4096,invocation}){
+ const policy=invocationConfig(invocation).invocation;
  if(provider==='openai'){
   if(baseUrl)throw new Error('Custom base URL requires the chat-completions provider');
-  return new OpenAIProvider({apiKey,model,fetchImpl,maxOutputTokens});
+  return new OpenAIProvider({apiKey,model,fetchImpl,maxOutputTokens,invocation:policy});
  }
  if(provider!=='chat-completions')throw new Error('Unsupported IAIC_PROVIDER');
  const endpoint=new URL(baseUrl);
@@ -15,7 +17,7 @@ export function createModelProvider({apiKey,model,provider='openai',baseUrl='',f
   const request=JSON.parse(options.body);
   const response=await fetchImpl(endpoint.href,{...options,body:JSON.stringify({model:request.model,messages:request.input,
    tools:request.tools.map(({type,name,description,parameters})=>({type,function:{name,description,parameters}})),
-   tool_choice:'auto',parallel_tool_calls:request.parallel_tool_calls,temperature:0,max_tokens:request.max_output_tokens,stream:false})});
+   tool_choice:request.tool_choice,parallel_tool_calls:request.parallel_tool_calls,temperature:0,max_tokens:request.max_output_tokens,stream:false})});
   if(!response.ok)return response;
   const body=JSON.parse(await readBoundedResponse(response,2_000_000));
   const choice=body.choices?.length===1?body.choices[0]:null;
@@ -25,5 +27,5 @@ export function createModelProvider({apiKey,model,provider='openai',baseUrl='',f
    completion_reason:['stop','tool_calls','length','content_filter','insufficient_system_resource'].includes(choice?.finish_reason)?choice.finish_reason:'unknown',usage,
    output:(choice?.finish_reason==='tool_calls'?(choice.message?.tool_calls||[]):[]).map(call=>({type:call.type==='function'?'function_call':'unsupported',name:call.function?.name,arguments:call.function?.arguments}))}));
  };
- return new OpenAIProvider({apiKey,model,fetchImpl:transport,maxOutputTokens});
+ return new OpenAIProvider({apiKey,model,fetchImpl:transport,maxOutputTokens,invocation:{...policy,toolChoice:policy?.toolChoice??'auto'}});
 }

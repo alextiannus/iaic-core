@@ -1,3 +1,4 @@
+import {invocationConfig} from '../agent/invocation.js';
 import {createCipheriv,createDecipheriv,randomBytes,randomUUID,createHash} from 'node:crypto';
 import {createModelProvider} from '../agent/model-provider.js';
 const fail=(message,statusCode=400)=>Object.assign(new Error(message),{statusCode});
@@ -17,7 +18,7 @@ export class UserModels {
    if(!e.id||this.#endpoints.has(e.id)||!['openai','chat-completions'].includes(e.provider))throw new Error('Invalid BYOK endpoint');
    const url=new URL(e.baseUrl||'https://api.openai.com');
    if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash||(e.provider==='openai'&&e.baseUrl))throw new Error('Approved endpoint must be plain HTTPS');
-   const endpoint={id:e.id,label:e.label||e.id,provider:e.provider,baseUrl:e.baseUrl||''};
+   const endpoint={id:e.id,label:e.label||e.id,provider:e.provider,baseUrl:e.baseUrl||'',...invocationConfig(e.invocation)};
    endpoint.revision=createHash('sha256').update(JSON.stringify(endpoint)).digest('hex');
    this.#endpoints.set(e.id,Object.freeze(endpoint));
   }
