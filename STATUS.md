@@ -213,3 +213,7 @@ Default Memory list queries now match literal case-insensitive substrings in bot
 ## Actionable application outcome feedback
 
 AgentRuntime and Assistant task composition accept a trusted boolean verdict or {verified,feedback} from the application verifier. Bounded feedback is persisted with the verification event and re-enters current context after waiting/reconstruction; invalid result shapes receive a generic schema correction without calling the domain verifier. Invalid verdict objects fail explicitly rather than truthily completing a Task. PostgreSQL evidence exercises schema rejection, domain rejection, user-input wait, Runtime reconstruction, correction and a fresh successful application check. This adds reusable outcome-feedback capability, not a changed acceptance rubric, unlimited retries or actual-model success evidence.
+
+## Remaining-budget context and effective batch bounds
+
+Runtime now communicates durable remaining tool attempts/model turns before every inference and caps both batch guidance and provider admission at the current remaining attempts. Completion-only context explicitly reports zero remaining tool calls while preserving the existing final finish/wait opportunity. Counts survive waiting and Runtime reconstruction; no budget, authority or retry policy is expanded. PostgreSQL verification covers 2-to-1-to-0 remaining calls and final verified completion. This closes a planning-information gap, not a diagnosis of the exact unconfigured control names lost in earlier traces or proof of improved actual-model completion.

@@ -143,25 +143,28 @@ export class AgentRuntime {
         let action=batch?.action;
         const allowedTools=this.taskTools(capability,task.input);
         const turns=history.events.filter(e=>e.kind==='model_requested').length;
-        const completionOnly=history.calls.length>=this.maxCalls;
+        const remainingToolCalls=Math.max(0,this.maxCalls-history.calls.length);
+        const completionOnly=remainingToolCalls===0;
+        const invocationBatchBound=completionOnly?1:Math.min(this.maxBatchCalls,remainingToolCalls);
         if(batch&&completionOnly){await this.executor.finish(task.id,{status:'waiting',reason:'limit'});break;}
         if(!batch){
         if(turns>=this.maxTurns||(completionOnly&&history.events.some(event=>event.kind==='model_requested'&&event.data.completionOnly===true))){await this.executor.finish(task.id,{status:'waiting',reason:'limit'});break;}
         if(task.authority)await this.authority.checkContext({actor,task,history});
         const messages=await this.context.assemble({task,capability,history,actor,dispatcher:this.dispatcher});
+        messages.push({role:'system',content:JSON.stringify({executionBudget:{remainingToolCalls,remainingModelTurns:this.maxTurns-turns,maxBatchCalls:completionOnly?0:invocationBatchBound,completionOnly}})+'\nThese are current execution limits, not additional authority. Remaining model turns include this invocation. Reserve enough work to verify results and submit completion; avoid repeating unchanged successful operations.'});
         if(completionOnly)messages.push({role:'system',content:'The tool-call budget is exhausted. No further tools or delegation are available. Use the existing evidence to submit iaic_finish for application verification, or iaic_wait if essential user input is missing. This is the final completion opportunity; do not claim unfinished work is complete.'});
         const tools=(completionOnly?[]:allowedTools).map(name=>{
           const target=this.dispatcher.capabilities.get(name);
           return {name,description:target.description,inputSchema:target.input};
         });
-        if(this.maxBatchCalls>1&&!completionOnly)messages.push({role:'system',content:'This Runtime explicitly permits a batch of up to '+this.maxBatchCalls+' independent tool calls in one response. They execute sequentially with current permission checks. Actions requiring earlier results must wait for the next response. Never combine finish, wait or delegation with other calls.'});
+        if(invocationBatchBound>1&&!completionOnly)messages.push({role:'system',content:'This Runtime explicitly permits a batch of up to '+invocationBatchBound+' independent tool calls in one response. They execute sequentially with current permission checks. Actions requiring earlier results must wait for the next response. Never combine finish, wait or delegation with other calls.'});
         await this.checkExecution(actor,task);
         if(this.handoffs)await this.handoffs.admitModel({actor,task,turn:turns+1});
         await this.executor.append(task.id,'model_requested',{model:model.name,turn:turns+1,...(completionOnly?{completionOnly:true}:{})});
         const controller=new AbortController();let timer;
         let response;
         try{response=await Promise.race([
-          model.next({messages,tools,maxBatchCalls:completionOnly?1:this.maxBatchCalls,delegationSchema:completionOnly?null:this.delegations.schema(task),outputSchema:capability.output,billingContext:{taskId:task.id,turn:turns+1,capability:task.capability},signal:AbortSignal.any([controller.signal,executionSignal()].filter(Boolean))}),
+          model.next({messages,tools,maxBatchCalls:invocationBatchBound,delegationSchema:completionOnly?null:this.delegations.schema(task),outputSchema:capability.output,billingContext:{taskId:task.id,turn:turns+1,capability:task.capability},signal:AbortSignal.any([controller.signal,executionSignal()].filter(Boolean))}),
           new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Object.assign(new Error('Model response timed out'),{limitReached:true}));},this.modelTimeoutMs);})
         ]);}catch(error){
           clearTimeout(timer);

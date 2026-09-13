@@ -41,3 +41,23 @@ with no model call or platform debit for compaction itself.
 Verification includes a PostgreSQL Task that reads two sources, compacts an old
 large result, waits for input, reconstructs Runtime and finishes without repeating
 the reads. This is deterministic evidence, not actual-model acceptance.
+
+## Current execution budget
+
+Before each model invocation, Runtime appends an `executionBudget` system message
+with remainingToolCalls, remainingModelTurns, maxBatchCalls and completionOnly.
+The counts come from durable call/request history; remainingModelTurns includes
+the current invocation. They are task execution limits, separate from platform
+allowance, provider Tokens, currency and authorization.
+
+The advertised batch ceiling and provider request bound are the smaller of the
+configured Runtime batch ceiling and remaining tool attempts. At zero attempts,
+maxBatchCalls is zero in the budget message, tools are empty, and the existing
+single finish/wait completion opportunity remains available within the original
+turn budget. No additional turns, attempts, retries or authority are granted.
+A provider-specific stricter invocation policy still applies independently.
+
+This gives Agents information for planning verification and completion before
+spending all available calls. It does not force a model to use its budget well or
+prove successful completion. A PostgreSQL fixture checks the counts through a
+wait, Runtime reconstruction, explicit clarification and final completion.
