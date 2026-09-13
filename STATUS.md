@@ -79,3 +79,8 @@ createAgentTaskSchedules now connects existing recurring/deferred services to sh
 ## Signed external event input
 
 HmacEventIngress now authenticates a bounded IAiC HMAC envelope using current host endpoint/key/scope resolution, raw bytes and freshness checks, then reuses immutable scoped EventStore publication. An optional Node HTTP handler and reserved ordinary-publisher namespace are supplied. Existing exact-key EventTriggers wake DeferredTasks without inference before publication; PostgreSQL integration checks one original follow-up Task after duplicate signed delivery. This is a generic documented profile, not vendor-specific webhook support, event streaming/retention or production deployment evidence. Signed signal content does not confer authority or establish business truth.
+
+
+## Versioned Knowledge ingestion
+
+KnowledgeIngestion and PostgresIngestedKnowledgeStore now import authorized, versioned plain text/Markdown snapshots into bounded UTF-8 chunks through existing Catalog interfaces. Atomic source replacement removes old surplus parts; withdrawal clears all current content/metadata and retains a revision tombstone. Current source, policy and ingestion revision remain visible in chunk provenance, and original references invalidate after correction/withdrawal. Independent installation exercises large-document import and existing retrieval. This does not add embeddings, scalable search, format extraction/crawling, global erasure or model-quality acceptance. Separate reads spanning concurrent updates still require reference/source-revision checks.

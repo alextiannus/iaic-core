@@ -136,3 +136,6 @@ export {ReleaseMonitor,createReleaseMonitorCapability} from './observation/monit
 export {createAgentTaskSchedules} from './recurring/agent.js';
 
 export {HmacEventIngress,createHmacEventHandler,eventSigningBytes,WEBHOOK_EVENT_PREFIX} from './events/ingress.js';
+
+export {KnowledgeIngestion,splitKnowledgeText} from './knowledge/ingestion.js';
+export {PostgresIngestedKnowledgeStore} from './knowledge/ingested-store.js';
