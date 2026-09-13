@@ -31,7 +31,8 @@
     "./handoffs/*": "./handoffs/*",
     "./http/*": "./http/*",
     "./accounts/*": "./accounts/*",
-    "./subscriptions/*": "./subscriptions/*"
+    "./subscriptions/*": "./subscriptions/*",
+    "./notifications/*": "./notifications/*"
   },
   "files": [
     "index.js",
@@ -64,7 +65,8 @@
     "http",
     "CORE_REQUIREMENTS.md",
     "accounts",
-    "subscriptions"
+    "subscriptions",
+    "notifications"
   ],
   "dependencies": {
     "ajv": "8.20.0",

@@ -68,3 +68,7 @@ export {PlanCatalog} from './subscriptions/plans.js';
 export {PostgresSubscriptionStore} from './subscriptions/store.js';
 export {Subscriptions} from './subscriptions/service.js';
 export {createSubscriptionCapabilities} from './subscriptions/capabilities.js';
+
+export {PostgresNotificationStore} from './notifications/store.js';
+export {Notifications} from './notifications/service.js';
+export {createNotificationCapabilities} from './notifications/capabilities.js';
