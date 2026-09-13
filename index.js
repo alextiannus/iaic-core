@@ -72,3 +72,5 @@ export {createSubscriptionCapabilities} from './subscriptions/capabilities.js';
 export {PostgresNotificationStore} from './notifications/store.js';
 export {Notifications} from './notifications/service.js';
 export {createNotificationCapabilities} from './notifications/capabilities.js';
+
+export {importHttpCapabilities} from './http/import.js';

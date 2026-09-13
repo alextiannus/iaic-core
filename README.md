@@ -19,7 +19,7 @@ Use your own database connection. The examples create temporary synthetic schema
 The configured-jobs example combines user-plus-organization scopes, an organization-shared job, Memory, Workspace, sourced Knowledge, selected Skills, models and platform allowance, Session continuity, model-directed scheduling and an external MCP client. It includes application policy to illustrate composition; it does not prescribe job types or business flows.
 
 ```sh
-npm test                     # module checks and 22 standalone examples
+npm test                     # module checks and 23 standalone examples
 npm run verify:core-package  # pack, install elsewhere, run examples there
 npm pack                     # create a reusable Core npm archive
 ```
