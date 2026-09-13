@@ -1,22 +1,24 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import {Pool} from 'pg';
-import {TaskStore,AgentRuntime,ContextAssembler,CapabilityDispatcher,defineCapability,TokenLedger,AllowanceBudgets,PostgresDelegationStore,DelegatedCapabilities,DelegatedTasks,delegationExecutorKey} from '@immedi/iaic-core';
+import {PostgresWorkspaceStore,AssistantWorkspace,DelegationArtifacts,TaskStore,AgentRuntime,ContextAssembler,CapabilityDispatcher,defineCapability,TokenLedger,AllowanceBudgets,PostgresDelegationStore,DelegatedCapabilities,DelegatedTasks,delegationExecutorKey} from '@immedi/iaic-core';
 async function fixture(fn){
  const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL required');const schema='delegated_task_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let runtime;
  try{
   await pool.query('CREATE TABLE effects(id text PRIMARY KEY,owner text)');
+  const workspaceStore=new PostgresWorkspaceStore({pool});await workspaceStore.initialize();
+  const workspace=new AssistantWorkspace({store:workspaceStore,resolveScope:a=>({applicationId:a.scopeId,subjectId:a.subjectId,assistantId:'fixture-job'}),sourceFor:()=>({kind:'fixture-task'})});let outputArtifact=null;
   const issuer={scopeId:'app',subjectId:'issuer'},delegate={scopeId:'app',subjectId:'delegate'},principal=a=>({applicationId:a.scopeId,subjectId:a.subjectId}),permitted=new Set(['issuer','delegate']);
   const ledger=new TokenLedger({pool});await ledger.initialize();const budgets=new AllowanceBudgets({ledger});ledger.budgets=budgets;await budgets.initialize();await ledger.grant(principal(issuer),{reference:'initial',amount:100,evidence:{fixture:true}});
   await budgets.create(principal(issuer),{id:'work',maximum:'10',executors:[delegationExecutorKey(principal(delegate))],deadlineAt:new Date(Date.now()+60000).toISOString(),overflow:'platform_absorbs'});
-  const object={type:'object'},cap=defineCapability({name:'records.write',description:'Fixture effect',input:object,output:object,effect:'write',retry:'never-replay',authorize:a=>permitted.has(a.subjectId),revalidate:async(_i,r)=>r,implementation:{kind:'function',execute:async(i,c)=>{await pool.query('INSERT INTO effects VALUES($1,$2)',[c.callId,c.actor.subjectId]);return {done:true};}}});
+  const object={type:'object'},cap=defineCapability({name:'records.write',description:'Fixture effect',input:object,output:object,effect:'write',retry:'never-replay',authorize:a=>permitted.has(a.subjectId),revalidate:async(_i,r)=>r,implementation:{kind:'function',execute:async(i,c)=>{await pool.query('INSERT INTO effects VALUES($1,$2)',[c.callId,c.actor.subjectId]);outputArtifact=await workspace.write(c.actor,{path:'output.md',content:'Verified delegated output',mediaType:'text/markdown'});return {done:true};}}});
   const agent=defineCapability({name:'worker.run',description:'Fixture worker',input:object,output:object,effect:'write',retry:'never-replay',authorize:a=>permitted.has(a.subjectId),implementation:{kind:'agent',instructions:'Write once then finish',tools:['records.write'],verify:async()=>Number((await pool.query('SELECT count(*) FROM effects')).rows[0].count)===1}});
   const dispatcher=new CapabilityDispatcher({capabilities:[cap,agent]}),grantStore=new PostgresDelegationStore({pool,namespace:'fixture'});await grantStore.initialize();
   const grants=new DelegatedCapabilities({store:grantStore,dispatcher,resolvePrincipal:principal,restoreActor:r=>({scopeId:r.applicationId,subjectId:r.subjectId}),authorizeGrant:()=>true,allowInput:()=>true});
   const authority=new DelegatedTasks({grants,ledger,modelPolicy:()=>({mode:'SYSTEM_MANAGED',policy:{maximum:'5',price:{revision:'fixture',input:'1',cachedInput:'1',output:'1'}}})});
   const input={goal:'Write the fixture record and verify it',allowedTools:['records.write']};
   await grants.issue(issuer,{id:'task-grant',delegate:principal(delegate),payer:principal(issuer),tools:['records.write'],constraints:{},deadlineAt:new Date(Date.now()+60000).toISOString(),maxCalls:1,task:{capability:agent.name,input,budgetId:'work'}});
-  let modelCalls=0;const model={name:'fixture-model',next:async r=>{modelCalls++;return {...(r.billingContext.turn===1?{type:'call',name:'records.write',input:{}}:{type:'finish',result:{done:true}}),usage:{inputTokens:1,outputTokens:1}};}};
+  let modelCalls=0;const model={name:'fixture-model',next:async r=>{modelCalls++;return {...(r.billingContext.turn===1?{type:'call',name:'records.write',input:{}}:{type:'finish',result:{done:true,summary:'Produced an artifact',artifacts:outputArtifact?[outputArtifact.reference]:[]}}),usage:{inputTokens:1,outputTokens:1}};}};
   const build=async(enabled=true)=>{if(runtime)await runtime.stop();runtime=new AgentRuntime({store:new TaskStore({pool}),dispatcher,model,authority:enabled?authority:null,context:new ContextAssembler({skillRoot:'/tmp'}),version:'fixture-v1'});dispatcher.tasks=runtime;await runtime.initialize();return runtime;};
-  await build();await fn({issuer,delegate,authority,grants,grantStore,dispatcher,ledger,budgets,principal,pool,build,permitted,modelCalls:()=>modelCalls,getRuntime:()=>runtime});
+  await build();await fn({issuer,delegate,authority,grants,grantStore,dispatcher,workspace,ledger,budgets,principal,pool,build,permitted,modelCalls:()=>modelCalls,getRuntime:()=>runtime});
  }finally{if(runtime)await runtime.stop();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
 }
 test('Delegated persistent Task survives Runtime reconstruction and charges its explicit shared payer budget',async()=>fixture(async f=>{
@@ -38,4 +40,12 @@ test('Delegated result polling cannot bypass the grant call ceiling',async()=>fi
  let reads=0;f.dispatcher.capabilities.set('records.write',defineCapability({name:'records.write',description:'Read waiting source',input:{type:'object'},output:{type:'object'},effect:'read',authorize:()=>true,revalidate:async(_i,r)=>r,waitReady:async()=>false,implementation:{kind:'function',execute:async()=>{reads++;return {ready:false};}}}));
  await f.authority.submit(f.delegate,'task-grant');const runtime=f.getRuntime();const waiting=await runtime.tick();assert.equal(waiting.status,'waiting');assert.equal(reads,1);
  runtime.resultWaits.nextCheck=0;await runtime.tick();assert.equal(reads,1);assert.equal((await f.grants.read(f.issuer,'task-grant')).calls.length,1);
+}));
+
+test('Issuer reads exact artifacts from the completed cross-principal Runtime Task',async()=>fixture(async f=>{
+ const task=await f.authority.submit(f.delegate,'task-grant');await f.getRuntime().tick();
+ const shares=new DelegationArtifacts({grants:f.grants,readOwned:(a,r)=>f.workspace.read(a,r),authorizeShare:()=>true});
+ const result=await shares.result(f.issuer,'task-grant');assert.equal(result.taskId,task.id);assert.equal(result.status,'succeeded');assert.equal(result.result.artifacts.length,1);
+ const ref=result.result.artifacts[0];await assert.rejects(f.workspace.read(f.issuer,ref));
+ const content=await shares.read(f.issuer,{grantId:'task-grant',owner:'delegate',reference:ref});assert.equal(content.content,'Verified delegated output');assert.deepEqual(content.reference,ref);
 }));

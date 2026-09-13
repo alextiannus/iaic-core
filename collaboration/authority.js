@@ -36,10 +36,11 @@ export class DelegatedCapabilities {
   Object.assign(this,{store,dispatcher,resolvePrincipal,restoreActor,authorizeGrant,allowInput});
  }
  async principal(actor){return ref(await this.resolvePrincipal(actor));}
- async issue(actor,{id,delegate,payer,tools,constraints,deadlineAt,maxCalls,task=null}){
+ async issue(actor,{id,delegate,payer,tools,constraints,deadlineAt,maxCalls,task=null,artifacts=[]}){
   const issuer=await this.principal(actor);delegate=ref(delegate);payer=ref(payer);
   if(!Array.isArray(tools)||!tools.length||tools.length>100||new Set(tools).size!==tools.length||tools.some(t=>typeof t!=='string'||!t)||!Number.isInteger(maxCalls)||maxCalls<1||maxCalls>10000||typeof deadlineAt!=='string'||!Number.isFinite(Date.parse(deadlineAt))||Date.parse(deadlineAt)<=Date.now()||!constraints||typeof constraints!=='object'||Array.isArray(constraints))throw fail('Bounded delegation terms required');
-  const terms=jsonValue({issuer,delegate,payer,tools:[...tools].sort(),constraints,deadlineAt:new Date(deadlineAt).toISOString(),maxCalls,...(task?{task}: {})});
+  if(!Array.isArray(artifacts)||artifacts.length>100)throw fail('Bounded input Artifact references required');
+  const terms=jsonValue({issuer,delegate,payer,tools:[...tools].sort(),constraints,deadlineAt:new Date(deadlineAt).toISOString(),maxCalls,...(task?{task}: {}),...(artifacts.length?{artifacts}: {})});
   if(await this.authorizeGrant(actor,{action:'issue',terms})!==true)throw fail('Delegation issue denied',403);
   return this.store.create(id,terms);
  }

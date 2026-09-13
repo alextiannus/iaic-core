@@ -113,3 +113,5 @@ export {PostgresDelegationStore,DelegatedCapabilities} from './collaboration/aut
 export {AllowanceBudgets} from './budgets/allowance.js';
 
 export {DelegatedTasks,delegationExecutorKey} from "./collaboration/tasks.js";
+
+export {DelegationArtifacts,createDelegationArtifactCapabilities} from './collaboration/artifacts.js';
