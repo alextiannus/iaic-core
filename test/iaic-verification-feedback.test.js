@@ -10,5 +10,6 @@ test('Assistant composition preserves trusted outcome feedback after its artifac
  const result={verified:false,feedback:'Missing source citation'};
  const cap=createAgentTaskCapabilities({memory:{},workspace:{},authorize:()=>true,verifyOutcome:()=>result}).find(c=>c.name==='assistant.run');
  assert.deepEqual(await cap.implementation.verify({},{summary:'draft',artifacts:[]},{history:{calls:[{status:'succeeded',capability:'my_list_assistant_memories'}]}}),result);
- assert.equal(await cap.implementation.verify({},{summary:'draft',artifacts:[]},{history:{calls:[]}}),false);
+ assert.deepEqual(await cap.implementation.verify({},{summary:'draft',artifacts:[]},{history:{calls:[]}}),result);
+ assert.equal(await cap.implementation.verify({requiredArtifacts:['missing.md']},{summary:'draft',artifacts:[]},{history:{calls:[]}}),false);
 });

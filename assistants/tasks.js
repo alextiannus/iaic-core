@@ -81,7 +81,6 @@ export function createAgentTaskCapabilities({name='assistant.run',toolNamespace=
   },
   verify:async(request,result,context)=>{
    const successful=context.history.calls.filter(call=>call.status==='succeeded');
-   if(!successful.length)return false;
    if((request.requiredArtifacts??[]).some(path=>!result.artifacts.some(ref=>ref.path===path)))return false;
    for(const ref of result.artifacts){
     if(!successful.some(call=>['my_read_workspace','my_write_workspace'].map(expose).includes(call.capability)&&sameReference(call.result?.reference,ref)))return false;

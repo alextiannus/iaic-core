@@ -65,3 +65,20 @@ The verifier must run again on the corrected result; Core never converts feedbac
 or an Agent's claim into success. Existing task/turn limits and cancellation still
 apply. This is a basic execution contract, not an application-specific rubric or
 an automatic guarantee that the model will correct its work.
+
+### Direct outcomes without unnecessary tool calls
+
+A task may finish without a successful Tool call when the application can verify
+its outcome from the authorized goal/context or its own authoritative sources.
+Core no longer requires a nonempty successful-call history before invoking
+verifyOutcome. A tool invocation is not by itself proof of a correct answer.
+Applications that require particular source reads or effects must check that
+through their verifier, as the existing real-model evaluation applications do.
+
+This does not bypass output validation, requiredArtifacts or reference integrity.
+Every claimed artifact still needs an exact reference obtained through a successful
+workspace read/write in this Task and a current authorized read. Missing required
+artifacts and invented references fail before the application verifier. The host
+verifier remains mandatory and can reject a direct answer, provide correction
+feedback or impose its domain-specific evidence requirements. No model decides
+that its own answer is verified.
