@@ -10,5 +10,6 @@ try{
  assert.match(run([path.join(target,'node_modules/.bin/iaic'),'help'],target),/iaic migrate/);
  run([npm,'test'],target);
  const duplicate=spawnSync(process.execPath,[cli,'init',target,'--core-package',archive],{encoding:'utf8'});assert.equal(duplicate.status,1);assert.ok(await fs.stat(path.join(target,'app.mjs')));
- console.log(JSON.stringify({example:'core-developer',status:'passed',generatedAppInstalled:true,installedBin:true,sharedCapabilityTest:true,existingDirectoryPreserved:true}));
+ const agentTarget=path.join(temp,'agent-app');run([cli,'init',agentTarget,'--core-package',archive,'--template','agent'],root);run([npm,'install','--ignore-scripts','--no-audit','--no-fund'],agentTarget);run([npm,'test'],agentTarget);
+ console.log(JSON.stringify({example:'core-developer',status:'passed',generatedAppInstalled:true,installedBin:true,sharedCapabilityTest:true,existingDirectoryPreserved:true,persistentAgentTemplate:true,separateWorkerProcess:true}));
 }finally{await fs.rm(temp,{recursive:true,force:true});}

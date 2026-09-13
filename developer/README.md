@@ -7,6 +7,7 @@ iaic list --url https://your-host/capabilities
 iaic call notes.read --url https://your-host/capabilities --input input.json
 iaic call notes.write --url https://your-host/capabilities --input input.json --request-key stable-request-id
 iaic init ./my-app --core-package /absolute/path/to/immedi-iaic-core-0.1.0.tgz
+iaic init ./my-agent --core-package /absolute/path/to/immedi-iaic-core-0.1.0.tgz --template agent
 iaic migrate --config ./migrations.mjs
 ```
 
@@ -35,4 +36,10 @@ export async function open() {
 
 The adapter serializes migration batches within a database schema, records IDs/order/SHA-256 digests, rejects removed/reordered/edited history, and applies all pending scripts and their records in one transaction. Scripts must not manage transactions themselves or use statements incompatible with a transaction, such as CREATE INDEX CONCURRENTLY. This runner does not infer data migrations or reverse destructive changes. Application authors own the SQL and rollback strategy. Existing Core store initialize methods remain independent; they are not silently replaced by a universal schema migration.
 
-Verified paths include an installed npm bin, generation plus independent npm installation and application contract test, actual CLI HTTP request envelopes, concurrent PostgreSQL migration runs, digest drift rejection and rollback after a failing script. Deployment-provider adapters and a persistent Agent application template remain incomplete.
+Verified paths include an installed npm bin, generation plus independent npm installation and application contract test, actual CLI HTTP request envelopes, concurrent PostgreSQL migration runs, digest drift rejection and rollback after a failing script. The persistent Agent template is described below; deployment-provider adapters remain incomplete.
+
+## Persistent Agent template
+
+Use `--template agent` to generate an application with the existing AgentRegistry/Runtime, Task, scoped Memory/Workspace/Knowledge, selected Skills, Session references, model profiles and platform allowance. It adds application-owned app.mjs composition, job.json configuration, server/config/grant scripts and deterministic tests. It does not add another Runtime or force a role taxonomy. The generated README explains real model configuration, explicit allowance issuance and the host outcome verifier.
+
+Its independent installation test closes the originating Session, changes the default model and executes queued work in a separate Node process. The task retains the original model, resources and identity; saved artifacts and allowance settlement survive. This verifies queued-work process separation, not a process kill during an external write or actual-model quality. Scheduling/Mandate/handoff modules remain reusable but are not automatically wired into this minimal starter.

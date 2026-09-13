@@ -99,3 +99,4 @@ export {createHttpPaymentProvider} from './payments/http-provider.js';
 
 export {migratePostgres} from './developer/migrations.js';
 export {scaffoldCapabilityApp} from './developer/scaffold.js';
+export {scaffoldAgentApp} from './developer/agent-scaffold.js';
