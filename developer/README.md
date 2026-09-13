@@ -36,10 +36,46 @@ export async function open() {
 
 The adapter serializes migration batches within a database schema, records IDs/order/SHA-256 digests, rejects removed/reordered/edited history, and applies all pending scripts and their records in one transaction. Scripts must not manage transactions themselves or use statements incompatible with a transaction, such as CREATE INDEX CONCURRENTLY. This runner does not infer data migrations or reverse destructive changes. Application authors own the SQL and rollback strategy. Existing Core store initialize methods remain independent; they are not silently replaced by a universal schema migration.
 
-Verified paths include an installed npm bin, generation plus independent npm installation and application contract test, actual CLI HTTP request envelopes, concurrent PostgreSQL migration runs, digest drift rejection and rollback after a failing script. The persistent Agent template is described below; deployment-provider adapters remain incomplete.
+Verified paths include an installed npm bin, generation plus independent npm installation and application contract test, actual CLI HTTP request envelopes, concurrent PostgreSQL migration runs, digest drift rejection and rollback after a failing script. The persistent Agent template is described below; a default local Docker deployment adapter is described below; cloud provider adapters remain incomplete.
 
 ## Persistent Agent template
 
 Use `--template agent` to generate an application with the existing AgentRegistry/Runtime, Task, scoped Memory/Workspace/Knowledge, selected Skills, Session references, model profiles and platform allowance. It adds application-owned app.mjs composition, job.json configuration, server/config/grant scripts and deterministic tests. It does not add another Runtime or force a role taxonomy. The generated README explains real model configuration, explicit allowance issuance and the host outcome verifier.
 
 Its independent installation test closes the originating Session, changes the default model and executes queued work in a separate Node process. The task retains the original model, resources and identity; saved artifacts and allowance settlement survive. This verifies queued-work process separation, not a process kill during an external write or actual-model quality. Scheduling/Mandate/handoff modules remain reusable but are not automatically wired into this minimal starter.
+
+## Deployment adapter
+
+The CLI accepts a trusted configuration module exporting `open(): {adapter, close?}`. An adapter implements `deploy(requestKey)`, `inspect(requestKey)` and `stop(requestKey)`, returning JSON receipts. Host/provider errors that may follow acceptance must carry `outcomeUnknown: true` and the original requestKey. The CLI never retries deployments. Applications may supply their own cloud adapter without importing a Docker implementation or changing Capability/Agent modules.
+
+```sh
+iaic deploy --config ./deployment.mjs --request-key release-2026-09-13
+iaic deployment-status --config ./deployment.mjs --request-key release-2026-09-13
+iaic deployment-stop --config ./deployment.mjs --request-key release-2026-09-13
+```
+
+The supplied `DockerDeployment` default starts a long-lived application from an already available immutable image. This differs from the bounded code-execution sandbox. Configuration is trusted host code:
+
+```js
+import {DockerDeployment} from '@immedi/iaic-core';
+export async function open() {
+  return {adapter: new DockerDeployment({
+    namespace: 'my-app',
+    image: process.env.APP_IMAGE_DIGEST,
+    command: ['node', '/app/server.mjs'],
+    containerPort: 3000,
+    healthPath: '/health',
+    environment: () => ({DATABASE_URL: process.env.DATABASE_URL})
+  })};
+}
+```
+
+The image must end in an immutable sha256 digest (or be a local sha256 image ID); prebuild/pull it separately. The process must listen on 0.0.0.0 inside its container and implement an unauthenticated health endpoint that returns 200 only when ready. No host paths or Docker socket are mounted. Applications persist data in separately configured database/object services. The container uses a non-root numeric user, read-only root, bounded temporary storage, removed Linux capabilities and explicit CPU/memory/process limits. Default egress uses Docker networking; this is a trusted deployed application, not an untrusted-code execution boundary.
+
+The default adapter binds an ephemeral port to host loopback and reports its endpoint. Health probes use a fixed local HTTP path, refuse redirects and have a two-second deadline. Inspect returns absent, prepared, starting, ready, stopped or unknown plus an exact container ID. A ready receipt establishes the health response, not business-goal completion. A reverse proxy/TLS/public route and production identity integration remain host responsibilities; automatically switching public traffic between releases is not supplied.
+
+Namespace and request key select a durable Docker container name. Nonsecret configuration is bound by digest; changing image/command/resources under that key is rejected. Deploy also checks supplied environment keys and values against the existing container before returning it. Environment values go through Docker's stdin env-file, not shell command text, arguments, receipt JSON or labels. The Docker daemon still holds those values in its normal container configuration; credentials must come from trusted host configuration. Do not put secrets into command arguments or the namespace.
+
+A repeated deployment returns the original container without restarting it, including after it stopped. A lost create/start response is unconfirmed: use deployment-status with the same key. If a crash leaves only a prepared container, this adapter does not automatically start it. Stop shuts down a running container and retains its receipt; it does not claim to cancel an in-flight create/start or remove containers. Host reconciliation/cleanup handles abandoned prepared containers explicitly. Distinct release keys create distinct instances; image build, durable desired-state reconciliation, cloud deployment, traffic activation/rollback and automatic retention are not yet included.
+
+The independent core-deployment example uses a real Docker HTTP workload, deployment/status/stop CLI processes, reconstruction, stable instance identity, changed-config rejection and a deliberately lost start acknowledgement. It verifies authenticated workload access and keeps secret values out of returned receipts. Its fixture containers are explicitly removed after verification; no production application or database is changed.

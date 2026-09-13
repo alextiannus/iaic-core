@@ -119,3 +119,4 @@ export {DelegationArtifacts,createDelegationArtifactCapabilities} from './collab
 export {DelegationParents} from './collaboration/parents.js';
 
 export {CrossPrincipalDelegations} from './collaboration/delegations.js';
+export {DockerDeployment} from './developer/deployment.js';
