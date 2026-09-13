@@ -18,7 +18,8 @@ try{
  const authorize=a=>enabled&&a.subjectId===actor.subjectId&&a.scopeId===actor.scopeId;
  const source=defineCapability({name:'source.read',description:'Read the current fixture value',input:{type:'object'},output:{type:'object'},effect:'read',authorize:a=>authorize(a)&&sourceAllowed,revalidate:()=>({value:42}),implementation:{kind:'function',execute:()=>({value:42})}});
  const agent=defineCapability({name:'work.run',description:'Continue a persistent goal after user clarification',input:{type:'object',properties:{goal:{type:'string'}},required:['goal'],additionalProperties:false},output:{type:'object'},effect:'write',retry:'never-replay',authorize,implementation:{kind:'agent',instructions:'Use the clarification and source to complete the goal.',tools:['source.read'],verify:(_input,result,{history})=>result.value===42&&history.calls.some(call=>call.capability==='source.read'&&call.status==='succeeded'&&call.result.value===42)}});
- const controls=createTaskControlCapabilities({runtime:{get:(...args)=>runtime.get(...args),state:(...args)=>runtime.state(...args),transition:(...args)=>runtime.transition(...args)},authorize});
+ let loseClarificationAck=true;
+ const controls=createTaskControlCapabilities({runtime:{get:(...args)=>runtime.get(...args),state:(...args)=>runtime.state(...args),transition:async(...args)=>{const result=await runtime.transition(...args);if(args[2].requestKey==='clarification'&&loseClarificationAck){loseClarificationAck=false;throw new Error('Fixture lost transition acknowledgement');}return result;},transitionReceipt:(...args)=>runtime.transitionReceipt(...args)},receipts:true,authorize});
  const list=defineCapability({name:'tasks.list',description:'List the current owner latest fixture Tasks; no paging or filtering',input:{type:'object',properties:{},additionalProperties:false},output:{type:'object'},effect:'read',authorize,implementation:{kind:'function',execute:async(_input,{actor})=>({tasks:await Promise.all((await store.list(actor)).map(row=>runtime.state(actor,row.id))),nextPageToken:''})}});
  const dispatcher=new CapabilityDispatcher({capabilities:[source,agent,...controls,list]});
  const model={name:'surfaces-fixture',next:async({billingContext,messages})=>{
@@ -44,7 +45,9 @@ try{
  for(const call of Object.values(invoke)){const task=await call(agent.name,input,key);original??=task.id;assert.equal(task.id,original);}
  const a2aTask=await remote.sendMessage({message:Message.fromJSON({messageId:key,role:Role.ROLE_USER,parts:[{data:input,mediaType:'application/json'}]}),configuration:{returnImmediately:true}});assert.equal(a2aTask.id,original);assert.equal((await store.list(actor)).length,1);
  assert.equal((await runtime.tick()).status,'waiting');assert.equal((await remote.getTask({id:original})).status.state,TaskState.TASK_STATE_INPUT_REQUIRED);
- await invoke.mcp('tasks.provide_input',{id:original,input:'confirmed value'},'clarification');await rebuild();assert.equal((await runtime.tick()).status,'succeeded');
+ await assert.rejects(invoke.mcp('tasks.provide_input',{id:original,input:'confirmed value'},'clarification'),error=>error.outcomeUnknown===true);
+ const receipt=await invoke.sdk('tasks.control_result',{id:original,requestKey:'clarification'});assert.equal(receipt.status,'confirmed');assert.equal(receipt.task.status,'queued');await rebuild();
+ const repeated=await invoke.http('tasks.provide_input',{id:original,input:'confirmed value'},'clarification');assert.equal(repeated.controlReceipt.requestDigest,receipt.requestDigest);assert.equal((await runtime.tick()).status,'succeeded');
  for(const call of Object.values(invoke))assert.deepEqual((await call('tasks.get',{id:original})).result,{value:42});
  const completed=await remote.getTask({id:original});assert.equal(completed.status.state,TaskState.TASK_STATE_COMPLETED);assert.deepEqual(completed.artifacts[0].parts[0].content.value,{value:42});
  assert.equal((await store.history(actor,original)).events.filter(event=>event.kind==='input').length,1);
@@ -52,5 +55,5 @@ try{
  await assert.rejects(remote.getTask({id:pending.id}));assert.equal((await remote.cancelTask({id:pending.id})).status.state,TaskState.TASK_STATE_CANCELED);
  assert.equal((await invoke.mcp('tasks.state',{id:pending.id})).status,'cancelled');assert.equal(modelCalls,5);
  sourceAllowed=true;enabled=false;for(const call of Object.values(invoke))await assert.rejects(call('tasks.get',{id:original}));await assert.rejects(remote.getTask({id:original}));
- console.log(JSON.stringify({example:'core-agent-surfaces',status:'passed',entrypoints:[...Object.keys(invoke),'a2a'],oneOriginalTask:true,clarificationThroughMcp:true,reconstructedRuntime:true,verifiedSharedResult:true,cancelAfterSourceRevocation:true,currentAccessRevocation:true,modelCalls,actualModel:false,uiTested:false,processKill:false}));
+ console.log(JSON.stringify({example:'core-agent-surfaces',status:'passed',entrypoints:[...Object.keys(invoke),'a2a'],oneOriginalTask:true,clarificationThroughMcp:true,originalTransitionReceipt:true,lostClarificationAckRecovered:true,reconstructedRuntime:true,verifiedSharedResult:true,cancelAfterSourceRevocation:true,currentAccessRevocation:true,modelCalls,actualModel:false,uiTested:false,processKill:false}));
 }finally{await runtime?.stop();await client?.close();await mcp?.close();if(server){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}

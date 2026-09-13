@@ -76,9 +76,18 @@ export class AgentRuntime {
     const visible=await this.context.revalidateHistory({history:records,actor,dispatcher:this.dispatcher});
     return history?{...task,...visible}:task;
   }
+  async transitionReceipt(actor,id,requestKey){
+    await this.state(actor,id);
+    const receipt=await this.store.transitionReceipt(actor,id,requestKey);
+    return receipt?{status:'confirmed',...receipt}:{status:'unknown',requestKey};
+  }
   async transition(actor,id,request){
     const task=await this.store.get(actor,id);const capability=this.dispatcher.capabilities.get(task.capability);
     if(!capability||await capability.authorize(actor,task.input)!==true)throw fail('Task access denied',403);
+    if(request.requestKey!==undefined&&request.requestKey!==null){
+      const prior=await this.store.findTransition(actor,id,{...request,version:this.version});
+      if(prior)return prior;
+    }
     // Cancellation must remain possible even when historical context exceeds limits.
     if(request.action!=='cancel'){await this.checkExecution(actor,task);await this.get(actor,id);}
     const result=await this.store.transition(actor,id,{...request,version:this.version});

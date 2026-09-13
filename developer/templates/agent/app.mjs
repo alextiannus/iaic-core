@@ -28,7 +28,7 @@ export async function openApplication({pool,skillRoot,job,profiles,resolveSecret
   return cap.authorize(actor,input);
  }}));
  let runtime;
- capabilities.push(...createTaskControlCapabilities({runtime:{get:(...args)=>runtime.get(...args),state:(...args)=>runtime.state(...args),transition:(...args)=>runtime.transition(...args)},authorize:check,project:row=>row}));
+ capabilities.push(...createTaskControlCapabilities({runtime:{get:(...args)=>runtime.get(...args),state:(...args)=>runtime.state(...args),transition:(...args)=>runtime.transition(...args),transitionReceipt:(...args)=>runtime.transitionReceipt(...args)},receipts:true,authorize:check,project:row=>row}));
  const dispatcher=new CapabilityDispatcher({capabilities});
  runtime=new AgentRuntime({...runtimeLimits,store:tasks,dispatcher,model:{name:'host-model-resolver'},resolveModel:request=>(modelRouting||models).resolve(request),context:new ContextAssembler({skillRoot,sessionProvider:({actor,task})=>task.input.session?sessions.context(actor,task.input.session):null}),version,agentIdentity:{bind:({actor,capability})=>registry.bind(actor,job.id,capability.name),check:({actor,task,binding})=>registry.check(actor,binding,task.capability)}});
  dispatcher.tasks=runtime;

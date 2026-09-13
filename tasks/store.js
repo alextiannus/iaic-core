@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import {transitionBinding,checkedTransition} from './transition-requests.js';
 import {randomUUID} from 'node:crypto';
 import {isDeepStrictEqual} from 'node:util';
 const conflict = message => Object.assign(new Error(message), {statusCode:409});
@@ -16,6 +17,7 @@ export class TaskStore {
     await this.pool.query(await fs.readFile(new URL('./migrations/012_iaic_delegation.sql',import.meta.url),'utf8'));
     await this.pool.query(await fs.readFile(new URL('./migrations/013_iaic_task_authority.sql',import.meta.url),'utf8'));
     await this.pool.query(await fs.readFile(new URL('./migrations/014_iaic_action_batches.sql',import.meta.url),'utf8'));
+    await this.pool.query(await fs.readFile(new URL('./migrations/015_iaic_transition_receipts.sql',import.meta.url),'utf8'));
   }
   async create({actor,capability,input,idempotencyKey,version,model,agent=null,handoff=null,authority=null}) {
     if(!idempotencyKey||!version||!model)throw conflict('Task identity, key, code/Skill version and model are required');
@@ -65,12 +67,27 @@ export class TaskStore {
     const calls=await this.pool.query('SELECT * FROM iaic_calls WHERE task_id=$1 ORDER BY created_at,id',[id]);
     return {events:events.rows,calls:calls.rows};
   }
-  async transition(actor,id,{action,version,input}) {
+  async transitionReceipt(actor,id,requestKey) {
+    if(typeof requestKey!=='string'||!requestKey||requestKey.length>500)throw conflict('Valid transition request key required');
+    await this.get(actor,id);
+    const row=(await this.pool.query('SELECT request_key AS "requestKey",request_digest AS "requestDigest",action,result AS task FROM iaic_task_transition_receipts WHERE task_id=$1 AND request_key=$2',[id,requestKey])).rows[0];
+    return row??null;
+  }
+  async findTransition(actor,id,request) {
+    return checkedTransition(await this.transitionReceipt(actor,id,request.requestKey),transitionBinding(request));
+  }
+  async transition(actor,id,{action,version,input,requestKey=null}) {
+    const binding=requestKey===null?null:transitionBinding({action,version,input,requestKey});
     const connection=await this.pool.connect();
     try{
       await connection.query('BEGIN');
       const row=(await connection.query('SELECT * FROM iaic_tasks WHERE id=$1 AND employee_id=$2 AND erp_user=$3 FOR UPDATE',[id,...this.identity(actor)])).rows[0];
       if(!row)throw notFound();
+      if(binding){
+        const prior=(await connection.query('SELECT request_digest AS "requestDigest",result AS task FROM iaic_task_transition_receipts WHERE task_id=$1 AND request_key=$2',[id,requestKey])).rows[0];
+        const original=checkedTransition(prior,binding);
+        if(original){await connection.query('COMMIT');return original;}
+      }
       if(action==='cancel'){
         if(['succeeded','failed'].includes(row.status))throw conflict('Terminal task cannot be cancelled');
         if(row.status!=='cancelled'){
@@ -89,7 +106,13 @@ export class TaskStore {
         await connection.query("UPDATE iaic_tasks SET status='queued',waiting_reason=NULL,executor_token=NULL,updated_at=now() WHERE id=$1",[id]);
         await event(connection,id,'resumed',{});
       }
-      await connection.query('COMMIT');return this.get(actor,id);
+      let snapshot=null;
+      if(binding){
+        const current=(await connection.query('SELECT id,capability,status,waiting_reason,version,updated_at FROM iaic_tasks WHERE id=$1',[id])).rows[0];
+        snapshot=JSON.parse(JSON.stringify({...current,controlReceipt:binding}));
+        await connection.query('INSERT INTO iaic_task_transition_receipts(task_id,request_key,request_digest,action,result) VALUES($1,$2,$3,$4,$5)',[id,requestKey,binding.requestDigest,action,snapshot]);
+      }
+      await connection.query('COMMIT');return snapshot??this.get(actor,id);
     }catch(error){await connection.query('ROLLBACK').catch(()=>{});throw error;}finally{connection.release();}
   }
   async switchModel(actor,id,{model,expectedModel,version}) {
