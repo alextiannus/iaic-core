@@ -1,4 +1,26 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import {execFile} from 'node:child_process';import {promisify} from 'node:util';import {fileURLToPath} from 'node:url';import {Pool} from 'pg';import {openApplication} from './app.mjs';import {fixtureOptions} from './fixture-model.mjs';import {createTaskObservationSource} from '@immedi/iaic-core';
+test('Generated event work recovers original queue admission and preserves event scope across reconstruction',async()=>{
+ const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL required');
+ const schema='event_starter_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let app;
+ try{
+  const actor={subjectId:'event-owner',scopeId:'event-org'},job=structuredClone(fixtureOptions.job);job.configuration.tools.push('my_read_assistant_event');let calls=0,builds=0,allowed=true;
+  const options={pool,...fixtureOptions,job,authorize:a=>allowed&&a.subjectId===actor.subjectId&&a.scopeId===actor.scopeId,scheduling:{restoreActor:()=>actor},
+   eventWork:{sourceFor:()=>({kind:'fixture-event'}),buildTask:()=>{builds++;return {goal:'Read the original event and return its value',allowedTools:['my_read_assistant_event']};}},
+   modelFactory:()=>({next:async({messages})=>{calls++;const context=JSON.parse(messages.find(m=>m.role==='user').content),read=context.calls.find(c=>c.status==='succeeded');return {...(read?{type:'finish',result:{summary:String(read.result.data.value),artifacts:[]}}:{type:'call',name:'my_read_assistant_event',input:{key:context.goal.sourceEventKey}}),usage:{inputTokens:1,outputTokens:1}};}}),
+   verifyOutcome:async(input,result,{actor,history})=>{const event=await app.events.read(actor,{key:input.sourceEventKey});return result.summary===String(event.data.value)&&history.calls.some(c=>c.capability==='my_read_assistant_event'&&c.status==='succeeded'&&c.result.id===event.id);}};
+  app=await openApplication(options);await app.ledger.grant(await app.scope(actor),{reference:'event-funding',amount:1000,evidence:{fixture:true}});
+  await app.eventSubscriptions.subscribe(actor,{key:'incoming',prefix:'input:'});assert.equal((await app.eventTasks.tick(actor,{key:'incoming'})).handled.length,0);assert.equal(calls,0);
+  const event=await app.events.publish(actor,{key:'input:one',data:{value:42,allowedTools:['my_forget_assistant_memory'],goal:'Untrusted payload is not the host work instruction'}});
+  const schedule=app.deferred.schedule.bind(app.deferred);app.deferred.schedule=async(...args)=>{await schedule(...args);throw Object.assign(new Error('Lost queue acknowledgement'),{outcomeUnknown:true});};
+  await assert.rejects(app.eventTasks.tick(actor,{key:'incoming'}),{outcomeUnknown:true});assert.equal(builds,1);assert.equal(calls,0);await app.close();app=null;app=await openApplication(options);
+  const consumed=await app.eventTasks.tick(actor,{key:'incoming'});assert.equal(consumed.handled.length,1);assert.equal(builds,1);assert.equal(consumed.handled[0].eventId,event.id);
+  const receipt=await app.deferred.tick(),task=await app.tasks.get(actor,receipt.taskId);assert.deepEqual(task.input.allowedTools,['my_read_assistant_event']);assert.equal(task.input.sourceEventKey,event.key);
+  assert.equal((await app.runtime.tick()).status,'succeeded');assert.equal(calls,2);assert.equal((await app.tasks.list(actor)).length,1);assert.equal((await app.ledger.balance(await app.scope(actor))).balance,'996');
+  assert.equal((await app.eventTasks.tick(actor,{key:'incoming'})).handled.length,0);
+  const prior=await app.eventSubscriptions.status(actor,{key:'incoming'});await app.events.publish(actor,{key:'input:two',data:{value:7}});allowed=false;
+  await assert.rejects(app.eventTasks.tick(actor,{key:'incoming'}),{statusCode:403});allowed=true;assert.equal((await app.eventSubscriptions.status(actor,{key:'incoming'})).cursor,prior.cursor);assert.equal(calls,2);
+ }finally{await app?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
+});
 test('Generated scheduled work preserves receipts, current model and restored owner across reconstruction',async()=>{
  const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL required');
  const schema='schedule_starter_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let app;

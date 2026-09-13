@@ -83,3 +83,35 @@ claim any row. Runtime executor/version ownership rules are unchanged.
 This opt-in wiring adds no recurring/event subscription configuration or new
 scheduler engine. Those existing Core modules remain separate compositions.
 Deployment, worker availability and current identity lookup remain host-owned.
+# Optional event-driven work
+
+Pass `eventWork: {sourceFor, buildTask}` together with the existing
+`scheduling: {restoreActor}` queue/worker configuration. `sourceFor(actor)` assigns
+trusted event provenance. `buildTask(actor,event)` is host code that creates a
+bounded Agent input with explicit `allowedTools`; it must not treat event data
+as permission. Include `my_read_assistant_event` in the job's Tool scope so the
+Agent can read the pinned source. Event publishing is a host integration port,
+not a newly exposed model Tool or unauthenticated webhook.
+
+```js
+await app.eventSubscriptions.subscribe(actor, {key: 'inbox', prefix: 'source:'});
+await app.events.publish(actor, {key: 'source:stable-id', data: payload});
+await app.eventTasks.tick(actor, {key: 'inbox', limit: 20});
+```
+
+Drive consumption from your existing listener/worker, including after restart;
+`app.start()` runs deferred admission and Runtime, not a subscription scanner.
+The returned `hasMore` and cursor support bounded continuation. Publishing alone
+does not start inference. Consumption retains an original source/event-bound
+queue intent before acknowledging the event. After a lost queue response,
+reconstruction reuses that intent instead of calling buildTask again. Cursor
+acknowledgement proves queuing, not successful business completion. Query the
+linked deferred receipt/Task for current results.
+
+Event and subscription stores use the same explicit Agent/user/application scope
+as other job resources. Current authorization applies to publishing, consuming
+and deferred dispatch; the Task source key restricts its event-read Tool. This
+wiring uses existing Core modules and adds no broker, automatic polling policy,
+provider-specific webhook adapter or universal business-effect deduplication.
+The event Work option can use the queue without exposing `assistant.schedule`
+to the job's models; one-time scheduling Tool access remains separately explicit.

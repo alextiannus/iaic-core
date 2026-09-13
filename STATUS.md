@@ -325,3 +325,20 @@ verified Task, allowance charging, future cancellation, wrong-owner restoration
 and clean worker shutdown. Separate PostgreSQL checks verify disjoint claim
 scopes without changing foreign intents. This is one-time scheduling composition,
 not new recurring/event orchestration, production deployment or real-model proof.
+
+## Event work composition in the Agent starter
+
+The optional eventWork configuration now wires existing scoped EventStore,
+subscription checkpoints and EventTaskSubscriptions into the Agent starter's
+durable queue. Hosts supply trusted source attribution and bounded Task building,
+drive subscription consumption from their own listener/worker, and explicitly
+enable the source-event read Tool. app.start continues to run deferred admission
+and Runtime; it is not a new subscription scanner or webhook endpoint.
+
+The installed generated-app check publishes an event, loses the successful queue
+acknowledgement, reconstructs the application, reuses the original Task input and
+completes one source-verified Task. Empty/repeated consumption causes no inference;
+untrusted payload Tool names do not replace host scope; current revocation leaves
+the next cursor unacknowledged. Queueing remains distinct from business outcome.
+No new execution engine, remote broker, actual-model run or production deployment
+is introduced by this application composition.
