@@ -42,6 +42,7 @@ An application installs the resulting `.tgz` and imports `@immedi/iaic-core` or 
 | Observe running releases | [Observation](observation/README.md): trusted metrics, fixed policies and atomic protective rollback |
 | Select evaluated releases | [Releases](releases/README.md): immutable version bindings, canary selection, stop and rollback |
 | Store binary resources | [Object storage](storage/README.md) and [release resource loading](releases/README.md): scoped content references and verified files |
+| Observe and control a browser device | [Devices](devices/README.md): host-owned Page adapter, current policy and persistent action receipts |
 | Execute released code | [Execution](execution/README.md): pinned Docker sandbox, resource loading and shared code capability |
 | Describe executable operations | [Capabilities](capabilities/README.md): schemas, authorization, functions or Agent implementations, result verification |
 | Persistent work and model loop | [Agent](agent/README.md), [Tasks](tasks/README.md), [Context](context/README.md) |

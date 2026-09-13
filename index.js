@@ -154,3 +154,7 @@ export {rateLimitedModel} from './agent/rate-model.js';
 
 export {PostgresMonitorCycles} from './observation/cycles-store.js';
 export {PersistentReleaseMonitor,createMonitorCycleCapabilities} from './observation/cycles.js';
+
+export {PuppeteerPageDevice} from './devices/browser.js';
+export {PostgresDeviceOperations} from './devices/store.js';
+export {BrowserDevices,createBrowserDeviceCapabilities} from './devices/service.js';

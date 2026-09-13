@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';import fs from 'node:fs/promises';import path from 'node:path';import {createRequire} from 'node:module';import {createServer} from 'node:http';import {randomUUID,createHash} from 'node:crypto';import {Pool} from 'pg';
+import {PuppeteerPageDevice,PostgresDeviceOperations,BrowserDevices,createBrowserDeviceCapabilities,CapabilityDispatcher} from '@immedi/iaic-core';
+const {IAIC_BROWSER_HOST_PACKAGE:hostPackage,IAIC_BROWSER_EXECUTABLE:executablePath,IAIC_BROWSER_EVIDENCE:directory,SUBMISSION_TEST_DATABASE_URL:connectionString}=process.env;
+if(!hostPackage||!path.isAbsolute(hostPackage)||!executablePath||!directory||!connectionString)throw Error('Explicit browser host package, executable, evidence directory and isolated PostgreSQL required');
+const puppeteer=createRequire(hostPackage)('puppeteer-core');
+await fs.mkdir(directory,{recursive:true});let effects=0;
+const server=createServer((req,res)=>{if(req.method==='POST'&&req.url==='/submit'){effects++;res.setHeader('content-type','application/json');res.end(JSON.stringify({effects}));return;}res.setHeader('content-type','text/html');res.end('<title>Core browser fixture</title><input id="name"><button id="save">Save</button><output id="result"></output><script>document.querySelector("#save").onclick=async()=>{const r=await fetch("/submit",{method:"POST"});const v=await r.json();document.querySelector("#result").textContent=document.querySelector("#name").value+" saved "+v.effects;}</script>');});
+await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
+const schema='browser_example_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let browser;
+try{
+ browser=await puppeteer.launch({executablePath,headless:true});const page=await browser.newPage();await page.setViewport({width:640,height:480});await page.setRequestInterception(true);page.on('request',request=>{if(request.url().startsWith(origin+'/'))request.continue();else request.abort();});
+ const store=new PostgresDeviceOperations({pool,namespace:'fixture'});await store.initialize();
+ const driver=new PuppeteerPageDevice({page,saveScreenshot:async bytes=>{const sha256=createHash('sha256').update(bytes).digest('hex');assert.equal(bytes.subarray(0,8).toString('hex'),'89504e470d0a1a0a');await fs.writeFile(path.join(directory,'browser.png'),bytes);return {sha256,mimeType:'image/png',bytes:bytes.length};}});
+ let allowed=true;const actor={subjectId:'fixture-owner'};
+ const devices=new BrowserDevices({store,resolveOwner:a=>a.subjectId,resolveDevice:async()=>driver,authorize:async(a,input)=>allowed&&a.subjectId===actor.subjectId&&input.deviceId==='fixture-browser'&&(input.action?.type!=='navigate'||new URL(input.action.url).origin===origin)});
+ const dispatcher=new CapabilityDispatcher({capabilities:createBrowserDeviceCapabilities({devices})});
+ const act=(requestKey,action,expectedUrl=origin+'/')=>dispatcher.invoke('browser.act',{deviceId:'fixture-browser',requestKey,action,expectedUrl},{actor,callId:requestKey});
+ assert.equal((await act('navigate',{type:'navigate',url:origin+'/'},'about:blank')).status,'submitted');await act('type',{type:'type',selector:'#name',text:'IAiC'});
+ const click={type:'click',selector:'#save'};await act('save',click);await page.waitForFunction(()=>document.querySelector('#result').textContent==='IAiC saved 1');await act('save',click);assert.equal(effects,1);
+ const observed=await dispatcher.invoke('browser.observe',{deviceId:'fixture-browser',screenshot:true},{actor});assert.match(observed.text,/IAiC saved 1/);assert.equal(observed.image.mimeType,'image/png');
+ const execute=driver.execute.bind(driver);driver.execute=async input=>{await execute(input);throw Error('Injected response loss after browser command');};
+ await assert.rejects(act('uncertain',click),e=>e.outcomeUnknown===true);await page.waitForFunction(()=>document.querySelector('#result').textContent==='IAiC saved 2');await assert.rejects(act('uncertain',click),e=>e.outcomeUnknown===true);await assert.rejects(act('bypass',click),/unresolved action/);assert.equal(effects,2);
+ assert.equal((await devices.result(actor,{deviceId:'fixture-browser',requestKey:'uncertain'})).status,'unknown');allowed=false;await assert.rejects(devices.observe(actor,{deviceId:'fixture-browser'}),{statusCode:403});
+ console.log(JSON.stringify({example:'core-browser',status:'passed',browser:await browser.version(),realBrowser:true,localHttpEffects:effects,screenshotReference:true,originalReceiptNoReplay:true,unknownDeviceBlocked:true,currentRevocation:true,modelInvoked:false,productionAccessed:false}));
+}finally{await browser?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();await new Promise(resolve=>server.close(resolve));}
