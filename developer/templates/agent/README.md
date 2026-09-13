@@ -185,3 +185,36 @@ own rule and identity denial, reconstructs the application after Task admission,
 then verifies one domain effect, two fixture model calls and metering. HTTP exposes
 the same declared Capability and enforces its authorizer. Removing it from job
 scope prevents further calls even while the host registration remains available.
+
+## Optional evaluated release binding
+
+After the host loads and verifies an evaluated release's implementation and
+configuration, pass its existing release service and immutable reference:
+
+```js
+const selected = await releases.resolve(actor, 'production');
+// Load the checked implementation, job, model policy, Skills and Prompt first.
+const app = await openApplication({
+  ...options,
+  version: selected.manifest.implementationRevision,
+  releaseBinding: {
+    releases,
+    reference: selected,
+    implementationRevision: selected.manifest.implementationRevision
+  }
+});
+```
+
+The template decorates its existing AgentRegistry identity with
+ReleaseBoundAgentIdentity. Admission and later Runtime checks require the pinned
+release to remain active; ordinary Agent scope, lifecycle and tool restrictions
+still apply. A stop blocks new work and subsequent actions from an in-flight
+model response. Admitted effects and usage retain their original receipts.
+
+Channel changes select later work. They do not migrate existing Tasks, reload a
+worker or modify a model in place. Construct an application with the checked
+fallback implementation to admit new fallback work; retain or explicitly end old
+Tasks under the existing version/reconciliation rules. The host owns release
+registration/rollback authorization, checked resource loading and deployment.
+Passing a matching revision string alone is not proof that the evaluated bytes
+were loaded. No release-management Tool or UI is added to the Agent.

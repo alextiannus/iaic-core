@@ -487,3 +487,33 @@ The host must include added domain executable resources in its Runtime revision
 or evaluated release binding. The starter's existing default hash cannot discover
 arbitrary imported modules/external service changes. This is a basic application
 composition port, not automatic business-code loading or a new plugin lifecycle.
+
+## 2026-09-14 — Generated Agent applications bind evaluated releases
+
+The Agent starter now accepts optional releaseBinding with the existing release
+service, pinned reference and explicit implementation revision. It decorates the
+existing registry identity using ReleaseBoundAgentIdentity instead of adding a
+second Runtime, release-management Tool or UI. Application version must match the
+binding. Hosts still load checked code/configuration and own deployment policy;
+a revision string alone cannot prove those bytes were loaded.
+
+The generated-app installed test uses real PostgreSQL release records, separate
+deterministic capability/regression evaluation fixtures, a canary and fallback.
+A candidate Task survives application reconstruction with its original binding.
+Stopping the candidate while its next model response returns prevents the proposed
+Workspace write: zero Tool receipts, no artifact, current Task waiting, new
+candidate admission denied. The two occurred fixture inferences still settle four
+platform units. A newly constructed fallback application cannot resume the old
+candidate Task; a separately admitted fallback Task succeeds, charging two further
+units. The worker cannot stop releases and receives no release-management Tool.
+These are deterministic integration fixtures, not actual-model quality evidence,
+checked resource loading, production deployment or full acceptance.
+
+Verification: generated application installed tests and all 42 independent Core
+examples passed. Initial verification attempts used the template source without
+its generated vendor archive, then omitted required fixture dataset category and
+grader score fields; those setup failures were corrected without changing the
+release gates. Evidence is in ImmediToday-evidence/2026-09-14/core-starter-release,
+including failed/successful developer logs and the successful installed package.
+ImmediToday production remains on candidate.74; this optional starter integration
+does not require another application dependency deployment.

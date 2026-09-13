@@ -1,12 +1,13 @@
 import {
- MandateStore,AssistantMandates,AgentRegistry,AgentIdentityStore,TaskStore,AgentRuntime,ContextAssembler,CapabilityDispatcher,defineCapability,TaskPlans,DeferredTaskStore,createAgentDeferredTasks,
+ ReleaseBoundAgentIdentity,MandateStore,AssistantMandates,AgentRegistry,AgentIdentityStore,TaskStore,AgentRuntime,ContextAssembler,CapabilityDispatcher,defineCapability,TaskPlans,DeferredTaskStore,createAgentDeferredTasks,
  EventStore,AssistantEvents,PostgresEventSubscriptions,EventSubscriptions,EventTaskSubscriptions,EVENT_SUBSCRIPTION_TASK_PREFIX,
  createAgentTaskCapabilities,createTaskControlCapabilities,TaskListing,createTaskListCapability,MemoryStore,AssistantMemory,PostgresWorkspaceStore,AssistantWorkspace,SkillCatalog,
  PostgresKnowledgeStore,KnowledgeCatalog,AssistantSettings,AssistantModels,AssistantModelRouting,ModelProfiles,TokenLedger,SessionStore,createAgentSessions,startSessionTask
 } from '@immedi/iaic-core';
 
 // This is application-owned composition. Each imported Core module remains independently replaceable.
-export async function openApplication({pool,skillRoot,job,profiles,resolveSecret,modelFactory,userModels=null,routing=null,tokenPolicies,authorize,verifyOutcome,version,runtimeLimits={},taskCursorKey=null,toolCallLimits,enablePlans=false,scheduling=null,eventWork=null,executionPolicy=null,mandates=null,extraCapabilities=[]}){
+export async function openApplication({pool,skillRoot,job,profiles,resolveSecret,modelFactory,userModels=null,routing=null,tokenPolicies,authorize,verifyOutcome,version,runtimeLimits={},taskCursorKey=null,toolCallLimits,enablePlans=false,scheduling=null,eventWork=null,executionPolicy=null,mandates=null,extraCapabilities=[],releaseBinding=null}){
+ if(releaseBinding!==null&&(!releaseBinding||releaseBinding.implementationRevision!==version))throw new Error('Release binding must match the explicit application version');
  if(!Array.isArray(extraCapabilities))throw new Error('extraCapabilities must be an array of host-defined Capabilities');
  if(mandates!==null&&(typeof mandates?.authorizeGrant!=='function'||typeof mandates?.sourceFor!=='function'))throw new Error('Mandates require trusted authorizeGrant and sourceFor ports');
  if(eventWork!==null&&(!scheduling||typeof eventWork?.sourceFor!=='function'||typeof eventWork?.buildTask!=='function'))throw new Error('Event work requires scheduling identity restoration, sourceFor and buildTask ports');
@@ -48,7 +49,9 @@ export async function openApplication({pool,skillRoot,job,profiles,resolveSecret
  const taskListing=taskCursorKey===null?null:new TaskListing({store:tasks,readTask:(actor,id)=>runtime.state(actor,id),resolveOwner:async actor=>{await check(actor);return JSON.stringify([actor.scopeId,actor.subjectId]);},cursorKey:taskCursorKey});
  if(taskListing)capabilities.push(createTaskListCapability({listing:taskListing,authorize:check}));
  const dispatcher=new CapabilityDispatcher({capabilities,executionPolicy});
- runtime=new AgentRuntime({...runtimeLimits,store:tasks,dispatcher,mandates:assistantMandates,model:{name:'host-model-resolver'},resolveModel:request=>(modelRouting||models).resolve(request),context:new ContextAssembler({skillRoot,planProvider:plans?({actor,task})=>plans.read(actor,{id:task.id}):null,overflow:'omit-old-results',sessionProvider:({actor,task})=>task.input.session?sessions.context(actor,task.input.session):null}),version,agentIdentity:{bind:({actor,capability})=>registry.bind(actor,job.id,capability.name),check:({actor,task,binding})=>registry.check(actor,binding,task.capability)}});
+ const identity={bind:({actor,capability})=>registry.bind(actor,job.id,capability.name),check:({actor,task,binding})=>registry.check(actor,binding,task.capability)};
+ const agentIdentity=releaseBinding===null?identity:new ReleaseBoundAgentIdentity({identity,releases:releaseBinding.releases,reference:releaseBinding.reference,implementationRevision:releaseBinding.implementationRevision});
+ runtime=new AgentRuntime({...runtimeLimits,store:tasks,dispatcher,mandates:assistantMandates,model:{name:'host-model-resolver'},resolveModel:request=>(modelRouting||models).resolve(request),context:new ContextAssembler({skillRoot,planProvider:plans?({actor,task})=>plans.read(actor,{id:task.id}):null,overflow:'omit-old-results',sessionProvider:({actor,task})=>task.input.session?sessions.context(actor,task.input.session):null}),version,agentIdentity});
  dispatcher.tasks=runtime;
  try{await runtime.initialize();}catch(error){await runtime.stop();throw error;}
  const entry={capabilities:dispatcher.capabilities,invoke:(name,input,context)=>name==='agent.work'?startSessionTask({sessions,actor:context.actor,input,startTask:()=>dispatcher.invoke(name,input,context)}):dispatcher.invoke(name,input,context)};

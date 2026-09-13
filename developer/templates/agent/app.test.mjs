@@ -199,3 +199,40 @@ test('Generated Agent invokes an independently owned domain Capability with shar
   await assert.rejects(app.dispatcher.invoke('domain.add',{amount:1},{actor,callId:'not-in-job'}),{statusCode:403});assert.equal(executions,1);
  }finally{await app?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
 });
+
+test('Generated Agent binds evaluated releases across reconstruction and blocks stopped responses before effects',async()=>{
+ const {EvaluationRunner,ReleaseManager,PostgresReleaseStore}=await import('@immedi/iaic-core');
+ const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL required');
+ const schema='release_starter_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let app;
+ try{
+  const actor={subjectId:'release-worker',scopeId:'release-org'},maintainer={subjectId:'release-maintainer',scopeId:actor.scopeId},records=new Map(),policies={};
+  const runner=new EvaluationRunner({execute:({input})=>({result:input}),grade:({testCase,observation})=>({passed:observation.result===testCase.expected,score:observation.result===testCase.expected?1:0,checks:[{name:'outcome',passed:observation.result===testCase.expected}]})});
+  for(const suite of ['capability','regression'])for(const revision of ['baseline','candidate']){
+   const run=await runner.run({dataset:[{id:suite,category:'outcome',input:suite==='capability'?42:17,expected:suite==='capability'?42:17}],revision,graderRevision:'fixture-grader',environmentRevision:'fixture-environment'});records.set(suite+'-'+revision,run);
+   if(revision==='baseline')policies[suite]={datasetDigest:run.datasetDigest,graderRevision:run.graderRevision,environmentRevision:run.environmentRevision,repeats:1,baselineId:suite+'-baseline',thresholds:{requiredChecks:['outcome']}};
+  }
+  const store=new PostgresReleaseStore({pool,namespace:'generated-release'});await store.initialize();
+  const releases=new ReleaseManager({store,evaluations:{get:async id=>structuredClone(records.get(id))},policies,authorize:(a,{action})=>a.scopeId===actor.scopeId&&(a.subjectId===maintainer.subjectId||(['check','resolve'].includes(action)&&a.subjectId===actor.subjectId)),resolveCohort:a=>a.subjectId});
+  for(const id of ['baseline','candidate'])await releases.register(maintainer,{manifest:{id,implementationRevision:id,versions:Object.fromEntries(['prompt','model','skills','tools','knowledge','harness'].map(k=>[k,'fixture-'+id]))},evaluations:{capability:'capability-'+id,regression:'regression-'+id}});
+  await releases.setChannel(maintainer,{name:'main',stableId:'baseline',expectedRevision:0});await releases.setChannel(maintainer,{name:'main',stableId:'baseline',canaryId:'candidate',percentage:100,expectedRevision:1});
+  const selected=await releases.resolve(actor,'main');let calls=0,stopDuringModel=false;
+  const options={pool,...fixtureOptions,version:'candidate',releaseBinding:{releases,reference:selected,implementationRevision:'candidate'},modelFactory:()=>({next:async()=>{calls++;if(stopDuringModel){await releases.stop(maintainer,'candidate');return {type:'call',name:'my_write_workspace',input:{path:'stopped.md',content:'must not be written',expectedRevision:0},usage:{inputTokens:1,outputTokens:1}};}return {type:'finish',result:{summary:'42',artifacts:[]},usage:{inputTokens:1,outputTokens:1}};}}),verifyOutcome:async(_i,r)=>Number(r.summary)===17+25};
+  await assert.rejects(openApplication({...options,version:'unmatched'}),/Release binding must match/);
+  app=await openApplication(options);await app.ledger.grant(await app.scope(actor),{reference:'release-funding',amount:1000,evidence:{fixture:true}});
+  const input={goal:'Compute 17 plus 25',allowedTools:['my_write_workspace']};
+  const first=await app.dispatcher.invoke('agent.work',input,{actor,callId:'candidate-first'});const binding=(await app.tasks.get(actor,first.id)).agent;
+  assert.equal(binding.release.releaseId,'candidate');await app.close();app=null;app=await openApplication(options);
+  assert.equal((await app.runtime.tick()).status,'succeeded');assert.equal(calls,1);assert.deepEqual((await app.tasks.get(actor,first.id)).agent,binding);
+  const interrupted=await app.dispatcher.invoke('agent.work',input,{actor,callId:'candidate-stop'});stopDuringModel=true;
+  assert.equal((await app.runtime.tick()).status,'waiting');assert.equal(calls,2);assert.equal((await app.tasks.history(actor,interrupted.id)).calls.length,0);
+  await assert.rejects(app.workspace.read(actor,{path:'stopped.md'}),{statusCode:404});await assert.rejects(releases.stop(actor,'baseline'),{statusCode:403});
+  await assert.rejects(app.dispatcher.invoke('agent.work',input,{actor,callId:'stopped-admission'}),{statusCode:409});
+  assert.equal((await app.ledger.balance(await app.scope(actor))).balance,'996');
+  await app.close();app=null;const fallback=await releases.resolve(actor,'main');assert.equal(fallback.releaseId,'baseline');stopDuringModel=false;
+  app=await openApplication({...options,version:'baseline',releaseBinding:{releases,reference:fallback,implementationRevision:'baseline'}});
+  await assert.rejects(app.runtime.transition(actor,interrupted.id,{action:'resume'}),{statusCode:409});
+  const next=await app.dispatcher.invoke('agent.work',input,{actor,callId:'fallback-new'});assert.equal((await app.runtime.tick()).status,'succeeded');assert.equal(calls,3);
+  assert.equal((await app.tasks.get(actor,next.id)).agent.release.releaseId,'baseline');assert.equal((await app.tasks.get(actor,interrupted.id)).agent.release.releaseId,'candidate');
+  assert.equal((await app.ledger.balance(await app.scope(actor))).balance,'994');assert.ok(![...app.dispatcher.capabilities.keys()].some(n=>n.startsWith('releases.')));
+ }finally{await app?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
+});
