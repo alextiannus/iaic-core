@@ -40,7 +40,8 @@
     "./a2a/*": "./a2a/*",
     "./payments/*": "./payments/*",
     "./developer/*": "./developer/*",
-    "./observation/*": "./observation/*"
+    "./observation/*": "./observation/*",
+    "./collaboration/*": "./collaboration/*"
   },
   "files": [
     "index.js",
@@ -82,7 +83,8 @@
     "a2a",
     "payments",
     "developer",
-    "observation"
+    "observation",
+    "collaboration"
   ],
   "dependencies": {
     "ajv": "8.20.0",
