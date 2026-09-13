@@ -12,7 +12,7 @@ Call `agent.work` through `/capabilities/agent.work` with a stable requestKey an
 
 Edit job.json for responsibility, selected Skills, Knowledge IDs and available tools. Knowledge content and user memory remain in their existing stores; this starter does not invent source records. The host may populate them through app.knowledgeStore/app.memory with its own authorization. The default runtime revision hashes app/config/server code, job configuration, selected Skill files and the pinned Core archive at startup; changed executable resources cannot silently resume an old binding. Applications adding other executable resources must include them in this revision or bind their evaluated release manifest. Default resource scope distinguishes organization plus user and job; sharing is an explicit application policy.
 
-The example verifier checks artifact and tool evidence. Replace config.mjs verifyOutcome with independent checks for the application's actual goal; do not treat this fixture as semantic certification. Proactive scheduling, Mandates, handoffs, provider-specific deployment, webhook adapters and richer model-management endpoints can use the existing modules but are not wired into this minimal template. Graceful shutdown closes the shared Runtime; database pool ownership remains with the host composition.
+The example verifier checks artifact and tool evidence. Replace config.mjs verifyOutcome with independent checks for the application's actual goal; do not treat this fixture as semantic certification. Optional scheduling, events and Mandates are described below. Handoffs, provider-specific deployment, webhook adapters and richer model-management endpoints use separate existing module compositions. Graceful shutdown closes the shared Runtime; database pool ownership remains with the host composition.
 
 ## Optional gateway composition
 
@@ -115,3 +115,39 @@ wiring uses existing Core modules and adds no broker, automatic polling policy,
 provider-specific webhook adapter or universal business-effect deduplication.
 The event Work option can use the queue without exposing `assistant.schedule`
 to the job's models; one-time scheduling Tool access remains separately explicit.
+
+# Optional standing authorization
+
+Pass `mandates: {authorizeGrant, sourceFor}` to `openApplication`. The template
+initializes the existing MandateStore and AssistantMandates with the same current
+application/user/job scope as other resources, returns `app.mandates`, and connects
+it to Task schemas and Runtime checks. Both trusted host ports are required.
+`authorizeGrant(actor, terms)` must explicitly allow a grant; `sourceFor(actor)`
+records its authorization source. These operations are host integration methods,
+not model Tools or automatically published HTTP endpoints.
+
+```js
+const grant = await app.mandates.grant(actor, {
+  requestKey: 'owner-approved-work-v1', capability: 'agent.work',
+  tools: ['my_read_workspace'], purpose: 'Read my work materials',
+  expiresAt: '2027-01-01T00:00:00Z',
+});
+await app.dispatcher.invoke('agent.work', {
+  goal: 'Review the available work materials',
+  allowedTools: ['my_read_workspace'], mandate: {id: grant.id},
+}, {actor, callId: 'review-work-v1'});
+```
+
+The referenced grant survives reconstruction. Current permission, job Tool scope,
+model allowance and outcome verification remain mandatory; a Mandate cannot
+widen them. Purpose is explanatory text, not a semantic goal or data filter.
+Tasks without a reference keep explicit per-request authorization. The option
+creates no automatic grant, discovery/renewal policy or approval UI.
+
+`app.mandates.revoke(actor, id)` permanently stops later execution using that
+reference. Existing Task read/cancellation remain available; an already admitted
+model request or external effect is still accountable. A scheduled Task carries
+its reference and rechecks it at actual admission: an accepted queue receipt is
+not proof the Mandate will remain valid when work starts. Configure the same
+Mandate option on the worker after restart. Removing the option does not grant
+permission to previously bound work.

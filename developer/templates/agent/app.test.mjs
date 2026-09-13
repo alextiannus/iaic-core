@@ -142,3 +142,36 @@ test('Generated HTTP entry supports clarification, original receipts and current
  await assert.rejects(new CapabilityHttpClient({url:client.url}).list(),{statusCode:403});
  }finally{if(server)await new Promise(resolve=>server.close(resolve));await app?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
 });
+
+test('Generated Mandates survive reconstruction and stop revoked work before subsequent effects',async()=>{
+ const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL required');
+ const schema='mandate_starter_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let app;
+ try{
+  const actor={subjectId:'mandate-owner',scopeId:'mandate-org'},job=structuredClone(fixtureOptions.job);job.configuration.tools.push('assistant.schedule');let calls=0,revokeDuringModel=false,grantId;
+  const options={pool,...fixtureOptions,job,scheduling:{restoreActor:()=>actor},
+   mandates:{authorizeGrant:a=>a.subjectId===actor.subjectId,sourceFor:()=>({kind:'owner-instruction',reference:'fixture-grant'})},
+   modelFactory:()=>({next:async()=>{calls++;if(revokeDuringModel){await app.mandates.revoke(actor,grantId);return {type:'call',name:'my_write_workspace',input:{path:'must-not-exist.md',content:'blocked',expectedRevision:0},usage:{inputTokens:1,outputTokens:1}};}return {type:'finish',result:{summary:'42',artifacts:[]},usage:{inputTokens:1,outputTokens:1}};}}),verifyOutcome:async(_i,r)=>Number(r.summary)===17+25};
+  app=await openApplication(options);await app.ledger.grant(await app.scope(actor),{reference:'mandate-funding',amount:1000,evidence:{fixture:true}});
+  const terms={requestKey:'owner-grant',capability:'agent.work',tools:['my_write_workspace'],purpose:'Authorized fixture work',expiresAt:'2099-01-01T00:00:00Z'};
+  await assert.rejects(app.mandates.grant({...actor,subjectId:'other'},terms),{statusCode:403});
+  const grant=await app.mandates.grant(actor,terms);grantId=grant.id;
+  const input={goal:'Compute 17 plus 25',allowedTools:['my_write_workspace'],mandate:{id:grant.id}};
+  await assert.rejects(app.dispatcher.invoke('agent.work',{...input,allowedTools:['my_read_workspace']},{actor,callId:'too-broad'}),{statusCode:403});
+  await app.dispatcher.invoke('agent.work',input,{actor,callId:'authorized-task'});
+  await app.close();app=null;app=await openApplication(options);
+  assert.equal((await app.mandates.grant(actor,terms)).id,grant.id);assert.equal((await app.runtime.tick()).status,'succeeded');assert.equal(calls,1);
+  const next=await app.dispatcher.invoke('agent.work',input,{actor,callId:'revoke-inflight'});
+  const scheduled=await app.dispatcher.invoke('assistant.schedule',{dueAt:'2000-01-01T00:00:00Z',task:input},{actor,callId:'scheduled-mandate'});
+  revokeDuringModel=true;assert.equal((await app.runtime.tick()).status,'waiting');assert.equal(calls,2);
+  await assert.rejects(app.workspace.read(actor,{path:'must-not-exist.md'}),{statusCode:404});assert.equal((await app.tasks.history(actor,next.id)).calls.length,0);
+  assert.equal((await app.ledger.balance(await app.scope(actor))).balance,'996');
+  await app.close();app=null;app=await openApplication(options);
+  assert.ok((await app.mandates.read(actor,grant.id)).revokedAt);
+  await assert.rejects(app.runtime.transition(actor,next.id,{action:'resume'}),{statusCode:403});
+  await assert.rejects(app.dispatcher.invoke('agent.work',input,{actor,callId:'revoked-new'}),{statusCode:403});
+  assert.equal((await app.deferred.tick()).state,'blocked');assert.equal((await app.deferred.get(actor,scheduled.id)).taskId,null);assert.equal(calls,2);
+  assert.equal((await app.tasks.list(actor)).length,2);
+  assert.equal((await app.runtime.transition(actor,next.id,{action:'cancel'})).status,'cancelled');
+  assert.ok(![...app.dispatcher.capabilities.keys()].some(name=>name.includes('mandate')));
+ }finally{await app?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
+});

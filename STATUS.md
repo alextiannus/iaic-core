@@ -359,3 +359,26 @@ records do not automatically copy input payloads or count as business receipts.
 Host policy storage, feature flag values, risk classification and audit durability
 remain explicit ports; this is a shared enforcement/recording foundation, not a
 new approval product, policy database or full governance acceptance claim.
+
+## Standing authorization in the Agent starter
+
+The optional `mandates: {authorizeGrant, sourceFor}` configuration now composes
+MandateStore and AssistantMandates with the template's current user/application/job
+scope. It exposes the host management port, declares Task Mandate references and
+connects the existing Runtime checks. Grants are explicit owner operations and do
+not become model Tools, automatic approvals or new public HTTP endpoints.
+
+Deferred input validation checks the same grant at scheduling and dispatch. An
+initial installed-app check found that relying only on Runtime admission left a
+revoked scheduled intent in retry; wiring the existing pre-admission validation
+port now blocks it before Task admission. The retained failed log records this
+finding; the expectation was not relaxed.
+
+All 42 independent installed examples pass. The new generated-app scenario proves
+stable grant identity through reconstruction, tool-scope rejection, authorized
+completion, revocation during a model response with no subsequent write, retained
+usage accounting, revoked resume/new Task rejection, blocked scheduled admission
+and continued Task cancellation. Models are deterministic fixtures. No new Runtime,
+Mandate semantics, migration, actual-model evaluation or production deployment is
+introduced. Purpose remains explanatory rather than a semantic resource filter;
+application permission, model allowance and outcome verification remain separate.
