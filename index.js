@@ -74,3 +74,6 @@ export {Notifications} from './notifications/service.js';
 export {createNotificationCapabilities} from './notifications/capabilities.js';
 
 export {importHttpCapabilities} from './http/import.js';
+
+export {EvaluationRunner,evaluateGate,compareEvaluations} from './evaluation/runner.js';
+export {FileEvaluationStore} from './evaluation/files.js';
