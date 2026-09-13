@@ -2,7 +2,7 @@
 
 A headless JavaScript framework for AI Native Applications: configure an Agent's responsibility and resources, give it a goal, let it use authorized capabilities, and retain work and results beyond a chat connection.
 
-This is the **0.1.0 public source candidate**, published at https://github.com/alextiannus/iaic-core. A reuse license has not yet been selected; public visibility does not imply an MIT or other open-source license grant. See [STATUS.md](STATUS.md) for verified capabilities and limits.
+This is the **0.1.0 public source candidate**, published at https://github.com/alextiannus/iaic-core. A reuse license has not yet been selected; public visibility does not imply an MIT or other open-source license grant. See [ACCEPTANCE.md](ACCEPTANCE.md) for the current requirement-to-evidence map and [STATUS.md](STATUS.md) for the chronological implementation record.
 
 ## Start here
 

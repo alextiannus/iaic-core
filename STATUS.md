@@ -408,3 +408,24 @@ orderly Runtime reconstruction rather than process kill, and not a third-party
 blind holdout, cross-principal cancellation/takeover evaluation or full Core
 acceptance. Those requirements retain their separate evidence and limits. Latest
 runtime prerelease remains candidate.73; no production application was deployed.
+
+## Acceptance evidence consolidation and post-freeze goal
+
+ACCEPTANCE.md maps the eight Note 30 conditions to current code and inspected
+examples/evidence. Earlier chronological missing-capability statements do not
+supersede later delivered modules. Protocol parity, actual interruption recovery,
+cross-principal cancellation/takeover, replaceable defaults and current execution
+policy all have specific evidence; they should not be reported as absent modules.
+Representative Agent evaluation-to-candidate-release evidence remains a next
+acceptance task, alongside the final technical and application deployment audits.
+
+Using frozen source f37c9ec302039aaabfa1dbdf820ffdb6371d8302 and the unchanged
+core-real-composition harness, a newly authored combined-queues goal passed all
+seven original checks on its first actual DeepSeek V4 Flash run. Run
+ da7cbedc-2c3b-4450-aa07-5248705d9c08, Task 9700470e-f2f1-42cb-bf70-957a7483182e,
+selected R-03/R-02 with total 11, wrote once and read the artifact back. Six model
+requests/eight Tool attempts used 23,765 Provider Tokens; no unknown usage or
+remaining reservations. No tools, Skill, grader or execution budget changed.
+The private dataset was frozen before inference; this is post-freeze composition
+evidence, not a third-party blind benchmark or full Core/application completion.
+No new runtime release or production deployment was made for this evidence update.
