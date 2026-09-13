@@ -31,7 +31,7 @@ function cost(usage,price){
 // credits or choose account, price and attribution. Never expose these methods
 // directly as model tools or accept account identity from a request body.
 export class TokenLedger {
- constructor({pool}){this.pool=pool;}
+ constructor({pool,budgets=null}){this.pool=pool;this.budgets=budgets;}
  async initialize(){await this.pool.query(await fs.readFile(new URL('./schema.sql',import.meta.url),'utf8'));}
  async transaction(scope,fn){
   const account=identity(scope),client=await this.pool.connect();
@@ -97,19 +97,22 @@ export class TokenLedger {
   }
   return (await client.query('INSERT INTO iaic_token_entries(application_id,subject_id,kind,reference,delta,evidence) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[...account,kind,reference,delta,evidence])).rows[0];
  }
- async reserve(scope,{requestId,mode,maximum,price,attribution}){
+ async reserve(scope,{requestId,mode,maximum,price,attribution,budget=null}){
   if(!text(requestId)||!['SYSTEM_MANAGED','BYOK'].includes(mode))throw fail('Call identity and credential mode required');
   const reserved=String(units(maximum)),snapshot=pricing(price),owner=document(attribution);
+  const budgetBinding=budget===null?null:document(budget);
+  if(budgetBinding&&!this.budgets)throw fail('Budget resolver required',503);
   if(mode==='BYOK'&&reserved!=='0')throw fail('BYOK cannot reserve system credits');
   if(mode==='SYSTEM_MANAGED'&&reserved==='0')throw fail('System call requires positive reservation');
   return this.transaction(scope,async(client,account)=>{
    const existing=await this.call(client,account,requestId,false);
    if(existing){
-    if(existing.mode!==mode||existing.reserved!==reserved||!isDeepStrictEqual(existing.price,snapshot)||!isDeepStrictEqual(existing.attribution,owner))throw fail('Model request identity reused',409);
+    if(!isDeepStrictEqual(existing.budget??null,budgetBinding)||existing.mode!==mode||existing.reserved!==reserved||!isDeepStrictEqual(existing.price,snapshot)||!isDeepStrictEqual(existing.attribution,owner))throw fail('Model request identity reused',409);
     return {...existing,replayed:true};
    }
    if(mode==='SYSTEM_MANAGED'&&BigInt((await this.readBalance(client,account)).available)<BigInt(reserved))throw Object.assign(fail('Token balance insufficient; add credits or select your own model',402),{code:'TOKEN_BALANCE_INSUFFICIENT'});
-   return {...(await client.query('INSERT INTO iaic_token_calls(application_id,subject_id,request_id,mode,reserved,price,attribution) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',[...account,requestId,mode,reserved,snapshot,owner])).rows[0],replayed:false};
+   if(budgetBinding)await this.budgets.admit(client,account,budgetBinding,reserved);
+   return {...(await client.query('INSERT INTO iaic_token_calls(application_id,subject_id,request_id,mode,reserved,price,attribution,budget) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',[...account,requestId,mode,reserved,snapshot,owner,budgetBinding])).rows[0],replayed:false};
   });
  }
  async call(client,account,id,required=true){
@@ -125,12 +128,16 @@ export class TokenLedger {
  async settleCall(client,account,{requestId,raw,providerReference,failed,reconciliation=null}){
   const call=await this.call(client,account,requestId);
   if(call.state==='released')throw fail('Released call cannot settle',409);
-  const ratedCredits=cost(raw,call.price),charged=call.mode==='BYOK'?0n:ratedCredits;
+  const ratedCredits=cost(raw,call.price),uncapped=call.mode==='BYOK'?0n:ratedCredits;
+  // Budget admission requires explicit platform-absorbed overflow. Preserve raw
+  // usage and rated units while capping this call's platform charge to its hold.
+  const charged=call.budget&&uncapped>BigInt(call.reserved)?BigInt(call.reserved):uncapped;
   if(charged>=10n**30n||ratedCredits>=10n**30n)throw fail('Usage cost exceeds ledger range');
-  const evidence={usage:raw,providerReference,failed,mode:call.mode,price:call.price,ratedCredits:String(ratedCredits),reservationExceeded:charged>BigInt(call.reserved),...(reconciliation?{reconciliation}:{})};
+  const evidence={usage:raw,providerReference,failed,mode:call.mode,price:call.price,ratedCredits:String(ratedCredits),reservationExceeded:uncapped>BigInt(call.reserved),...(call.budget?{budget:call.budget,platformAbsorbedUnits:String(uncapped-charged)}:{}),...(reconciliation?{reconciliation}:{})};
   const receipt=await this.entry(client,account,'settlement',requestId,String(-charged),evidence);
   await client.query("UPDATE iaic_token_calls SET state='settled' WHERE application_id=$1 AND subject_id=$2 AND request_id=$3",[...account,requestId]);
-  // Actual usage may exceed reservation: preserve debt rather than discard it.
+  // Ordinary calls preserve actual-usage debt; budgeted calls preserve overflow
+  // evidence under their explicitly admitted platform-absorbed policy.
   return {receipt,...await this.readBalance(client,account)};
  }
  // Trusted reconciliation port. The source is immutable and belongs to one

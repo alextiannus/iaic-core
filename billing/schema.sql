@@ -36,3 +36,5 @@ CREATE TABLE IF NOT EXISTS iaic_token_reconciliations (
  UNIQUE(application_id,subject_id,request_id),
  FOREIGN KEY(application_id,subject_id,request_id) REFERENCES iaic_token_calls
 );
+
+ALTER TABLE iaic_token_calls ADD COLUMN IF NOT EXISTS budget jsonb;

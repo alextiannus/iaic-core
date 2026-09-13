@@ -11,7 +11,7 @@ export function meteredModel({model,ledger,scope,policy,mode='SYSTEM_MANAGED'}){
   request.signal?.throwIfAborted();
   if(await ledger.hasPendingTask(scope,context.taskId))throw pending();
   const requestId=randomUUID();
-  await ledger.reserve(scope,{requestId,mode,maximum:mode==='BYOK'?0:policy.maximum,price:policy.price,
+  await ledger.reserve(scope,{requestId,mode,maximum:mode==='BYOK'?0:policy.maximum,price:policy.price,budget:policy.budget??null,
    attribution:{...context,model:model.name,profile:model.profileId??null}});
   // A crash after reservation leaves a durable hold; never assume zero usage.
   if(request.signal?.aborted){

@@ -109,3 +109,5 @@ export {createTaskObservationSource} from './observation/task-source.js';
 export {PostgresExecutionJournal,RecoverableDockerSandbox} from './execution/journal.js';
 
 export {PostgresDelegationStore,DelegatedCapabilities} from './collaboration/authority.js';
+
+export {AllowanceBudgets} from './budgets/allowance.js';
