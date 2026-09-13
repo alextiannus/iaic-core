@@ -140,6 +140,7 @@
     "scripts/verify-examples.mjs",
     "scripts/verify-package.mjs",
     ".gitignore",
-    "package-lock.json"
+    "package-lock.json",
+    "credentials/README.md"
   ]
 }
