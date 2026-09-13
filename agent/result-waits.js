@@ -3,8 +3,8 @@ import {withExecutionSignal} from '../context/execution.js';
 // One bounded, authorized read per tick. PostgreSQL owns the wait and wake receipt;
 // this cursor only provides fair polling and can be discarded on restart.
 export class ResultWaits {
- constructor({store,dispatcher,version,authorizeTask,intervalMs=1000,timeoutMs=5000}) {
-  Object.assign(this,{store,dispatcher,version,authorizeTask,intervalMs,timeoutMs});this.cursor=null;this.nextCheck=0;
+ constructor({store,dispatcher,version,authorizeTask,intervalMs=1000,timeoutMs=5000,admitRead=async()=>null,settleRead=async()=>{}}) {
+  Object.assign(this,{store,dispatcher,version,authorizeTask,intervalMs,timeoutMs,admitRead,settleRead});this.cursor=null;this.nextCheck=0;
  }
  async tick() {
   if(Date.now()<this.nextCheck)return null;
@@ -20,7 +20,9 @@ export class ResultWaits {
      const actor=this.store.actor(task),capability=this.dispatcher.capabilities.get(task.wait_capability);
      if(capability?.effect!=='read'||typeof capability.waitReady!=='function')return null;
      await this.authorizeTask(actor,task,task.wait_capability);
-     const result=await this.dispatcher.invoke(task.wait_capability,task.wait_input,{actor,signal:controller.signal});
+     const callId=await this.admitRead(actor,task,{name:task.wait_capability,input:task.wait_input});
+     let result;try{result=await this.dispatcher.invoke(task.wait_capability,task.wait_input,{actor,callId,signal:controller.signal});await this.settleRead(task,callId,'returned').catch(()=>{});}
+     catch(error){await this.settleRead(task,callId,'unknown').catch(()=>{});throw error;}
      if(await capability.waitReady(task.wait_input,result,{actor})!==true)return null;
      controller.signal.throwIfAborted();
      // Cancellation, a manual resume or a newer wait wins over this stale observation.

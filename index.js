@@ -111,3 +111,5 @@ export {PostgresExecutionJournal,RecoverableDockerSandbox} from './execution/jou
 export {PostgresDelegationStore,DelegatedCapabilities} from './collaboration/authority.js';
 
 export {AllowanceBudgets} from './budgets/allowance.js';
+
+export {DelegatedTasks,delegationExecutorKey} from "./collaboration/tasks.js";

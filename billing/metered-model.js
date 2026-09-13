@@ -5,7 +5,7 @@ const pending=()=>Object.assign(new Error('Model usage requires reconciliation b
 // platform allowance rates come from trusted configuration, never model output.
 export function meteredModel({model,ledger,scope,policy,mode='SYSTEM_MANAGED'}){
  if(!policy?.price||policy.maximum===undefined)throw new Error('Platform allowance policy required');
- return Object.freeze({name:model.name,model:model.model,profileId:model.profileId,async next(request){
+ return Object.freeze({metered:true,name:model.name,model:model.model,profileId:model.profileId,async next(request){
   const context=request.billingContext;
   if(!context?.taskId||!Number.isInteger(context.turn))throw new Error('Trusted runtime billing context required');
   request.signal?.throwIfAborted();

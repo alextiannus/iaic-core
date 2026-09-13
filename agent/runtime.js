@@ -1,3 +1,4 @@
+import {randomUUID} from 'node:crypto';
 import {Delegations} from './delegation.js';
 import {ResultWaits} from './result-waits.js';
 import {withExecutionSignal,executionSignal} from '../context/execution.js';
@@ -5,11 +6,11 @@ import {setTimeout as delay} from 'node:timers/promises';
 const fail=(message,statusCode=409)=>Object.assign(new Error(message),{statusCode});
 
 export class AgentRuntime {
-  constructor({store,dispatcher,model,context,version,maxTurns=20,maxCalls=30,modelTimeoutMs=120000,maxOutputBytes=32000,taskTimeoutMs=300000,rateLimitDelayMs=60000,resolveModel=null,agentIdentity=null,mandates=null,handoffs=null}) {
+  constructor({store,dispatcher,model,context,version,maxTurns=20,maxCalls=30,modelTimeoutMs=120000,maxOutputBytes=32000,taskTimeoutMs=300000,rateLimitDelayMs=60000,resolveModel=null,agentIdentity=null,mandates=null,handoffs=null,authority=null}) {
     if(!version||!model?.name)throw new Error('Runtime requires a code/Skill version and configured model');
     if(!Number.isFinite(rateLimitDelayMs)||rateLimitDelayMs<0||rateLimitDelayMs>60000)throw new Error('Rate-limit delay must be between zero and 60000 ms');
-    Object.assign(this,{store,dispatcher,model,context,version,maxTurns,maxCalls,modelTimeoutMs,maxOutputBytes,taskTimeoutMs,rateLimitDelayMs,resolveModel,agentIdentity,mandates,handoffs});
-    this.resultWaits=new ResultWaits({store,dispatcher,version,authorizeTask:(actor,task,name)=>this.checkResultWait(actor,task,name)});
+    Object.assign(this,{store,dispatcher,model,context,version,maxTurns,maxCalls,modelTimeoutMs,maxOutputBytes,taskTimeoutMs,rateLimitDelayMs,resolveModel,agentIdentity,mandates,handoffs,authority});
+    this.resultWaits=new ResultWaits({store,dispatcher,version,authorizeTask:(actor,task,name)=>this.checkResultWait(actor,task,name),admitRead:async(actor,task,action)=>{if(!task.authority)return null;const callId=randomUUID();await this.authority.admitTool({actor,task,action,callId});return callId;},settleRead:async(task,callId,outcome)=>{if(task.authority)await this.authority.settleTool({task,callId,outcome});}});
     this.delegations=new Delegations({store,handoffs,version,authorizeTask:async(actor,task)=>{await this.state(actor,task.id);await this.checkMandate(actor,task);if(task.agent&&!this.agentIdentity)throw fail('Agent resolver unavailable',503);if(this.agentIdentity)await this.agentIdentity.check({actor,task,binding:task.agent});}});
     this.executor=null;this.running=null;this.timer=null;
   }
@@ -21,9 +22,11 @@ export class AgentRuntime {
     await this.checkMandate(actor,{capability:capability.name,input});
     if(typeof idempotencyKey==='string'&&idempotencyKey.startsWith('iaic-handoff:')&&!this.handoffs)throw fail('Handoff resolver unavailable',503);
     const handoff=this.handoffs?await this.handoffs.bind({actor,capability,input,idempotencyKey,version:this.version}):null;
+    if(idempotencyKey?.startsWith('iaic-delegated-task:')&&!this.authority)throw fail('Task authority resolver unavailable',503);
+    const authority=this.authority?await this.authority.bind({actor,capability,input,idempotencyKey}):null;
     const agent=this.agentIdentity?await this.agentIdentity.bind({actor,capability,input}):null;
     const model=this.resolveModel?await this.resolveModel({actor,agent}):this.model;
-    return this.store.create({capability,input,actor,idempotencyKey,version:this.version,model:model.name,agent,handoff});
+    return this.store.create({capability,input,actor,idempotencyKey,version:this.version,model:model.name,agent,handoff,authority});
   }
   taskTools(capability,input){
     const declared=capability.implementation.tools,allowed=input.allowedTools;
@@ -37,6 +40,8 @@ export class AgentRuntime {
   }
   async checkAgent(actor,task){return this.checkExecution(actor,task);}
   async checkExecution(actor,task){
+    if(task.authority&&!this.authority)throw fail('Task authority resolver unavailable',503);
+    if(task.authority)await this.authority.check({actor,task});
     await this.checkMandate(actor,task);
     if(task.handoff&&!this.handoffs)throw fail('Task Handoff resolver is unavailable',503);
     if(this.handoffs)await this.handoffs.checkTask({actor,task});
@@ -48,13 +53,14 @@ export class AgentRuntime {
     const capability=this.dispatcher.capabilities.get(task.capability),action={name,input:task.wait_input};
     if(!this.taskTools(capability,task.input).includes(name)||(capability.implementation.allowCall&&await capability.implementation.allowCall(task.input,action,{actor,task})!==true))throw fail('Result wait is outside Task scope',403);
     if(this.handoffs)await this.handoffs.checkTool({actor,task,action});
+    if(task.authority)await this.authority.checkTool({actor,task,action});
   }
   async state(actor,id){
     const task=await this.store.get(actor,id);const capability=this.dispatcher.capabilities.get(task.capability);
     if(!capability||await capability.authorize(actor,task.input)!==true)throw fail('Task access denied',403);
     // Lifecycle coordination needs status, not historical source/result access.
-    const {id:taskId,capability:name,input,request_key,version,status,waiting_reason,agent,handoff,delegation,updated_at}=task;
-    return {id:taskId,capability:name,input,request_key,version,status,waiting_reason,agent,handoff,delegation,updated_at};
+    const {id:taskId,capability:name,input,request_key,version,status,waiting_reason,agent,handoff,authority,delegation,updated_at}=task;
+    return {id:taskId,capability:name,input,request_key,version,status,waiting_reason,agent,handoff,authority,delegation,updated_at};
   }
   async get(actor,id,{history=false}={}) {
     await this.state(actor,id);const task=await this.store.get(actor,id);
@@ -101,7 +107,8 @@ export class AgentRuntime {
     try{
       if(!capability||capability.implementation.kind!=='agent')throw fail('Task capability unavailable',503);
       await this.checkExecution(actor,task);
-      const model=this.resolveModel?await this.resolveModel({actor,agent:task.agent,modelIdentity:task.model}):this.model;
+      let model=this.resolveModel?await this.resolveModel({actor,agent:task.agent,modelIdentity:task.model}):this.model;
+      if(task.authority)model=await this.authority.model({actor,task,model});
       if(task.model!==model.name)throw fail('Configured model differs from task model');
       while(true){
         executionSignal()?.throwIfAborted();
@@ -113,6 +120,7 @@ export class AgentRuntime {
         const turns=history.events.filter(e=>e.kind==='model_requested').length;
         const completionOnly=history.calls.length>=this.maxCalls;
         if(turns>=this.maxTurns||(completionOnly&&history.events.some(event=>event.kind==='model_requested'&&event.data.completionOnly===true))){await this.executor.finish(task.id,{status:'waiting',reason:'limit'});break;}
+        if(task.authority)await this.authority.checkContext({actor,task,history});
         const messages=await this.context.assemble({task,capability,history,actor,dispatcher:this.dispatcher});
         if(completionOnly)messages.push({role:'system',content:'The tool-call budget is exhausted. No further tools or delegation are available. Use the existing evidence to submit iaic_finish for application verification, or iaic_wait if essential user input is missing. This is the final completion opportunity; do not claim unfinished work is complete.'});
         const allowedTools=completionOnly?[]:this.taskTools(capability,task.input);
@@ -191,15 +199,19 @@ export class AgentRuntime {
         await this.checkExecution(actor,task);
         await this.checkMandate(actor,task,action.name);
         if(this.handoffs)await this.handoffs.checkTool({actor,task,action});
+        if(task.authority)await this.authority.checkTool({actor,task,action});
         const call=await this.executor.prepare(task.id,{capability:action.name,input:action.input,effect:selected.effect});
+        if(task.authority)await this.authority.admitTool({actor,task,action,callId:call.id});
         await this.executor.dispatch(task.id,call.id);
         try{
           const result=await this.dispatcher.invoke(action.name,action.input,{actor,callId:call.id,signal:executionSignal(),allowedCapabilities:allowedTools});
           const wait=selected.waitReady?await selected.waitReady(action.input,result,{actor})!==true:false;
           await this.executor.settle(task.id,call.id,{result,wait});
+          if(task.authority)await this.authority.settleTool({task,callId:call.id,outcome:'returned'}).catch(()=>{});
           if(wait)break;
         }catch(error){
           const unknown=error.outcomeUnknown===true;
+          if(task.authority)await this.authority.settleTool({task,callId:call.id,outcome:'unknown'}).catch(()=>{});
           await this.executor.settle(task.id,call.id,{error,unknown});
           if(!unknown&&Array.isArray(error.validation))await this.executor.append(task.id,'feedback',{error:'Tool input failed schema validation; correct its JSON types and required fields.',capability:action.name,validation:error.validation.slice(0,10).map(({instancePath,keyword,message})=>({path:String(instancePath).slice(0,200),keyword,message}))});
           if(!unknown&&error.preflightRejected===true)await this.executor.append(task.id,'feedback',{error:'Tool input failed preflight before execution; no operation was executed. Correct the input using the capability requirements.',capability:action.name});

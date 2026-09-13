@@ -13,7 +13,7 @@ export class PostgresDelegationStore {
  }
  async get(id){const row=(await this.pool.query('SELECT id,digest,terms,revoked FROM iaic_delegation_grants WHERE namespace=$1 AND id=$2',[this.namespace,key(id)])).rows[0];if(!row)throw fail('Delegation unavailable',404);if(evidenceDigest(row.terms)!==row.digest)throw fail('Delegation integrity mismatch',409);return row;}
  async revoke(id){await this.pool.query('UPDATE iaic_delegation_grants SET revoked=true WHERE namespace=$1 AND id=$2',[this.namespace,key(id)]);return this.get(id);}
- async admit(id,{callId,capability,inputDigest}){
+ async admit(id,{callId,capability,inputDigest,effectKey:boundEffectKey=null}){
   const c=await this.pool.connect();try{await c.query('BEGIN');const row=(await c.query('SELECT * FROM iaic_delegation_grants WHERE namespace=$1 AND id=$2 FOR UPDATE',[this.namespace,key(id)])).rows[0];
    if(!row||row.revoked||Date.parse(row.terms.deadlineAt)<=Date.now())throw fail('Delegation revoked or expired',403);
    if(evidenceDigest(row.terms)!==row.digest||!row.terms.tools.includes(capability))throw fail('Delegation terms unavailable',403);
@@ -21,7 +21,7 @@ export class PostgresDelegationStore {
    if(prior)throw fail('Delegated attempt already admitted; inspect its original effect rather than replay',409);
    const used=(await c.query('SELECT count(*)::int AS n FROM iaic_delegation_calls WHERE namespace=$1 AND grant_id=$2',[this.namespace,id])).rows[0].n;
    if(used>=row.terms.maxCalls)throw fail('Delegation call budget exhausted',409);
-   const effectKey='delegated:'+randomUUID();
+   const effectKey=boundEffectKey===null?'delegated:'+randomUUID():key(boundEffectKey);
    await c.query('INSERT INTO iaic_delegation_calls(namespace,grant_id,call_id,capability,input_digest,effect_key) VALUES($1,$2,$3,$4,$5,$6)',[this.namespace,id,callId,capability,inputDigest,effectKey]);await c.query('COMMIT');return {effectKey};
   }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}
  }
@@ -36,10 +36,10 @@ export class DelegatedCapabilities {
   Object.assign(this,{store,dispatcher,resolvePrincipal,restoreActor,authorizeGrant,allowInput});
  }
  async principal(actor){return ref(await this.resolvePrincipal(actor));}
- async issue(actor,{id,delegate,payer,tools,constraints,deadlineAt,maxCalls}){
+ async issue(actor,{id,delegate,payer,tools,constraints,deadlineAt,maxCalls,task=null}){
   const issuer=await this.principal(actor);delegate=ref(delegate);payer=ref(payer);
   if(!Array.isArray(tools)||!tools.length||tools.length>100||new Set(tools).size!==tools.length||tools.some(t=>typeof t!=='string'||!t)||!Number.isInteger(maxCalls)||maxCalls<1||maxCalls>10000||typeof deadlineAt!=='string'||!Number.isFinite(Date.parse(deadlineAt))||Date.parse(deadlineAt)<=Date.now()||!constraints||typeof constraints!=='object'||Array.isArray(constraints))throw fail('Bounded delegation terms required');
-  const terms=jsonValue({issuer,delegate,payer,tools:[...tools].sort(),constraints,deadlineAt:new Date(deadlineAt).toISOString(),maxCalls});
+  const terms=jsonValue({issuer,delegate,payer,tools:[...tools].sort(),constraints,deadlineAt:new Date(deadlineAt).toISOString(),maxCalls,...(task?{task}: {})});
   if(await this.authorizeGrant(actor,{action:'issue',terms})!==true)throw fail('Delegation issue denied',403);
   return this.store.create(id,terms);
  }
