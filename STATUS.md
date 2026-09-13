@@ -580,3 +580,30 @@ This supplies a reusable missing rate-control capability. ImmediToday remains on
 candidate.76; application composition, appropriate request Token bounds and new
 real-provider quality evaluation remain next steps. Full Note30/40 acceptance is
 not established by these fixtures.
+
+## 2026-09-14 — Versioned total completion Token budgets
+
+The native ERP development batch on application PR137/Core77 completed zero of four
+goals and retained four unknown model usages. Ten measured outputs exceeded the
+adapter's 4096 max_tokens setting. Huawei's matching compatible API documents that
+this field excludes reasoning; max_completion_tokens includes reasoning and answer.
+The former application's estimate is therefore not a proven total-output bound,
+even though no actual rate reservation overrun was observed in that batch.
+
+Model invocation policy now accepts explicit maxCompletionTokens (positive integer,
+at most1048576), bound into system profile and BYOK endpoint revisions. Responses
+uses max_output_tokens; compatible Chat uses max_completion_tokens without also
+sending max_tokens. The policy overrides the legacy provider maxOutputTokens
+argument. Omission preserves legacy wire behavior and identity. Unsupported fields
+are not silently downgraded or retried. This adds a missing reusable model control;
+applications must select supported limits and align admission estimation.
+
+All331 module checks passed without skips, and42 independently installed examples
+passed. The model-routing example uses the public profile, provider and metering
+ports with an injected truncated response:8192 output Tokens (including8000 reasoning)
+and10 input Tokens are charged once, no task success or unknown usage is invented.
+Fixtures also verify transport fields, unchanged legacy behavior, model-identity
+fences before secret access, BYOK endpoint binding and unsupported-policy errors.
+Evidence: ImmediToday-evidence/2026-09-14/core-completion-budget. This validation is
+deterministic; application adoption and actual-provider behavior still require
+separate verification. Full Note30/40 acceptance remains incomplete.

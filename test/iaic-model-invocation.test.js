@@ -40,6 +40,35 @@ test('BYOK endpoint revision binds policy without changing omitted legacy endpoi
  const old=new UserModels({...config,endpoints:[endpoint]});
  const row={id:'byok-fixture',endpoint_id:'fixture',endpoint_revision:createHash('sha256').update(JSON.stringify(endpoint)).digest('hex'),revoked:false};
  assert.equal(old.metadata(row).available,true);
- const changed=new UserModels({...config,endpoints:[{...endpoint,invocation:{toolChoice:'required'}}]});
+ const changed=new UserModels({...config,endpoints:[{...endpoint,invocation:{toolChoice:'required',maxCompletionTokens:8192}}]});
  assert.equal(changed.metadata(row).available,false);assert.equal(changed.endpoints()[0].invocation.toolChoice,'required');
+ assert.equal(changed.endpoints()[0].invocation.maxCompletionTokens,8192);
+});
+
+test('total completion budget maps to the supported field and preserves usage on truncation',async()=>{
+ for(const provider of ['openai','chat-completions']){
+  let calls=0,wire;
+  const model=createModelProvider({apiKey:'fixture',model:'fixture',provider,baseUrl:provider==='openai'?'':profile.baseUrl,maxOutputTokens:200,
+   invocation:{maxCompletionTokens:8192},fetchImpl:async(_url,options)=>{
+    calls++;wire=JSON.parse(options.body);
+    return Response.json(provider==='openai'?{status:'incomplete',usage:{input_tokens:10,output_tokens:8192,output_tokens_details:{reasoning_tokens:8000}}}:
+     {choices:[{finish_reason:'length',message:{content:'partial answer',reasoning_content:'private reasoning'}}],usage:{prompt_tokens:10,completion_tokens:8192,completion_tokens_details:{reasoning_tokens:8000}}});
+   }});
+  await assert.rejects(model.next(request),error=>error.usage.outputTokens===8192&&error.usage.reasoningOutputTokens===8000&&!error.invalidAction);
+  assert.equal(calls,1);assert.equal(wire[provider==='openai'?'max_output_tokens':'max_completion_tokens'],8192);
+  assert.equal(Object.hasOwn(wire,'max_tokens'),false);
+  assert.equal(JSON.stringify(wire).includes('private reasoning'),false);
+ }
+});
+test('changed total completion budget fences old profile identity before resolving secrets',async()=>{
+ let secrets=0,received;
+ const make=limit=>new ModelProfiles({profiles:[{...profile,invocation:{maxCompletionTokens:limit}}],resolveSecret:async()=>{secrets++;return 'fixture';},factory:value=>{received=value;return {next:async()=>({})};}});
+ const old=make(4096),current=make(8192);
+ await assert.rejects(current.resolve(profile.id,{expectedIdentity:old.list()[0].modelIdentity}),{statusCode:409});assert.equal(secrets,0);
+ await current.resolve(profile.id);assert.equal(received.invocation.maxCompletionTokens,8192);assert.equal(secrets,1);
+ for(const limit of [0,-1,1.5,'8192',null,undefined,1048577,Infinity])assert.throws(()=>make(limit));
+});
+test('unsupported total completion field is not silently replaced with a visible-output limit',async()=>{
+ let calls=0;const model=createModelProvider({apiKey:'fixture',model:'fixture',provider:'chat-completions',baseUrl:profile.baseUrl,invocation:{maxCompletionTokens:8192},fetchImpl:async()=>{calls++;return new Response('',{status:400});}});
+ await assert.rejects(model.next(request),{providerStatus:400});assert.equal(calls,1);
 });

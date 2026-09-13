@@ -1,5 +1,32 @@
 # Agent runtime and model protocol
 
+## Total model output budget
+
+An optional model/profile invocation policy, for example
+`invocation: {maxCompletionTokens: 8192}`, requests a combined answer-and-reasoning
+output ceiling. The value must be an integer from 1 to 1,048,576; the host must
+choose a limit supported by its provider/model. It overrides the provider's legacy
+`maxOutputTokens` argument. Responses sends `max_output_tokens`; compatible Chat
+Completions sends `max_completion_tokens` and omits `max_tokens`. An unsupported
+endpoint error is retained, without automatic fallback or retry.
+
+Omission preserves existing wire behavior and profile identities. In particular,
+legacy Chat `max_tokens` is not a portable bound on reasoning plus answer Tokens.
+Explicit policies participate in ModelProfiles and BYOK endpoint revisions, so
+old tasks/credentials cannot silently adopt a different policy. Applications must
+align their rate-admission output estimate with this configured ceiling. A request
+parameter alone is not measured usage or proof that a provider enforced it.
+
+Truncation remains an incomplete response, never successful task completion.
+Available output usage, including reasoning, is retained and metered once; unknown
+use remains subject to reconciliation. The setting does not change Runtime time,
+turn or Tool budgets, platform allowance, or monetary price. Provider support must
+be verified before using it for real work. See the
+[Huawei compatible API specification](https://support.huaweicloud.com/intl/en-us/model-call-maas/model-call-021.html)
+for the concrete distinction that motivated this addition. Focused checks live in
+`test/iaic-model-invocation.test.js`; the independent model-routing example covers
+the configured field and metered truncated usage through public module contracts.
+
 ## Per-tool Task attempt ceilings
 
 Host Agent definitions may set `implementation.toolCallLimits`, for example

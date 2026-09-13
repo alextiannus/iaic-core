@@ -7,7 +7,7 @@ export class OpenAIProvider {
   constructor({apiKey,model,fetchImpl=fetch,maxOutputTokens=4096,invocation}) {
     if(!apiKey||!model)throw new Error('OPENAI_API_KEY and IAIC_MODEL must be configured on the server');
     this.#invocation=invocationConfig(invocation).invocation||{};
-    this.#apiKey=apiKey;this.name=model;this.fetch=fetchImpl;this.maxOutputTokens=maxOutputTokens;
+    this.#apiKey=apiKey;this.name=model;this.fetch=fetchImpl;this.maxOutputTokens=this.#invocation.maxCompletionTokens??maxOutputTokens;
   }
   async next({messages,tools,outputSchema,delegationSchema,signal,maxBatchCalls=1}) {
     if(!Number.isInteger(maxBatchCalls)||maxBatchCalls<1||maxBatchCalls>8)throw new Error('Batch bound must be 1..8');
