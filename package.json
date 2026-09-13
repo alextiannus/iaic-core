@@ -37,7 +37,8 @@
     "./releases/*": "./releases/*",
     "./storage/*": "./storage/*",
     "./execution/*": "./execution/*",
-    "./a2a/*": "./a2a/*"
+    "./a2a/*": "./a2a/*",
+    "./payments/*": "./payments/*"
   },
   "files": [
     "index.js",
@@ -76,7 +77,8 @@
     "releases",
     "storage",
     "execution",
-    "a2a"
+    "a2a",
+    "payments"
   ],
   "dependencies": {
     "ajv": "8.20.0",

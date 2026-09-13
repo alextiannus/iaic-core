@@ -91,3 +91,8 @@ export {ReleasedCode,createCodeExecutionCapability} from './execution/released-c
 
 export {createCapabilityA2AHandler} from './a2a/server.js';
 export {importA2ACapabilities} from './a2a/import.js';
+
+export {PostgresPaymentStore} from './payments/store.js';
+export {Payments} from './payments/service.js';
+export {createPaymentCapabilities} from './payments/capabilities.js';
+export {createHttpPaymentProvider} from './payments/http-provider.js';
