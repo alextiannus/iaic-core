@@ -19,7 +19,7 @@ Use your own database connection. The examples create temporary synthetic schema
 The configured-jobs example combines user-plus-organization scopes, an organization-shared job, Memory, Workspace, sourced Knowledge, selected Skills, models and platform allowance, Session continuity, model-directed scheduling and an external MCP client. It includes application policy to illustrate composition; it does not prescribe job types or business flows.
 
 ```sh
-npm test                     # run all 17 standalone examples
+npm test                     # module checks and 17 standalone examples
 npm run verify:core-package  # pack, install elsewhere, run examples there
 npm pack                     # create a reusable Core npm archive
 ```
@@ -54,4 +54,4 @@ Default long-lived resource scoping should distinguish user plus organization. A
 
 [SOURCE.json](SOURCE.json) records the source revision and hashes of extracted files. The candidate includes Core modules and neutral examples only; private application implementations, credentials, production data and private Git history are not included. Some inherited module notes refer to historical integration locations; those are context, not runtime dependencies or files required by this candidate.
 
-The full source application's integration tests are not copied into this candidate. Its own verification runs the standalone examples, including an install of the packed library in a fresh directory. These checks establish the documented composition contracts; they do not establish universal model quality or completion of every AI Native Application requirement.
+Core-only module checks now live in `test/` and run with `npm run test:modules`; application-coupled integration suites remain in the application repository. Each check imports the Core package directly. The independent CI runs module checks and the standalone examples from a fresh package installation. These checks establish the documented composition contracts; they do not establish universal model quality or completion of every AI Native Application requirement.

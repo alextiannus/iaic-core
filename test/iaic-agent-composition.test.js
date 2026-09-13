@@ -1,0 +1,32 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {createAgentTaskCapabilities,createAssistantTaskCapabilities,CapabilityDispatcher,defineCapability} from '@immedi/iaic-core';
+const options={memory:{},workspace:{read:async()=>({})},authorize:async()=>true,verifyOutcome:async()=>true};
+test('composition preserves default names and keeps host tools explicit',()=>{
+ assert.equal(createAssistantTaskCapabilities,createAgentTaskCapabilities);
+ const legacy=createAssistantTaskCapabilities(options);assert.ok(legacy.find(c=>c.name==='assistant.run'));
+ const external=defineCapability({name:'business.read',description:'Host resource',input:{type:'object'},output:{type:'object'},effect:'read',authorize:async()=>true,implementation:{kind:'function',execute:async()=>({})}});
+ const scoped=createAgentTaskCapabilities({...options,name:'business.work',toolNamespace:'business',extraCapabilities:[external]});
+ const agent=scoped.find(c=>c.name==='business.work');assert.ok(scoped.includes(external));assert.ok(agent.implementation.tools.includes('business.read'));
+ assert.equal(agent.validateInput({goal:'Read',allowedTools:['my_read_workspace']}),false);
+ assert.equal(agent.validateInput({goal:'Read',allowedTools:['business.my_read_workspace']}),true);
+ assert.equal(agent.implementation.allowCall({}, {name:'business.my_write_workspace'}),true);
+ assert.equal(agent.implementation.allowCall({}, {name:'business.my_forget_assistant_memory'}),false);
+ assert.equal(agent.implementation.allowCall({allowedTools:[]}, {name:'business.my_read_workspace'}),false);
+ assert.doesNotThrow(()=>new CapabilityDispatcher({capabilities:[...legacy,...scoped]}));
+ assert.throws(()=>createAgentTaskCapabilities({...options,toolNamespace:'bad space'}),/namespace/);
+});
+test('namespaced Session/Event restrictions and artifact provenance retain exact task boundaries',async()=>{
+ const caps=createAgentTaskCapabilities({...options,name:'business.work',toolNamespace:'business',sessions:{},events:{}});
+ const agent=caps.find(c=>c.name==='business.work').implementation;
+ const sessionId='12345678-1234-1234-1234-123456789abc';
+ const sessionAction={name:'business.my_read_assistant_session',input:{sessionId,throughSequence:3}};
+ assert.notEqual(agent.allowCall({},sessionAction),true);
+ assert.equal(agent.allowCall({session:{id:sessionId,throughSequence:2}},sessionAction),false);
+ assert.equal(agent.allowCall({session:{id:sessionId,throughSequence:3}},sessionAction),true);
+ assert.equal(agent.allowCall({sourceEventKey:'one'},{name:'business.my_read_assistant_event',input:{key:'two'}}),false);
+ const reference={path:'draft.md',revision:1,digest:'a'.repeat(64)},result={summary:'Saved',artifacts:[reference]};
+ const history=name=>({actor:{},history:{calls:[{status:'succeeded',capability:name,result:{reference}}]}});
+ assert.equal(await agent.verify({},result,history('my_write_workspace')),false);
+ assert.equal(await agent.verify({},result,history('business.my_write_workspace')),true);
+ assert.equal(await agent.verify({},result,history('platform.my_write_workspace')),false);
+});

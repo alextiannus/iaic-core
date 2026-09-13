@@ -72,9 +72,10 @@
     }
   },
   "scripts": {
-    "test": "node scripts/verify-examples.mjs",
+    "test": "npm run test:modules && node scripts/verify-examples.mjs",
     "example:jobs": "node examples/core-configurable-jobs/run.mjs",
-    "verify:core-package": "node scripts/verify-package.mjs"
+    "verify:core-package": "node scripts/verify-package.mjs",
+    "test:modules": "node scripts/verify-modules.mjs"
   },
   "devDependencies": {
     "pg": "8.23.0",

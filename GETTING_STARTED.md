@@ -70,3 +70,7 @@ The configured-jobs example includes an external MCP client. It reads Workspace/
 ## 7. Keep application choices in the application
 
 Build business capabilities, Skills, configuration editors, billing/top-up integration and UI as application modules. Core does not prescribe departments, ERP workflows, role checklists or screens. Platform development can use external coding Agents. See [STATUS.md](STATUS.md) before treating a bounded example as a wider quality claim.
+
+## Work on a module independently
+
+Existing Core-only checks are in `test/`. Set `SUBMISSION_TEST_DATABASE_URL` and run `npm run test:modules`, or run a relevant file with `node --test test/iaic-capabilities.test.js`. No application server or ERP client is imported. The Core workflow runs these checks and installs the packed library in a fresh consumer for the 17 composition examples. Application integration checks remain with the application. Adding a module does not require reading its business implementation.

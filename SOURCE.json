@@ -141,6 +141,45 @@
     "scripts/verify-package.mjs",
     ".gitignore",
     "package-lock.json",
-    "credentials/README.md"
-  ]
+    "credentials/README.md",
+    "scripts/verify-modules.mjs",
+    ".github/workflows/core.yml"
+  ],
+  "moduleTests": {
+    "sourceRevision": "74f2c7919e966bc48e08d8bd13b732474dc8ef1f",
+    "fileSha256": {
+      "test/iaic-persistent-knowledge.integration.test.js": "ebcf76eeaf3ceff745cce823de4c246845cb563c4a274e67f142bc32126d46b0",
+      "test/iaic-knowledge.test.js": "ea07209cac6274239c1233d943d07ccbe37736bbff5ba8db2356376f20065d1a",
+      "test/iaic-wallet.test.js": "ac03018dc15a1af195825208be0aaa1d4715c733ef7f4f6456c0c61f98f3cf49",
+      "test/iaic-runtime.integration.test.js": "e816c48da35376725ac2e3bef6af0a5dcb5df90d132e8711b3b89d18cf0120fa",
+      "test/iaic-openai-provider.test.js": "86cd9953ec28f2edc6885d039d3bc94db4dcb3862dd56ba5497b57998919390d",
+      "test/iaic-memory-import.integration.test.js": "a161e347b9b5c1a9b241c533469e4bd3ae006910ef1a315d8e3280b044359af1",
+      "test/iaic-skill-catalog.test.js": "d51ef4903ec1d026bf620c106a989621c0a75eb817d55b97f9d710982269403f",
+      "test/iaic-memory-service.test.js": "766177749cab7f2161835e0d84f93fafe813b6e93bcf4a5d29204c6eb65dbc45",
+      "test/iaic-scoped-skills.test.js": "5df1d266c8bff14dd4a48ab98dde56200b9fc399a86cae3e492681b433c80059",
+      "test/iaic-mandates.integration.test.js": "1a94dcb119bf8e03ea64ac448bbe435d4689ea427f40c39c035af1b1f38f9aec",
+      "test/iaic-model-provider.test.js": "9893a5d2a71477b921372f9755a2df52b18b3edd56848927c629a07324c4358e",
+      "test/iaic-capabilities.test.js": "fd477484bbc8483107e63173ec2641c537864767e17d85292320a3cd1dd52b5f",
+      "test/iaic-result-waits.test.js": "6fa8d017948ca743ba5bdd59a6907358cef96a5e13710553eb4a7fa569510924",
+      "test/iaic-history-input-projection.test.js": "4e007e028e80e8aff0065dd36401165e0a11584e7dc9d71414dd40ba1458a55b",
+      "test/iaic-context.test.js": "88602bf10ac9268e63fe0dd7fe7789aa73e8a7234874e1bc62dc618d292cc6a6",
+      "test/iaic-delegation-store.integration.test.js": "503cd59c95c18c17c5c966e4135bf42099d6e96b154139067c8939fbb29662fb",
+      "test/iaic-agent-configuration.test.js": "38aef5d701ad513933e387de6b4ab71e2b8506116f6518958d9cca4ca92129f2",
+      "test/iaic-mcp.test.js": "c62db01ee773ed520b280aba0558b58c0c5d773967ca90c8516318c7695c297f",
+      "test/iaic-delegation.test.js": "2bbdf3f44de46b8c044def19d0c8c3aadac4ae7bc2f5301ec1974f29adad0e2f",
+      "test/iaic-user-models.integration.test.js": "87552c2f2bfa8c7d7accf6d3b347ff935f11c629bd0acd13d0005238512794da",
+      "test/iaic-agent-composition.test.js": "d4cb051abf24efdc30f71368aefbc9db2ed952cfb0b0fa00507ea1f4bd8e9f56",
+      "test/iaic-memory.integration.test.js": "ef8078e222aba15b8b52e7a3a320ab1f04facc0d6aed1933fe628a6ce604ff9d",
+      "test/iaic-token-ledger.integration.test.js": "ef1e2b4bd49ca0d423df5057f9454bdafa98c8ce84f5633029ed96f39ac3d5a6",
+      "test/iaic-tasks.integration.test.js": "233c292090a3f877597de1030e7b2398c17b4c433b8d8e604512e6bf2b38c066",
+      "test/iaic-memory-disputes.integration.test.js": "2ba18d874f729c97aeac895afb6ababb92981028629742d81be4be4d11cb52a9",
+      "test/iaic-result-waits.integration.test.js": "20cb22e63f69384b8eba741521892fecbfda09fc4fa43f64f3ab3e3497449390",
+      "test/iaic-model-profiles.test.js": "f0a5def9006c2e6fd83988a617af4ec1fc3fc4bf88bf760ef7445d0c38d9cb2c",
+      "test/iaic-handoffs.integration.test.js": "f6396a05654063b4c4011e97971a4d7713be4c118c275372eb99faaab05ac1f3",
+      "test/iaic-memory-key-lifecycle.integration.test.js": "ac0647e4688e5259f63f3fb50dc57bc1f97299944953191abe6d8167a07589a7",
+      "test/iaic-tool-names.test.js": "3f1c8e50c514174fc29b4bf9508fefc589f79151fbba67aef3213207d92ebf33",
+      "test/iaic-schedule-scope.test.js": "1e5eb130d4e57e521b45c3018a79406168da6466037cfe1fe5b7db859b47a976",
+      "test/iaic-assistant-models.test.js": "6bd2569572a41468f265c4f6543833238d57290628bff1643dbe3bd2eecd36ec"
+    }
+  }
 }
