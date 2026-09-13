@@ -1,5 +1,35 @@
 # Agent runtime and model protocol
 
+## Per-tool Task attempt ceilings
+
+Host Agent definitions may set `implementation.toolCallLimits`, for example
+`{'my_remember_assistant_memory': 1}`. Keys must be declared Tool names and values
+nonnegative safe integers; zero disables new attempts. The definition snapshots
+the map. `createAgentTaskCapabilities` and generated Agent `openApplication`
+accept the same optional `toolCallLimits` argument, using final exposed names.
+This is trusted application configuration, not a model-selected input field.
+Version changes to this policy with the Agent implementation and Runtime version.
+
+Runtime counts every durable prepared call for that Tool in the current Task,
+including failed, unknown and reconciled attempts. It publishes remaining counts,
+omits exhausted Tools from inference discovery, and checks again before preparing
+each single or batch action. An exhausted batch step closes the remaining batch
+with feedback. Restart, clarification and reconciliation do not reset the count;
+other permitted Tools and the existing outcome verifier remain available. An
+unknown effect still requires reconciliation before further execution.
+
+These limits are per Task, not per memory key or operation, and do not infer
+once-only constraints from natural language. They do not suppress identical writes,
+turn failure into success, or create idempotent business effects. Direct Capability
+calls and existing readiness/history reads are outside this attempt count. Child
+and scheduled Tasks have their own ceilings; use existing delegation/shared budget
+policies for aggregate limits across Tasks. Current permissions, Mandates, grant
+budgets and the total Runtime limits continue to apply. No default limit is added.
+
+PostgreSQL evidence: `test/iaic-tool-call-limits.integration.test.js` covers repeated
+batch writes, lost acknowledgements, preflight rejection, reconstruction, current
+revocation, model attempts despite exhausted discovery, and retained outcome checks.
+
 `runtime.js` owns durable execution against injected task, capability, context and model interfaces. Provider implementations translate model protocols; they do not grant permissions or verify application outcomes. `openai-provider.js` and `model-provider.js` support Responses and compatible Chat Completions respectively.
 
 `tool-names.js` preserves protocol-valid function names (letters, digits, underscore/hyphen, at most 64 characters). Other names receive descriptive wire names; deterministic hash suffixes disambiguate normalization/truncation conflicts and reserved control names. Duplicate or unresolved collisions fail before sending a model request. Reordering the same tools does not rename them. The provider decodes only the names it actually advertised, preserving the original capability identity in task history. There is no fallback from an unknown name to an undeclared tool.

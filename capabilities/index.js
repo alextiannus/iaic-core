@@ -1,4 +1,5 @@
 import Ajv from 'ajv';
+import {toolCallLimits} from '../agent/tool-limits.js';
 
 const ajv = new Ajv({ allErrors: true, strict: true, coerceTypes: false, removeAdditional: false, useDefaults: false });
 const failure = (message, statusCode = 400, detail = {}) => Object.assign(new Error(message), { statusCode, ...detail });
@@ -17,6 +18,8 @@ export function defineCapability(definition) {
     if (implementation.execute || !implementation.instructions || !Array.isArray(implementation.tools)
       || typeof implementation.verify !== 'function') throw failure('Agent capability requires tools, instructions and result verification');
   } else throw failure('Unknown capability implementation kind');
+  if (implementation.kind !== 'agent' && implementation.toolCallLimits !== undefined) throw failure('Tool call limits require an Agent capability');
+  const limits = toolCallLimits(implementation.toolCallLimits, implementation.tools);
   if (!['read', 'write'].includes(definition.effect)) throw failure('Capability must declare read/write effect');
   if (definition.effect === 'write' && !['idempotent', 'never-replay'].includes(definition.retry)) {
     throw failure('Write capability must declare retry semantics');
@@ -28,7 +31,7 @@ export function defineCapability(definition) {
   const input = structuredClone(definition.input), output = structuredClone(definition.output);
   const validateInput = ajv.compile(input), validateOutput = ajv.compile(output);
   return Object.freeze({ ...definition, input: freeze(input), output: freeze(output),
-    implementation: Object.freeze({ ...implementation, ...(implementation.tools ? { tools: Object.freeze([...implementation.tools]) } : {}) }),
+    implementation: Object.freeze({ ...implementation, ...(limits ? {toolCallLimits: limits} : {}), ...(implementation.tools ? { tools: Object.freeze([...implementation.tools]) } : {}) }),
     validateInput, validateOutput });
 }
 

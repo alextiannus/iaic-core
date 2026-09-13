@@ -5,7 +5,7 @@ import {
 } from '@immedi/iaic-core';
 
 // This is application-owned composition. Each imported Core module remains independently replaceable.
-export async function openApplication({pool,skillRoot,job,profiles,resolveSecret,modelFactory,userModels=null,routing=null,tokenPolicies,authorize,verifyOutcome,version,runtimeLimits={},taskCursorKey=null}){
+export async function openApplication({pool,skillRoot,job,profiles,resolveSecret,modelFactory,userModels=null,routing=null,tokenPolicies,authorize,verifyOutcome,version,runtimeLimits={},taskCursorKey=null,toolCallLimits}){
  if(!runtimeLimits||Object.getPrototypeOf(runtimeLimits)!==Object.prototype||Object.entries(runtimeLimits).some(([k,v])=>!['maxTurns','maxCalls','maxBatchCalls','modelTimeoutMs','taskTimeoutMs'].includes(k)||!Number.isSafeInteger(v)||v<1))throw new Error('Supply positive integer Runtime limits only');
  if(typeof authorize!=='function'||typeof verifyOutcome!=='function')throw new Error('Supply current application authorization and independent outcome verification');
  const check=async actor=>{if(await authorize(actor)!==true)throw Object.assign(new Error('Application access denied'),{statusCode:403});return true;};
@@ -21,7 +21,7 @@ export async function openApplication({pool,skillRoot,job,profiles,resolveSecret
  const modelProfiles=new ModelProfiles({profiles,resolveSecret,...(modelFactory?{factory:modelFactory}:{})});
  const models=new AssistantModels({settings,profiles:modelProfiles,userModels,ledger,resolveScope:scope,tokenPolicies});
  const modelRouting=routing===null?null:new AssistantModelRouting({models,resolvePolicy:routing.resolvePolicy,availability:routing.availability});
- const capabilities=createAgentTaskCapabilities({name:'agent.work',description:job.purpose,memory,workspace,skillCatalog:skills,knowledge,sessions,authorize:check,verifyOutcome}).map(cap=>defineCapability({...cap,authorize:async(actor,input)=>{
+ const capabilities=createAgentTaskCapabilities({name:'agent.work',description:job.purpose,memory,workspace,skillCatalog:skills,knowledge,sessions,authorize:check,verifyOutcome,toolCallLimits}).map(cap=>defineCapability({...cap,authorize:async(actor,input)=>{
   await check(actor);const tools=job.configuration.tools;
   if(cap.implementation.kind==='agent'&&(!input.allowedTools||input.allowedTools.some(name=>!tools.includes(name))))return false;
   if(cap.implementation.kind==='function'&&!tools.includes(cap.name))return false;

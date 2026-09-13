@@ -1,4 +1,5 @@
 import {verificationResult} from './verification.js';
+import {remainingToolAttempts} from './tool-limits.js';
 import {randomUUID} from 'node:crypto';
 import {pendingBatch} from './batches.js';
 import {Delegations} from './delegation.js';
@@ -142,6 +143,7 @@ export class AgentRuntime {
         if(batch?.closeReason){await this.executor.append(task.id,'action_batch_closed',{id:batch.id,reason:batch.closeReason});continue;}
         let action=batch?.action;
         const allowedTools=this.taskTools(capability,task.input);
+        const remainingByTool=remainingToolAttempts(capability.implementation.toolCallLimits,history.calls,allowedTools);
         const turns=history.events.filter(e=>e.kind==='model_requested').length;
         const remainingToolCalls=Math.max(0,this.maxCalls-history.calls.length);
         const completionOnly=remainingToolCalls===0;
@@ -153,7 +155,8 @@ export class AgentRuntime {
         const messages=await this.context.assemble({task,capability,history,actor,dispatcher:this.dispatcher});
         messages.push({role:'system',content:JSON.stringify({executionBudget:{remainingToolCalls,remainingModelTurns:this.maxTurns-turns,maxBatchCalls:completionOnly?0:invocationBatchBound,completionOnly}})+'\nThese are current execution limits, not additional authority. Remaining model turns include this invocation. Reserve enough work to verify results and submit completion; avoid repeating unchanged successful operations.'});
         if(completionOnly)messages.push({role:'system',content:'The tool-call budget is exhausted. No further tools or delegation are available. Use the existing evidence to submit iaic_finish for application verification, or iaic_wait if essential user input is missing. This is the final completion opportunity; do not claim unfinished work is complete.'});
-        const tools=(completionOnly?[]:allowedTools).map(name=>{
+        if(Object.keys(remainingByTool).length)messages.push({role:'system',content:JSON.stringify({remainingToolAttempts:remainingByTool})+'\nThese per-Task ceilings count all prepared attempts, including failures and unknown outcomes. Exhausted tools cannot be called again in this Task. Use retained evidence, another permitted capability, or request help; do not repeat the mutation or claim it succeeded.'});
+        const tools=(completionOnly?[]:allowedTools.filter(name=>remainingByTool[name]!==0)).map(name=>{
           const target=this.dispatcher.capabilities.get(name);
           return {name,description:target.description,inputSchema:target.input};
         });
@@ -236,6 +239,10 @@ export class AgentRuntime {
         }
         await this.checkExecution(actor,task);
         await this.checkMandate(actor,task,action.name);
+        if(remainingByTool[action.name]===0){
+          if(batch)await this.executor.append(task.id,'action_batch_closed',{id:batch.id,reason:'tool_limit'});
+          await this.executor.append(task.id,'feedback',{error:'Tool attempt limit reached for this Task; no new call was prepared or executed.',capability:action.name});continue;
+        }
         if(this.handoffs)await this.handoffs.checkTool({actor,task,action});
         if(task.authority)await this.authority.checkTool({actor,task,action});
         const prepare=batch?this.executor.prepareBatchAction.bind(this.executor):this.executor.prepare.bind(this.executor);

@@ -235,3 +235,22 @@ The new opt-in continuity memory-update scenario freezes an explicit once-only p
 Actual deepseek-v4-flash run 181710df-7082-4e6d-a80c-8876dec9648b at source 5a9ed0d failed: the separate worker retained identity/model after Session closure, read the Skill/Knowledge/Memory, and produced/read back the exact expected artifact. However, it performed 13 successful identical memory updates (revision 1 through 14) instead of one. After 30 tool attempts, the final completion invocation had unknown usage and the Task correctly remained waiting/usage_reconciliation. Confirmed usage was 111,929 input + 17,876 output = 129,805 Provider Tokens; one further invocation has unknown usage. The isolated fixture ledger retained a 100,000-unit unknown reservation rather than refunding it. These platform test units are not additional confirmed Provider Tokens or production-user charges.
 
 The scenario's temporary PostgreSQL schema was cleaned up by the harness; the original pending-request snapshot and all events/calls are retained in private evidence. No provider reconciliation was established or claimed. Correct artifact content does not override the repeated-update or unsettled-usage failures. No budget increase or repeat was used to replace this outcome; persistent progress and repeated-mutation behavior remain practical gaps.
+
+## Host-defined per-tool Task ceilings
+
+Agent definitions and shared Agent composition now accept an optional immutable
+toolCallLimits map. Runtime counts durable prepared attempts per Tool, exposes
+remaining counts, removes exhausted Tools from discovery and blocks new single or
+pending-batch attempts before preparation. Failed and reconciled attempts remain
+spent after reconstruction; unknown effects retain their existing pause. The Agent
+starter forwards this application-owned configuration. Defaults are unchanged.
+
+This lets applications express constraints such as one memory-write attempt per
+Task without hardcoding memory behavior into Runtime. It does not automatically
+interpret user intent, share a limit across child/scheduled Tasks, deduplicate
+business effects or prove that the previous actual-model workflow now succeeds.
+The recorded 13-update failure and unknown provider usage remain open. Focused
+PostgreSQL checks cover returned/unknown/rejected original actions, batch closure,
+restart, revocation, independent effect counts and server enforcement despite a
+model ignoring discovery. An initial test assertion assumed every feedback event
+had an error string; it was corrected to permit user-question feedback.
