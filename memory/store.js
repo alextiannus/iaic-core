@@ -1,3 +1,4 @@
+import {memoryAssessment} from './assessment.js';
 import {memoryImportSnapshot} from './import-format.js';
 import fs from 'node:fs/promises';
 const error=(message,statusCode=400)=>Object.assign(new Error(message),{statusCode});
@@ -14,10 +15,17 @@ export class MemoryStore{
  async remember(scope,input){return this.#write(scope,input,'remember');}
  async relearn(scope,input){version(input.expectedRevision);if(input.expectedRevision<1)throw error('Current forgotten memory revision required');return this.#write(scope,input,'relearn');}
  async resolveDispute(scope,input){version(input.expectedRevision);if(input.expectedRevision<1)throw error('Current disputed memory revision required');return this.#write(scope,input,'resolve');}
+ async assess(scope,{key,expectedRevision,level,reason,evidence,assessor}){
+  version(expectedRevision);if(!identifier(key)||expectedRevision<1)throw error('Current memory revision required');
+  const assessment={...memoryAssessment({level,reason,evidence},assessor),basedOnRevision:expectedRevision};
+  const result=await this.pool.query(`UPDATE iaic_memories SET assessment=jsonb_set($6::jsonb,'{assessedAt}',to_jsonb(statement_timestamp())),revision=revision+1,updated_at=now()
+   WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3 AND memory_key=$4 AND revision=$5 AND NOT deleted AND dispute IS NULL AND (expires_at IS NULL OR expires_at>statement_timestamp()) RETURNING memory_key,revision`,[...partition(scope),key,expectedRevision,assessment]);
+  if(!result.rowCount)throw error('Memory changed or is not assessable',409);return result.rows[0];
+ }
  async dispute(scope,{key,reason,expectedRevision,source}){
   version(expectedRevision);if(!identifier(key)||expectedRevision<1||typeof reason!=='string'||!reason.trim()||reason.length>2000)throw error('Memory dispute requires key, reason and current revision');
   if(!source||typeof source!=='object'||Array.isArray(source)||typeof source.kind!=='string'||!source.kind.trim()||Buffer.byteLength(JSON.stringify(source))>4000)throw error('Memory source required');
-  const result=await this.pool.query(`UPDATE iaic_memories SET dispute=$6,revision=revision+1,updated_at=now()
+  const result=await this.pool.query(`UPDATE iaic_memories SET dispute=$6,assessment=NULL,revision=revision+1,updated_at=now()
    WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3 AND memory_key=$4 AND revision=$5 AND NOT deleted AND dispute IS NULL AND (expires_at IS NULL OR expires_at>statement_timestamp()) RETURNING memory_key,revision`,[...partition(scope),key,expectedRevision,{reason,source}]);
   if(!result.rowCount)throw error('Memory changed or is not active',409);return result.rows[0];
  }
@@ -32,7 +40,7 @@ export class MemoryStore{
   const result=expectedRevision===0?
    await this.pool.query(`INSERT INTO iaic_memories(application_id,assistant_id,subject_id,memory_key,kind,content,source,expires_at)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING RETURNING *`,values.slice(0,8)):
-   await this.pool.query(`UPDATE iaic_memories SET kind=$5,content=$6,source=$7,expires_at=$8,revision=revision+1,deleted=false,dispute=NULL,updated_at=now()
+   await this.pool.query(`UPDATE iaic_memories SET kind=$5,content=$6,source=$7,expires_at=$8,revision=revision+1,deleted=false,dispute=NULL,assessment=NULL,updated_at=now()
     WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3 AND memory_key=$4 AND revision=$9 AND deleted=$10 AND (($11::boolean AND dispute IS NOT NULL) OR (NOT $11::boolean AND dispute IS NULL)) RETURNING *`,values);
   if(!result.rowCount)throw error('Memory changed or is unavailable; read current state before updating',409);
   return result.rows[0];
@@ -41,24 +49,24 @@ export class MemoryStore{
   if(!identifier(key))throw error('Memory key required');
   const active="NOT deleted AND (expires_at IS NULL OR expires_at>statement_timestamp())";
   const row=(await this.pool.query(`SELECT memory_key AS key,revision,kind,dispute IS NOT NULL AS disputed,
-   CASE WHEN deleted THEN 'forgotten' WHEN expires_at<=statement_timestamp() THEN 'expired' WHEN dispute IS NOT NULL THEN 'disputed' ELSE 'active' END AS status,
+   CASE WHEN deleted THEN 'forgotten' WHEN expires_at<=statement_timestamp() THEN 'expired' WHEN dispute IS NOT NULL THEN 'disputed' WHEN assessment->>'level'='contradicted' THEN 'contradicted' ELSE 'active' END AS status,
    CASE WHEN ${active} THEN content ELSE NULL END AS content,
-   CASE WHEN ${active} THEN source ELSE NULL END AS source,CASE WHEN ${active} THEN dispute ELSE NULL END AS dispute,expires_at AS "expiresAt",updated_at AS "updatedAt"
+   CASE WHEN ${active} THEN source ELSE NULL END AS source,CASE WHEN ${active} THEN dispute ELSE NULL END AS dispute,CASE WHEN ${active} THEN assessment ELSE NULL END AS assessment,expires_at AS "expiresAt",updated_at AS "updatedAt"
    FROM iaic_memories WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3 AND memory_key=$4`,[...partition(scope),key])).rows[0];
   if(!row)throw error('Memory not found',404);return row;
  }
  async list(scope,{query='',limit=20,kind=null,status='active'}={}){
   const identity=partition(scope);
-  if(!['active','disputed'].includes(status)||typeof query!=='string'||query.length>500||!Number.isInteger(limit)||limit<1||limit>50||(kind!==null&&!['fact','preference','note'].includes(kind)))throw error('Invalid memory lookup');
+  if(!['active','disputed','contradicted'].includes(status)||typeof query!=='string'||query.length>500||!Number.isInteger(limit)||limit<1||limit>50||(kind!==null&&!['fact','preference','note'].includes(kind)))throw error('Invalid memory lookup');
   const pattern='%'+query.replace(/[\\%_]/g,'\\$&')+'%';
   return (await this.pool.query(`SELECT * FROM iaic_memories WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3
-   AND NOT deleted AND (($7='active' AND dispute IS NULL) OR ($7='disputed' AND dispute IS NOT NULL)) AND (expires_at IS NULL OR expires_at>now()) AND content ILIKE $4
+   AND NOT deleted AND (($7='active' AND dispute IS NULL AND COALESCE(assessment->>'level','')<>'contradicted') OR ($7='disputed' AND dispute IS NOT NULL) OR ($7='contradicted' AND dispute IS NULL AND assessment->>'level'='contradicted')) AND (expires_at IS NULL OR expires_at>now()) AND content ILIKE $4
    AND ($5::text IS NULL OR kind=$5) ORDER BY updated_at DESC,memory_key ASC LIMIT $6`,[...identity,pattern,kind,limit,status])).rows;
  }
  async export(scope){
   const {rows:[snapshot]}=await this.pool.query(`WITH visible AS (
    SELECT memory_key,kind,content,source,revision,expires_at,created_at,updated_at FROM iaic_memories
-   WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3 AND NOT deleted AND dispute IS NULL AND (expires_at IS NULL OR expires_at>now())
+   WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3 AND NOT deleted AND dispute IS NULL AND COALESCE(assessment->>'level','')<>'contradicted' AND (expires_at IS NULL OR expires_at>now())
    ORDER BY memory_key LIMIT 1001
   ) SELECT statement_timestamp() AS exported_at,COALESCE(jsonb_agg(to_jsonb(visible) ORDER BY memory_key),'[]'::jsonb) AS memories FROM visible`,partition(scope));
   if(snapshot.memories.length>1000||Buffer.byteLength(JSON.stringify(snapshot.memories))>8_000_000)throw error('Memory export exceeds synchronous snapshot limit; no partial export returned',413);
@@ -89,7 +97,7 @@ export class MemoryStore{
  }
  async forget(scope,{key,expectedRevision}){
   const identity=partition(scope);version(expectedRevision);if(!identifier(key)||expectedRevision===0)throw error('Current memory key and revision required');
-  const result=await this.pool.query(`UPDATE iaic_memories SET content=NULL,source=NULL,dispute=NULL,deleted=true,revision=revision+1,updated_at=now()
+  const result=await this.pool.query(`UPDATE iaic_memories SET content=NULL,source=NULL,dispute=NULL,assessment=NULL,deleted=true,revision=revision+1,updated_at=now()
    WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3 AND memory_key=$4 AND revision=$5 AND NOT deleted RETURNING memory_key,revision,deleted`,[...identity,key,expectedRevision]);
   if(!result.rowCount)throw error('Memory changed or is unavailable',409);return result.rows[0];
  }

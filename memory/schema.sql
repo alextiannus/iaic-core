@@ -15,3 +15,5 @@ CREATE TABLE IF NOT EXISTS iaic_memory_imports (
 );
 
 ALTER TABLE iaic_memories ADD COLUMN IF NOT EXISTS dispute jsonb;
+
+ALTER TABLE iaic_memories ADD COLUMN IF NOT EXISTS assessment jsonb;
