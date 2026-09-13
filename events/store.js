@@ -1,3 +1,4 @@
+import {eventCursor,eventPrefix} from './cursor.js';
 import fs from 'node:fs/promises';import {randomUUID,createHash} from 'node:crypto';import {isDeepStrictEqual} from 'node:util';
 const fail=(message,statusCode=400)=>Object.assign(new Error(message),{statusCode});
 const text=v=>typeof v==='string'&&v.trim()&&v.length<=200;
@@ -13,10 +14,22 @@ export class EventStore {
   const account=identity(scope);if(!text(key))throw fail('Event key required');data=object(data,8000);source=object(source,4000);
   if(typeof source.kind!=='string'||!source.kind.trim())throw fail('Trusted event source required');
   const digest=eventDigest(data,source);
-  const result=await this.pool.query('INSERT INTO iaic_events(id,application_id,assistant_id,subject_id,event_key,data,source,digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(application_id,assistant_id,subject_id,event_key) DO NOTHING RETURNING *',[randomUUID(),...account,key,data,source,digest]);
+  const connection=await this.pool.connect();
+  try{await connection.query('BEGIN');
+  // Allocate the sequence only after holding this publisher scope through commit.
+  await connection.query("SELECT pg_advisory_xact_lock(hashtextextended(current_database() || ':' || current_schema() || ':iaic-events:' || $1,0))",[JSON.stringify(account)]);
+  const result=await connection.query('INSERT INTO iaic_events(id,application_id,assistant_id,subject_id,event_key,data,source,digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(application_id,assistant_id,subject_id,event_key) DO NOTHING RETURNING *',[randomUUID(),...account,key,data,source,digest]);
   // A separate statement observes the winner after a concurrent INSERT waits.
-  const row=result.rows[0]||(await this.pool.query('SELECT * FROM iaic_events WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3 AND event_key=$4',[...account,key])).rows[0];
-  if(!row||eventDigest(row.data,row.source)!==row.digest||!isDeepStrictEqual(row.data,data))throw fail('Event key belongs to different data',409);return view(row);
+  const row=result.rows[0]||(await connection.query('SELECT * FROM iaic_events WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3 AND event_key=$4',[...account,key])).rows[0];
+  if(!row||eventDigest(row.data,row.source)!==row.digest||!isDeepStrictEqual(row.data,data))throw fail('Event key belongs to different data',409);await connection.query('COMMIT');return view(row);
+  }catch(error){await connection.query('ROLLBACK').catch(()=>{});throw error;}finally{connection.release();}
+ }
+ async list(scope,{after='0',prefix='',limit=50}={}){
+  eventCursor(after);eventPrefix(prefix);if(!Number.isInteger(limit)||limit<1||limit>100)throw fail('Event page limit must be 1–100');
+  const rows=(await this.pool.query('SELECT * FROM iaic_events WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3 AND event_sequence>$4::bigint AND left(event_key,length($5))=$5 ORDER BY event_sequence LIMIT $6',[...identity(scope),after,prefix,limit+1])).rows;
+  for(const row of rows)if(eventDigest(row.data,row.source)!==row.digest)throw fail('Event data no longer matches its receipt',409);
+  const items=rows.slice(0,limit).map(row=>({...view(row),sequence:String(row.event_sequence)}));
+  return {items,nextCursor:items.at(-1)?.sequence??after,hasMore:rows.length>limit};
  }
  async read(scope,{key}){if(!text(key))throw fail('Event key required');const row=(await this.pool.query('SELECT * FROM iaic_events WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3 AND event_key=$4',[...identity(scope),key])).rows[0];if(!row)throw fail('Event not found',404);if(eventDigest(row.data,row.source)!==row.digest)throw fail('Event data no longer matches its receipt',409);return view(row);}
 }

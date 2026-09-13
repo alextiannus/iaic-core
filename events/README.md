@@ -12,7 +12,7 @@ HTTP: POST `/api/assistant-events` publishes; GET with `?key=...` reads. MCP: `m
 
 Follow-up task input pins sourceEventKey. When supplied, the internal event read tool can only read that key; current actor permissions still apply. Publication alone does not prove the event's data is true. Read the authoritative domain capability when business facts matter. One published event can match separately authorized follow-ups, each idempotent by its own request key.
 
-Current scope: immutable one-time correlation events and subscriptions, with bounded per-event JSON. Listing/stream cursors, recurring wildcard subscriptions, event expiry/retraction/deletion, ingestion quotas and full retention policies are not implemented. Published events and audit records remain stored. This is a base capability, not a complete event platform or full framework acceptance.
+Current scope: immutable correlation events, exact-key triggers and [cursor subscriptions](SUBSCRIPTIONS.md), with bounded per-event JSON. Cursor readers retain independent scoped checkpoints and can resume after service reconstruction. Recurring wildcard dispatch, event expiry/retraction/deletion, ingestion quotas and full retention policies are not implemented. Published events and audit records remain stored. This is a base capability, not a complete event platform or full framework acceptance.
 
 Tests: `test/iaic-events.integration.test.js`; independent package example: `examples/core-events`.
 

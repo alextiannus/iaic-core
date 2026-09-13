@@ -1,0 +1,2 @@
+export const eventCursor=value=>{if(typeof value!=='string'||!/^(0|[1-9][0-9]{0,18})$/.test(value)||BigInt(value)>9223372036854775807n)throw Object.assign(new Error('Event cursor must be a nonnegative bigint string'),{statusCode:400});return value;};
+export const eventPrefix=value=>{if(typeof value!=='string'||value.length>200)throw Object.assign(new Error('Bounded event key prefix required'),{statusCode:400});return value;};

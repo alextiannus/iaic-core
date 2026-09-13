@@ -162,3 +162,5 @@ export {BrowserDevices,createBrowserDeviceCapabilities} from './devices/service.
 export {DeviceOperationReconciliation,createDeviceReconciliationCapability} from './devices/reconciliation.js';
 
 export {LocalSimulation,createScriptedModel} from './developer/simulation.js';
+
+export {PostgresEventSubscriptions,EventSubscriptions,createEventSubscriptionCapabilities} from './events/subscriptions.js';
