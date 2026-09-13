@@ -55,3 +55,31 @@ Pass `enablePlans: true` to `openApplication` and include `tasks.plan.read` /
 Current Workspace-backed plans then enter each inference context automatically.
 They survive app reconstruction but remain editable working claims; a completed
 plan never substitutes for the application outcome verifier. Defaults are unchanged.
+# Optional one-time scheduled work
+
+Pass `scheduling: {restoreActor, isEnabled?}` to `openApplication`. `restoreActor`
+resolves the saved scope into a currently authenticated application principal;
+the app checks authorization and verifies that the resolved scope matches the
+original owner. Add `assistant.schedule` and desired
+`my_get_scheduled_assistant_task`, `my_list_scheduled_assistant_tasks`,
+`my_cancel_scheduled_assistant_task`, `my_retry_scheduled_assistant_task` tools to
+the job configuration and to the Task scope where needed.
+
+`assistant.schedule` takes `{dueAt, task}` with an explicit timestamp and child
+`allowedTools`. It returns a durable scheduled intent, not a completed Task. The
+shared Core rules prevent recursive scheduling and preserve the parent's resource
+limits when an Agent schedules work. Dispatch rechecks current authorization and
+binds current model settings; actual inference still uses the user's current
+platform allowance/BYOK rules. A closed Session does not cancel scheduled work.
+
+Use `app.start()` to start the Runtime and optional scheduler, or call their
+individual `tick()` methods from your own worker. `app.close()` drains the
+scheduler before stopping Runtime. The generated server uses this lifecycle.
+The template claims scheduled intents for its job ID only; the host's identity
+restorer handles the permitted organizations for that job. Workers sharing this
+table must use compatible claim scopes; an unfiltered legacy worker can still
+claim any row. Runtime executor/version ownership rules are unchanged.
+
+This opt-in wiring adds no recurring/event subscription configuration or new
+scheduler engine. Those existing Core modules remain separate compositions.
+Deployment, worker availability and current identity lookup remain host-owned.

@@ -1,4 +1,29 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import {execFile} from 'node:child_process';import {promisify} from 'node:util';import {fileURLToPath} from 'node:url';import {Pool} from 'pg';import {openApplication} from './app.mjs';import {fixtureOptions} from './fixture-model.mjs';import {createTaskObservationSource} from '@immedi/iaic-core';
+test('Generated scheduled work preserves receipts, current model and restored owner across reconstruction',async()=>{
+ const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL required');
+ const schema='schedule_starter_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let app;
+ try{
+  const actor={subjectId:'scheduled-owner',scopeId:'scheduled-org'},job=structuredClone(fixtureOptions.job);let calls=0,wrongOwner=false;
+  job.configuration.tools.push('assistant.schedule','my_get_scheduled_assistant_task','my_list_scheduled_assistant_tasks','my_cancel_scheduled_assistant_task');
+  const options={pool,...fixtureOptions,job,scheduling:{restoreActor:()=>({...actor,...(wrongOwner?{subjectId:'other'}:{})})},modelFactory:()=>({next:async()=>{calls++;return {type:'finish',result:{summary:'42',artifacts:[]},usage:{inputTokens:1,outputTokens:1}};}}),verifyOutcome:async(_i,r)=>Number(r.summary)===17+25};
+  app=await openApplication(options);await app.ledger.grant(await app.scope(actor),{reference:'scheduled-funding',amount:1000,evidence:{fixture:true}});
+  const session=await app.sessions.create(actor,{requestKey:'origin'});
+  const input={dueAt:'2000-01-01T00:00:00Z',task:{goal:'Compute 17 plus 25',allowedTools:['my_list_assistant_memories'],session:{id:session.id,throughSequence:0}}};
+  const intent=await app.dispatcher.invoke('assistant.schedule',input,{actor,callId:'schedule-original'});assert.equal(calls,0);assert.equal(intent.state,'queued');
+  await app.sessions.setState(actor,{sessionId:session.id,state:'closed',requestKey:'close',expectedSequence:0});
+  await app.models.select(actor,{profileId:'alternate'});await app.close();app=null;app=await openApplication(options);
+  const repeated=await app.dispatcher.invoke('assistant.schedule',input,{actor,callId:'schedule-original'});assert.equal(repeated.id,intent.id);
+  const receipt=await app.deferred.tick();assert.equal(receipt.state,'dispatched');assert.equal(calls,0);assert.equal(await app.deferred.tick(),null);
+  const task=await app.tasks.get(actor,receipt.taskId);assert.ok(task.model.startsWith('alternate:'));assert.equal((await app.runtime.tick()).status,'succeeded');assert.equal(calls,1);
+  assert.equal((await app.ledger.balance(await app.scope(actor))).balance,'998');assert.equal((await app.tasks.list(actor)).length,1);
+  const context=await app.sessions.context(actor,{id:session.id,throughSequence:2});assert.ok(context.events.some(e=>e.kind==='task_ref'&&e.data.taskId===task.id&&e.data.status==='succeeded'));
+  const future=await app.dispatcher.invoke('assistant.schedule',{...input,dueAt:'2099-01-01T00:00:00Z'},{actor,callId:'future'});assert.equal(await app.deferred.tick(),null);
+  assert.equal((await app.dispatcher.invoke('my_cancel_scheduled_assistant_task',{id:future.id},{actor,callId:'cancel-future'})).state,'cancelled');
+  const blocked=await app.dispatcher.invoke('assistant.schedule',input,{actor,callId:'wrong-owner'});wrongOwner=true;assert.equal((await app.deferred.tick()).state,'blocked');assert.equal(calls,1);
+  assert.equal((await app.deferred.get(actor,blocked.id)).taskId,null);
+  app.start();assert.ok(app.runtime.timer);assert.ok(app.deferred.timer);await app.close();assert.equal(app.runtime.timer,null);assert.equal(app.deferred.timer,null);app=null;
+ }finally{await app?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
+});
 test('Generated app optionally restores editable Task plans into the model context',async()=>{
  const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL required');
  const schema='plan_starter_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let app;

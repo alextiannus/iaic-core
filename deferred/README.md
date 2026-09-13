@@ -33,3 +33,13 @@ An accepted schedule is independent durable work. Cancelling/completing the pare
 `deferredControlTools` owns get/list/cancel/retry descriptors shared by owner adapters and `createDeferredControlCapabilities`. Agent composition includes reads by default; cancel/retry require explicit tool permission. Retry revalidates the stored future goal against the current parent tool and source/Mandate/Session ceilings, rejects scheduling/retry chains and is unavailable to handoff children. A cancelled-state receipt proves the desired cancellation state, not which caller caused it. A lost retry response remains unknown: current state alone cannot prove that particular retry call, so it is never automatically replayed or inferred from a later dispatch. Historical results read current intent state; already admitted tasks use their own controls. No new table, UI or scheduler.
 
 Focused lifecycle regression: `test/iaic-schedule-controls.integration.test.js` exercises model-directed list/cancel/get and blocked-intent retry, scope rejection, future dispatch, current receipt refresh and post-admission cancellation refusal. Independent package example `core-deferred` also consumes get/cancel capabilities.
+# Worker claim scope
+
+`new DeferredTaskStore({pool, claimScope: {applicationId, assistantId}})` can limit
+which intents a worker claims; either key may be omitted. The constructor copies
+and freezes a nonempty filter. Filtering happens before `FOR UPDATE SKIP LOCKED`,
+so foreign jobs are not claimed, retried or blocked by this worker. Omission
+retains the previous unfiltered adapter behavior. This is worker routing, not
+authorization: restored identity, current scope and input checks still apply.
+All workers sharing a table must use compatible scopes; a legacy unfiltered
+worker is not fenced by another worker's filter. No schema migration is required.

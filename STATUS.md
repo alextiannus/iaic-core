@@ -302,3 +302,26 @@ Only opt-in evaluation configuration and evidence changed this turn; the latest
 runtime prerelease remains candidate.69. The initial source preflight omitted its
 fixture URL and failed before inference; the corrected configuration and original
 failure were retained separately.
+
+## Optional scheduled work in the Agent starter
+
+The Agent application starter now composes existing DeferredTasks and shared
+scheduling/control Capabilities when supplied a trusted scheduling.restoreActor
+port. It verifies current authorization and the restored original owner scope.
+app.start starts Runtime and scheduler; close drains scheduling before Runtime
+shutdown. The generated server consumes that lifecycle. Future work uses current
+model selection and existing allowance rules, while Session linkage and stable
+schedule/Task receipts remain in their original modules.
+
+DeferredTaskStore now optionally filters claims by application and/or job before
+locking a row. The starter filters by its job ID, avoiding accidental consumption
+of another job's intents. Existing unfiltered workers retain their old behavior
+and must be configured consistently when sharing a table. This is claim routing,
+not a replacement for authorization or Runtime executor/version ownership.
+
+The installed starter check exercises schedule receipt reuse, application
+reconstruction, closed-Session result linkage, current model selection, one
+verified Task, allowance charging, future cancellation, wrong-owner restoration
+and clean worker shutdown. Separate PostgreSQL checks verify disjoint claim
+scopes without changing foreign intents. This is one-time scheduling composition,
+not new recurring/event orchestration, production deployment or real-model proof.

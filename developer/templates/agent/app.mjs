@@ -1,11 +1,12 @@
 import {
- AgentRegistry,AgentIdentityStore,TaskStore,AgentRuntime,ContextAssembler,CapabilityDispatcher,defineCapability,TaskPlans,
+ AgentRegistry,AgentIdentityStore,TaskStore,AgentRuntime,ContextAssembler,CapabilityDispatcher,defineCapability,TaskPlans,DeferredTaskStore,createAgentDeferredTasks,
  createAgentTaskCapabilities,createTaskControlCapabilities,TaskListing,createTaskListCapability,MemoryStore,AssistantMemory,PostgresWorkspaceStore,AssistantWorkspace,SkillCatalog,
  PostgresKnowledgeStore,KnowledgeCatalog,AssistantSettings,AssistantModels,AssistantModelRouting,ModelProfiles,TokenLedger,SessionStore,createAgentSessions,startSessionTask
 } from '@immedi/iaic-core';
 
 // This is application-owned composition. Each imported Core module remains independently replaceable.
-export async function openApplication({pool,skillRoot,job,profiles,resolveSecret,modelFactory,userModels=null,routing=null,tokenPolicies,authorize,verifyOutcome,version,runtimeLimits={},taskCursorKey=null,toolCallLimits,enablePlans=false}){
+export async function openApplication({pool,skillRoot,job,profiles,resolveSecret,modelFactory,userModels=null,routing=null,tokenPolicies,authorize,verifyOutcome,version,runtimeLimits={},taskCursorKey=null,toolCallLimits,enablePlans=false,scheduling=null}){
+ if(scheduling!==null&&(!scheduling||typeof scheduling.restoreActor!=='function'||(scheduling.isEnabled!==undefined&&typeof scheduling.isEnabled!=='function')))throw new Error('Scheduling requires a trusted restoreActor port and optional isEnabled function');
  if(typeof enablePlans!=='boolean')throw new Error('enablePlans must be a boolean');
  if(!runtimeLimits||Object.getPrototypeOf(runtimeLimits)!==Object.prototype||Object.entries(runtimeLimits).some(([k,v])=>!['maxTurns','maxCalls','maxBatchCalls','modelTimeoutMs','taskTimeoutMs'].includes(k)||!Number.isSafeInteger(v)||v<1))throw new Error('Supply positive integer Runtime limits only');
  if(typeof authorize!=='function'||typeof verifyOutcome!=='function')throw new Error('Supply current application authorization and independent outcome verification');
@@ -23,7 +24,9 @@ export async function openApplication({pool,skillRoot,job,profiles,resolveSecret
  const models=new AssistantModels({settings,profiles:modelProfiles,userModels,ledger,resolveScope:scope,tokenPolicies});
  const modelRouting=routing===null?null:new AssistantModelRouting({models,resolvePolicy:routing.resolvePolicy,availability:routing.availability});
  const plans=enablePlans?new TaskPlans({workspace,readTask:(actor,id)=>runtime.state(actor,id)}):null;
- const capabilities=createAgentTaskCapabilities({name:'agent.work',description:job.purpose,memory,workspace,skillCatalog:skills,knowledge,sessions,authorize:check,verifyOutcome,toolCallLimits,plans}).map(cap=>defineCapability({...cap,authorize:async(actor,input)=>{
+ const deferredStore=scheduling?new DeferredTaskStore({pool,claimScope:{assistantId:job.id}}):null;if(deferredStore)await deferredStore.initialize();
+ const deferred=scheduling?createAgentDeferredTasks({name:'agent.work',store:deferredStore,resolveScope:scope,restoreActor:async original=>{const actor=await scheduling.restoreActor(original),current=await scope(actor);if(['applicationId','assistantId','subjectId'].some(key=>current[key]!==original[key]))throw Object.assign(new Error('Restored schedule identity does not match its owner'),{statusCode:403});return actor;},dispatcher:{get capabilities(){return dispatcher.capabilities;},invoke:(...args)=>dispatcher.invoke(...args)},taskStore:tasks,sessions,isEnabled:scheduling.isEnabled}):null;
+ const capabilities=createAgentTaskCapabilities({name:'agent.work',description:job.purpose,memory,workspace,skillCatalog:skills,knowledge,sessions,authorize:check,verifyOutcome,toolCallLimits,plans,deferred}).map(cap=>defineCapability({...cap,authorize:async(actor,input)=>{
   await check(actor);const tools=job.configuration.tools;
   if(cap.implementation.kind==='agent'&&(!input.allowedTools||input.allowedTools.some(name=>!tools.includes(name))))return false;
   if(cap.implementation.kind==='function'&&!tools.includes(cap.name))return false;
@@ -38,5 +41,5 @@ export async function openApplication({pool,skillRoot,job,profiles,resolveSecret
  dispatcher.tasks=runtime;
  try{await runtime.initialize();}catch(error){await runtime.stop();throw error;}
  const entry={capabilities:dispatcher.capabilities,invoke:(name,input,context)=>name==='agent.work'?startSessionTask({sessions,actor:context.actor,input,startTask:()=>dispatcher.invoke(name,input,context)}):dispatcher.invoke(name,input,context)};
- return {dispatcher:entry,runtime,tasks,taskListing,plans,registry,memory,workspace,skills,knowledge,knowledgeStore,sessions,models,modelRouting,ledger,scope,close:()=>runtime.stop()};
+ return {dispatcher:entry,runtime,tasks,taskListing,plans,deferred,registry,memory,workspace,skills,knowledge,knowledgeStore,sessions,models,modelRouting,ledger,scope,start:()=>{deferred?.start();runtime.start();},close:async()=>{await deferred?.stop();await runtime.stop();}};
 }

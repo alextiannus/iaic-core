@@ -5,8 +5,10 @@ const uuid=v=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 const identity=scope=>{const values=[scope?.applicationId,scope?.assistantId,scope?.subjectId];if(!values.every(text))throw fail('Trusted deferred-task scope required',401);return values;};
 const visible=row=>({id:row.id,requestKey:row.request_key,dueAt:new Date(row.trigger_not_before??row.due_at).toISOString(),input:row.input,trigger:row.trigger,triggerReceipt:row.trigger_receipt,state:row.state,attempts:row.attempts,taskId:row.task_id,lastError:row.last_error,admittedAt:row.admitted_at,createdAt:row.created_at});
 export class DeferredTaskStore{
- constructor({pool,leaseMs=60000,retryMs=15000,maxAttempts=3}){
-  if(!Number.isInteger(leaseMs)||leaseMs<1||!Number.isInteger(retryMs)||retryMs<0||!Number.isInteger(maxAttempts)||maxAttempts<1)throw new Error('Invalid deferred worker limits');Object.assign(this,{pool,leaseMs,retryMs,maxAttempts});
+ constructor({pool,leaseMs=60000,retryMs=15000,maxAttempts=3,claimScope=null}){
+  if(!Number.isInteger(leaseMs)||leaseMs<1||!Number.isInteger(retryMs)||retryMs<0||!Number.isInteger(maxAttempts)||maxAttempts<1)throw new Error('Invalid deferred worker limits');
+  if(claimScope!==null&&(!claimScope||Object.getPrototypeOf(claimScope)!==Object.prototype||!Object.keys(claimScope).length||Object.entries(claimScope).some(([k,v])=>!['applicationId','assistantId'].includes(k)||!text(v))))throw new Error('Deferred claim scope requires applicationId and/or assistantId');
+  Object.assign(this,{pool,leaseMs,retryMs,maxAttempts});this.claimScope=claimScope===null?null:Object.freeze({...claimScope});
  }
  async initialize(){await this.pool.query(await fs.readFile(new URL('./schema.sql',import.meta.url),'utf8'));}
  async transaction(run){const c=await this.pool.connect();try{await c.query('BEGIN');const result=await run(c);await c.query('COMMIT');return result;}catch(e){await c.query('ROLLBACK').catch(()=>{});throw e;}finally{c.release();}}
@@ -35,7 +37,7 @@ export class DeferredTaskStore{
   if(!row)throw fail('Dispatch already admitted or state changed; use the linked Task lifecycle once available',409);return visible(row);
  }
  async claim(){return this.transaction(async c=>{
-  const row=(await c.query("SELECT * FROM iaic_deferred_tasks WHERE COALESCE(trigger_not_before,due_at)<=now() AND ((state IN ('queued','retry') AND next_attempt_at<=now()) OR (state='dispatching' AND lease_until<=now())) ORDER BY next_attempt_at,due_at,id FOR UPDATE SKIP LOCKED LIMIT 1")).rows[0];if(!row)return null;
+  const row=(await c.query("SELECT * FROM iaic_deferred_tasks WHERE ($1::text IS NULL OR application_id=$1) AND ($2::text IS NULL OR assistant_id=$2) AND COALESCE(trigger_not_before,due_at)<=now() AND ((state IN ('queued','retry') AND next_attempt_at<=now()) OR (state='dispatching' AND lease_until<=now())) ORDER BY next_attempt_at,due_at,id FOR UPDATE SKIP LOCKED LIMIT 1",[this.claimScope?.applicationId??null,this.claimScope?.assistantId??null])).rows[0];if(!row)return null;
   return (await c.query("UPDATE iaic_deferred_tasks SET state='dispatching',token=$2,lease_until=now()+($3::double precision*interval '1 millisecond'),attempts=attempts+1,updated_at=now() WHERE id=$1 RETURNING *",[row.id,randomUUID(),this.leaseMs])).rows[0];
  });}
  async waitForTrigger(row){
