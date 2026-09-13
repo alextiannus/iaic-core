@@ -37,3 +37,20 @@ test('Release resources enforce content references, safe paths and current bindi
  const stoppedDuringRead=new ReleaseResources({releases,readResource:async()=>{enabled=false;return bytes;}});
  await assert.rejects(stoppedDuringRead.materialize({},binding,{parentDirectory}),{statusCode:409});assert.deepEqual((await fs.readdir(parentDirectory)).sort(),before);
 }));
+test('In-memory release resources pin the original binding and manifest across asynchronous reads',async()=>{
+ const {createHash}=await import('node:crypto');const bytes=Buffer.from('verified prompt');
+ const item={path:'prompt.txt',sha256:createHash('sha256').update(bytes).digest('hex'),byteLength:bytes.length,reference:{id:'original'}};
+ const manifest={resources:[item]},binding={releaseId:'original',manifestDigest:'original-digest'},checks=[];
+ const loader=new ReleaseResources({releases:{check:async(_actor,ref)=>{checks.push({...ref});return manifest;}},readResource:async(_actor,ref)=>{
+  assert.equal(ref.id,'original');binding.releaseId='replacement';item.path='../changed';item.sha256='0'.repeat(64);return bytes;
+ }});
+ const loaded=await loader.read({},binding);assert.equal(loaded.releaseId,'original');assert.equal(loaded.files[0].path,'prompt.txt');assert.equal(loaded.files[0].bytes.toString(),'verified prompt');
+ assert.deepEqual(checks,[{releaseId:'original',manifestDigest:'original-digest'},{releaseId:'original',manifestDigest:'original-digest'}]);
+ bytes.fill(0);assert.equal(loaded.files[0].bytes.toString(),'verified prompt');
+});
+test('In-memory release reads reject changed content and stop during resource loading',async()=>{
+ const {createHash}=await import('node:crypto');const bytes=Buffer.from('prompt'),manifest={resources:[{path:'prompt',sha256:createHash('sha256').update(bytes).digest('hex'),byteLength:bytes.length,reference:'object'}]};let stopped=false;
+ const releases={check:async()=>{if(stopped)throw Object.assign(new Error('Stopped'),{statusCode:409});return manifest;}};
+ await assert.rejects(new ReleaseResources({releases,readResource:async()=>Buffer.from('broken')}).read({},{}),{statusCode:409});
+ await assert.rejects(new ReleaseResources({releases,readResource:async()=>{stopped=true;return bytes;}}).read({},{}),{statusCode:409});
+});
