@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';import path from 'node:path';import {fileURLToPath} from 'node:url';import {randomUUID} from 'node:crypto';import {isDeepStrictEqual} from 'node:util';import {Pool} from 'pg';
-import {AgentRuntime,TaskStore,ContextAssembler,CapabilityDispatcher,createAgentTaskCapabilities,defineCapability,TokenLedger,meteredModel,MemoryStore,AssistantMemory,PostgresWorkspaceStore,AssistantWorkspace,SkillCatalog,createModelProvider,EvaluationRunner,FileEvaluationStore,evaluateGate,evidenceDigest} from '@immedi/iaic-core';
+import {AgentRuntime,TaskStore,ContextAssembler,CapabilityDispatcher,createAgentTaskCapabilities,defineCapability,TokenLedger,meteredModel,MemoryStore,AssistantMemory,PostgresWorkspaceStore,AssistantWorkspace,SkillCatalog,createModelProvider,EvaluationRunner,FileEvaluationStore,evaluateGate} from '@immedi/iaic-core';
+import {evidenceDigest} from '@immedi/iaic-core/evaluation/runner.js';
 const root=path.dirname(fileURLToPath(import.meta.url)),out=process.env.IAIC_ACCEPTANCE_OUTPUT;
 if(process.env.IAIC_RUN_REAL_ACCEPTANCE!=='1'||!out||!process.env.IAIC_MODEL_API_KEY||!process.env.IAIC_MODEL||!process.env.IAIC_SOURCE_REVISION)throw new Error('Explicit real-model opt-in, output directory, credentials, model and source revision required');
 const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString||!['localhost','127.0.0.1','[::1]'].includes(new URL(connectionString).hostname))throw new Error('An isolated local PostgreSQL database is required');
