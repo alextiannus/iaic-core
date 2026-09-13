@@ -52,6 +52,12 @@ export class TaskStore {
       WHERE t.id=$1 AND t.employee_id=$2 AND t.erp_user=$3`,[id,...this.identity(actor)])).rows[0];
     if(!row)throw notFound();return row;
   }
+  async operationReceipts(actor,id) {
+    await this.get(actor,id);
+    const rows=(await this.pool.query('SELECT id AS "effectKey",capability,effect,status FROM iaic_calls WHERE task_id=$1 ORDER BY created_at,id LIMIT 1001',[id])).rows;
+    if(rows.length>1000)throw Object.assign(new Error('Task operation receipt bound exceeded'),{statusCode:413});
+    return rows;
+  }
   async history(actor,id) {
     await this.get(actor,id);
     const events=await this.pool.query('SELECT seq,kind,data,created_at FROM iaic_task_events WHERE task_id=$1 ORDER BY seq',[id]);

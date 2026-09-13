@@ -8,9 +8,10 @@ const grantId=id=>{if(typeof id!=='string'||! /^[a-f0-9-]{36}$/i.test(id))throw 
 const terminal=t=>t&&['succeeded','failed','cancelled'].includes(t.status);
 // Adapter for the existing Runtime Delegations loop; all Tasks use its store/executor.
 export class CrossPrincipalDelegations {
- constructor({authority,artifacts,resolvePlan,readArtifact}){
+ constructor({authority,artifacts,resolvePlan,readArtifact,progress=null}){
   if(!authority?.parents||!artifacts||typeof resolvePlan!=='function'||typeof readArtifact!=='function')throw fail('Delegated Task, parent authority, sharing and trusted planning ports required');
-  Object.assign(this,{authority,artifacts,resolvePlan,readArtifact});this.grants=authority.grants;
+  if(progress!==null&&typeof progress.read!=='function')throw fail('Progress reader required');
+  Object.assign(this,{authority,artifacts,resolvePlan,readArtifact,progress});this.grants=authority.grants;
  }
  get runtime(){return this.grants.dispatcher.tasks;}
  async prepare(actor,parent,request,deadlineAt){
@@ -57,7 +58,9 @@ export class CrossPrincipalDelegations {
   if(row.terms.task.parent.taskId!==taskId)throw fail('Parent context binding mismatch',403);
   const receipt=await this.receipt(row);let result=null,availability='current';
   if(receipt.childStatus==='succeeded')try{result=(await this.artifacts.result(actor,row.id)).result;}catch(e){if(![403,404].includes(e.statusCode))throw e;availability='unavailable';}
-  return {items:[{...receipt,goal:parent.delegation.request.goal,successCriteria:parent.delegation.request.successCriteria,result,availability}],hasMore:false};
+  let progress=null,progressAvailability=this.progress?'current':'not_configured';
+  if(this.progress)try{progress=await this.progress.read(actor,row.id);}catch(e){if(![403,404].includes(e.statusCode))throw e;progressAvailability='unavailable';}
+  return {items:[{...receipt,progress,progressAvailability,goal:parent.delegation.request.goal,successCriteria:parent.delegation.request.successCriteria,result,availability}],hasMore:false};
  }
  async bind({idempotencyKey}){if(idempotencyKey?.startsWith('iaic-handoff:'))throw fail('Same-owner Handoff adapter is not installed',503);return null;}
  async checkTask({task}){if(task.handoff)throw fail('Same-owner Handoff adapter is not installed',503);}

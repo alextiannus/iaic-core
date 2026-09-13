@@ -160,3 +160,49 @@ async function automatic(f,{cancelChild=false}={}){
 }
 test('Runtime delegates across principals and resumes its original parent with current artifact results',async()=>fixture(f=>automatic(f)));
 test('Cancelled child receipt restores parent work under its original verifier without duplicate effects',async()=>fixture(f=>automatic(f,{cancelChild:true})));
+
+for(const lostResponse of [false,true])test(`Parent takes over interrupted child using original effect receipt (lost response: ${lostResponse})`,async()=>fixture(async f=>{
+ const {DelegationProgress,createDelegationProgressCapability}=await import('@immedi/iaic-core');
+ const write=f.dispatcher.capabilities.get('records.write'),execute=write.implementation.execute;
+ f.dispatcher.capabilities.set(write.name,defineCapability({...write,implementation:{...write.implementation,execute:async(i,c)=>{const r=await execute(i,c);if(lostResponse)throw Object.assign(new Error('Effect committed; response lost'),{outcomeUnknown:true});return r;}}}));
+ const lookup=defineCapability({name:'records.lookup',description:'Query original effect under current parent permission',input:{type:'object',properties:{effectKey:{type:'string'}},required:['effectKey'],additionalProperties:false},output:{type:'object'},effect:'read',authorize:a=>f.permitted.has(a.subjectId),revalidate:async(i,_r)=>({found:(await f.pool.query('SELECT 1 FROM effects WHERE id=$1',[i.effectKey])).rowCount===1}),implementation:{kind:'function',execute:async i=>({found:(await f.pool.query('SELECT 1 FROM effects WHERE id=$1',[i.effectKey])).rowCount===1})}});
+ f.dispatcher.capabilities.set(lookup.name,lookup);
+ let deny=false;
+ const progress=new DelegationProgress({grants:f.grants,authorizeShare:()=>!deny});
+ const pc=createDelegationProgressCapability({progress});f.dispatcher.capabilities.set(pc.name,pc);
+ const parentCap=defineCapability({name:'parent.run',description:'Recover partially completed work',input:{type:'object'},output:{type:'object'},effect:'read',authorize:a=>f.permitted.has(a.subjectId),implementation:{kind:'agent',instructions:'Query the original effect before deciding whether more work is needed',tools:['records.write','records.lookup'],verify:async(_i,_r,{history})=>history.calls.some(c=>c.capability==='records.lookup'&&c.result?.found===true)&&Number((await f.pool.query('SELECT count(*) FROM effects')).rows[0].count)===1}});
+ f.dispatcher.capabilities.set(parentCap.name,parentCap);
+ f.authority.parents=new DelegationParents({grants:f.grants,allowLink:()=>true});
+ const artifacts=new DelegationArtifacts({grants:f.grants,readOwned:(a,r)=>f.workspace.read(a,r),authorizeShare:()=>true});
+ const bridge=new CrossPrincipalDelegations({authority:f.authority,artifacts,progress,readArtifact:(a,r)=>f.workspace.read(a,r),resolvePlan:({input})=>({input,delegate:f.principal(f.delegate),payer:f.principal(f.issuer),constraints:{},budgetId:'work',maxToolCalls:1})});
+ let children=0;
+ f.model.next=async r=>{
+  const data=JSON.parse(r.messages.find(m=>m.role==='user').content);
+  if(r.billingContext.capability!=='parent.run'){
+   if(++children===1)return {type:'call',name:'records.write',input:{},usage:{inputTokens:1,outputTokens:1}};
+   throw new Error('Worker cannot continue after partial work');
+  }
+  if(!data.handoffs?.items?.length)return {type:'delegate',input:{goal:'Write one record',successCriteria:'One persisted effect',tools:['records.write']}};
+  const p=data.handoffs.items[0].progress;
+  assert.equal(p.status,'cancelled');assert.equal(p.operations.length,1);assert.equal(p.requiresReconciliation,lostResponse);
+  assert.equal(p.operations[0].status,lostResponse?'unknown':'succeeded');
+  assert.deepEqual(Object.keys(p.operations[0]).sort(),['capability','effect','effectKey','status']);
+  if(!data.calls.length)return {type:'call',name:'records.lookup',input:{effectKey:p.operations[0].effectKey}};
+  return {type:'finish',result:{done:true}};
+ };
+ f.setHandoffs(bridge);let runtime=await f.build();
+ const parent=await runtime.create({capability:parentCap,input:{goal:'One verified effect despite worker failure',allowedTools:['records.write','records.lookup'],delegation:{capability:'worker.run',maxModelCalls:3,timeoutMs:60000}},actor:f.issuer,idempotencyKey:'recover-parent'});
+ await runtime.tick();await runtime.tick();
+ const state=await runtime.state(f.issuer,parent.id),receipt=await bridge.delegationReceipt(f.issuer,state.delegation.id);
+ assert.equal(receipt.childStatus,'waiting');await f.authority.cancel(f.issuer,receipt.id);
+ runtime=await f.build();await runtime.tick();assert.equal((await runtime.get(f.issuer,parent.id)).status,'succeeded');
+ assert.equal((await f.pool.query('SELECT * FROM effects')).rowCount,1);
+ const input={grantId:receipt.id};const projected=await f.dispatcher.invoke(pc.name,input,{actor:f.issuer});
+ assert.equal(projected.operations.length,1);assert.equal(projected.operations[0].effectKey,(await f.pool.query('SELECT id FROM effects')).rows[0].id);
+ await assert.rejects(progress.read({scopeId:'app',subjectId:'other'},receipt.id),{statusCode:403});
+ deny=true;await assert.rejects(pc.revalidate(input,projected,{actor:f.issuer}),{statusCode:403});
+ const hidden=await bridge.context(f.issuer,parent.id);assert.equal(hidden.items[0].progress,null);assert.equal(hidden.items[0].progressAvailability,'unavailable');
+ deny=false;
+ if(lostResponse){await runtime.store.resolveCall(f.delegate,receipt.childTaskId,projected.operations[0].effectKey,{done:true});assert.equal((await progress.read(f.issuer,receipt.id)).requiresReconciliation,false);}
+ await runtime.tick();assert.equal((await f.pool.query('SELECT * FROM effects')).rowCount,1);
+}));
