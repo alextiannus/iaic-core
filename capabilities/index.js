@@ -1,0 +1,97 @@
+import Ajv from 'ajv';
+
+const ajv = new Ajv({ allErrors: true, strict: true, coerceTypes: false, removeAdditional: false, useDefaults: false });
+const failure = (message, statusCode = 400, detail = {}) => Object.assign(new Error(message), { statusCode, ...detail });
+
+export function defineCapability(definition) {
+  if (!definition || !/^[a-z][a-z0-9_.-]*$/.test(definition.name || '')) throw failure('Invalid capability name');
+  if (!definition.description || !definition.input || !definition.output || typeof definition.authorize !== 'function') {
+    throw failure('Capability requires description, input/output schemas and authorization');
+  }
+  const implementation = definition.implementation;
+  if (implementation?.kind === 'function') {
+    if (typeof implementation.execute !== 'function' || implementation.tools || implementation.instructions) {
+      throw failure('Function capability must have only a deterministic implementation');
+    }
+  } else if (implementation?.kind === 'agent') {
+    if (implementation.execute || !implementation.instructions || !Array.isArray(implementation.tools)
+      || typeof implementation.verify !== 'function') throw failure('Agent capability requires tools, instructions and result verification');
+  } else throw failure('Unknown capability implementation kind');
+  if (!['read', 'write'].includes(definition.effect)) throw failure('Capability must declare read/write effect');
+  if (definition.effect === 'write' && !['idempotent', 'never-replay'].includes(definition.retry)) {
+    throw failure('Write capability must declare retry semantics');
+  }
+  if (definition.preflight !== undefined && (implementation.kind !== 'function' || typeof definition.preflight !== 'function')) throw failure('Preflight must be a deterministic function capability check');
+  if (definition.waitReady !== undefined && (implementation.kind !== 'function' || definition.effect !== 'read' || typeof definition.waitReady !== 'function' || typeof definition.revalidate !== 'function')) throw failure('Result waiting requires a read function, readiness predicate and history revalidation');
+  if (definition.projectHistoryInput !== undefined && (implementation.kind !== 'function' || typeof definition.projectHistoryInput !== 'function')) throw failure('History input projection must be a deterministic function capability hook');
+  // Trusted code defines behavior; immutable schemas are what entrypoints expose.
+  const input = structuredClone(definition.input), output = structuredClone(definition.output);
+  const validateInput = ajv.compile(input), validateOutput = ajv.compile(output);
+  return Object.freeze({ ...definition, input: freeze(input), output: freeze(output),
+    implementation: Object.freeze({ ...implementation, ...(implementation.tools ? { tools: Object.freeze([...implementation.tools]) } : {}) }),
+    validateInput, validateOutput });
+}
+
+export class CapabilityDispatcher {
+  constructor({ capabilities, tasks = null, validateActor = (actor,capability) => Boolean(actor?.subjectId && (capability.implementation.kind !== 'agent' || actor.scopeId)) }) {
+    this.capabilities = new Map(); this.tasks = tasks; this.validateActor = validateActor;
+    for (const capability of capabilities) {
+      if (this.capabilities.has(capability.name)) throw failure(`Duplicate capability: ${capability.name}`);
+      this.capabilities.set(capability.name, capability);
+    }
+    for (const capability of capabilities) {
+      if (capability.implementation.kind !== 'agent') continue;
+      for (const name of capability.implementation.tools) {
+        const target = this.capabilities.get(name);
+        if (!target || target.implementation.kind !== 'function') throw failure(`Agent tool must be a deterministic capability: ${name}`);
+      }
+    }
+  }
+
+  async invoke(name, input, { actor, callId = null, signal = null, allowedCapabilities = null } = {}) {
+    const capability = this.capabilities.get(name);
+    if (!capability) throw failure('Capability not found', 404);
+    if (allowedCapabilities && !allowedCapabilities.includes(name)) throw failure('Capability is outside this task scope', 403);
+    if (this.validateActor(actor,capability) !== true) throw failure('Application identity required', 401);
+    if (signal?.aborted) throw failure('Execution cancelled', 409);
+    const value = structuredClone(input);
+    if (!capability.validateInput(value)) throw failure('Capability input is invalid', 400, { validation: structuredClone(capability.validateInput.errors) });
+    const identity = freeze(structuredClone(actor));
+    if (await capability.authorize(identity, value) !== true) throw failure('Capability access denied', 403);
+    if (signal?.aborted) throw failure('Execution cancelled', 409);
+    const context = { actor: identity, callId, signal };
+    if (capability.implementation.kind === 'agent') {
+      if (!this.tasks) throw failure('Persistent task runtime is unavailable', 503);
+      return this.tasks.create({ capability, input: value, actor: identity, idempotencyKey: callId });
+    }
+    if (capability.effect === 'write' && !callId) throw failure('Write capability requires a stable call ID');
+    // Preflight is read-only application validation, before the side-effect boundary.
+    if (capability.preflight && await capability.preflight(value, context) !== true) throw failure('Capability input failed preflight before execution', 422, { preflightRejected: true });
+    if (signal?.aborted) throw failure('Execution cancelled', 409);
+    let executed = false;
+    try {
+      executed = true;
+      const result = await capability.implementation.execute(value, context);
+      if (!capability.validateOutput(result)) throw failure('Capability returned invalid output', 502, { validation: structuredClone(capability.validateOutput.errors) });
+      if (capability.verify && await capability.verify(value, result, context) !== true) throw failure('Capability outcome was not verified', 422);
+      return result;
+    } catch (error) {
+      // A failed response/verification after a write does not prove no side effect.
+      if (executed && capability.effect === 'write') error.outcomeUnknown = true;
+      throw error;
+    }
+  }
+
+  toolsFor(actor) {
+    return Object.fromEntries([...this.capabilities.values()].map(capability => [capability.name, {
+      name: capability.name, description: capability.description, inputSchema: capability.input,
+      outputSchema: capability.output,
+      handler: (input, execution = {}) => this.invoke(capability.name, input, { ...execution, actor })
+    }]));
+  }
+}
+
+function freeze(value) {
+  if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); }
+  return value;
+}

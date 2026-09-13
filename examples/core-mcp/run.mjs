@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import {Pool} from 'pg';
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';import {InMemoryTransport} from '@modelcontextprotocol/sdk/inMemory.js';
+import {CapabilityDispatcher,defineCapability,AgentRuntime,TaskStore,ContextAssembler} from '@immedi/iaic-core';
+import {createCapabilityMcpServer} from '@immedi/iaic-core/mcp/server.js';
+const admin=new Pool({connectionString:process.env.DATABASE_URL}),schema='core_mcp_'+randomUUID().replaceAll('-','');await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString:process.env.DATABASE_URL,options:`-c search_path=${schema}`});let server,client,runtime;
+try{
+ await pool.query('CREATE TABLE example_notes(request_key text PRIMARY KEY,body text NOT NULL)');
+ const actor={scopeId:'neutral',subjectId:'reader'},authorize=async a=>a.scopeId===actor.scopeId&&a.subjectId===actor.subjectId;
+ const output={type:'object',properties:{value:{type:'string'}},required:['value'],additionalProperties:false};
+ const readValue=async input=>{const row=(await pool.query('SELECT body FROM example_notes WHERE request_key=$1',[input.key])).rows[0];if(!row)throw Object.assign(new Error('Note missing'),{statusCode:404});return {value:row.body};};
+ const read=defineCapability({name:'notes.read',description:'Read a note',input:{type:'object',properties:{key:{type:'string'}},required:['key'],additionalProperties:false},output,effect:'read',authorize,revalidate:readValue,implementation:{kind:'function',execute:readValue}});
+ const write=defineCapability({name:'notes.write',description:'Store a note once per key',input:output,output,effect:'write',retry:'idempotent',authorize,implementation:{kind:'function',execute:async(input,{callId})=>{await pool.query('INSERT INTO example_notes VALUES($1,$2) ON CONFLICT DO NOTHING',[callId,input.value]);const current=await readValue({key:callId});if(current.value!==input.value)throw Object.assign(new Error('Request key payload conflict'),{statusCode:409});return current;}}});
+ const agent=defineCapability({name:'notes.assist',description:'Verify saved note',input:read.input,output,effect:'write',retry:'never-replay',authorize,implementation:{kind:'agent',instructions:'Read the requested note',tools:['notes.read'],verify:async(input,result,{history})=>(await readValue(input)).value===result.value&&history.calls.some(c=>c.capability==='notes.read'&&c.status==='succeeded')}});
+ const dispatcher=new CapabilityDispatcher({capabilities:[read,write,agent]}),store=new TaskStore({pool});let turn=0;
+ runtime=new AgentRuntime({store,dispatcher,model:{name:'deterministic-mcp',next:async()=>++turn===1?{type:'call',name:'notes.read',input:{key:'saved-note'}}:{type:'finish',result:{value:'Prepare the agenda'}}},context:new ContextAssembler({skillRoot:process.cwd()}),version:'core-mcp-v1'});dispatcher.tasks=runtime;await runtime.initialize();
+ server=createCapabilityMcpServer({dispatcher,resolveAccess:async()=>({actor,capabilities:[read.name,write.name,agent.name]})});client=new Client({name:'neutral-consumer',version:'1'});const [ct,st]=InMemoryTransport.createLinkedPair();await server.connect(st);await client.connect(ct);
+ const call=async(name,input,requestKey)=>{const r=await client.callTool({name,arguments:{input,...(requestKey?{requestKey}:{})}});assert.notEqual(r.isError,true,JSON.stringify(r));return JSON.parse(r.content[0].text);};
+ await call('notes.write',{value:'Prepare the agenda'},'saved-note');await call('notes.write',{value:'Prepare the agenda'},'saved-note');assert.equal((await pool.query('SELECT count(*)::int AS n FROM example_notes')).rows[0].n,1);
+ const receipt=await call('notes.assist',{key:'saved-note'},'agent-task');assert.equal(receipt.status,'queued');assert.equal((await call('notes.assist',{key:'saved-note'},'agent-task')).id,receipt.id);assert.equal((await runtime.tick()).status,'succeeded');assert.equal((await new TaskStore({pool}).get(actor,receipt.id)).result.value,'Prepare the agenda');assert.equal(turn,2);
+ console.log(JSON.stringify({independentMcp:true,domainWriteReplay:true,durableTaskReceipt:true,sharedRuntime:true,erpUsed:false}));
+}finally{await client?.close();await server?.close();await runtime?.stop();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}

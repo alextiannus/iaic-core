@@ -1,0 +1,14 @@
+import fs from 'node:fs/promises';import os from 'node:os';import path from 'node:path';import {spawnSync} from 'node:child_process';import {fileURLToPath} from 'node:url';
+const root=fileURLToPath(new URL('../',import.meta.url)),npm=process.env.npm_execpath;
+if(!npm)throw new Error('Use npm run verify:core-package');
+const url=process.env.SUBMISSION_TEST_DATABASE_URL||process.env.DATABASE_URL;if(!url)throw new Error('Isolated PostgreSQL URL required');
+const run=(args,cwd,env=process.env)=>{const r=spawnSync(process.execPath,args,{cwd,env,encoding:'utf8',timeout:180000});if(r.status!==0)throw new Error(r.stderr||r.stdout||String(r.error));return r.stdout;};
+const temp=await fs.mkdtemp(path.join(os.tmpdir(),'iaic-standalone-'));
+const packed=JSON.parse(run([npm,'pack','--json','--pack-destination',temp],root))[0];
+const consumer=path.join(temp,'consumer');await fs.mkdir(consumer);await fs.writeFile(path.join(consumer,'package.json'),JSON.stringify({private:true,type:'module'}));
+run([npm,'install','--ignore-scripts','--no-audit','--no-fund',path.join(temp,packed.filename),'pg@8.23.0','@modelcontextprotocol/sdk@1.30.0'],consumer);
+const installed=await fs.realpath(path.join(consumer,'node_modules/@immedi/iaic-core'));if(!installed.startsWith((await fs.realpath(consumer))+path.sep))throw new Error('Unexpected source link');
+await fs.cp(path.join(root,'examples'),path.join(consumer,'examples'),{recursive:true});await fs.mkdir(path.join(consumer,'scripts'));await fs.copyFile(path.join(root,'scripts/verify-examples.mjs'),path.join(consumer,'scripts/verify-examples.mjs'));
+const env={...process.env,DATABASE_URL:url,SUBMISSION_TEST_DATABASE_URL:url};delete env.DEMO_MODEL_API_KEY;
+process.stdout.write(run([path.join(consumer,'scripts/verify-examples.mjs')],consumer,env));
+console.log(JSON.stringify({independentInstall:true,archive:path.join(temp,packed.filename),integrity:packed.integrity,consumer}));

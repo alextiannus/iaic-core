@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import {Pool} from 'pg';
+import {MandateStore,AssistantMandates,AgentRuntime,TaskStore,ContextAssembler,CapabilityDispatcher,defineCapability} from '@immedi/iaic-core';
+const admin=new Pool({connectionString:process.env.DATABASE_URL}),schema='mandate_example_'+randomUUID().replaceAll('-','');await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString:process.env.DATABASE_URL,options:`-c search_path=${schema}`});let runtime;
+try{
+ const actor={scopeId:'neutral',subjectId:'reader'},scope={applicationId:'neutral',assistantId:'helper',subjectId:'reader'};
+ const store=new MandateStore({pool});await store.initialize();const mandates=new AssistantMandates({store,resolveScope:async()=>scope,authorizeGrant:async()=>true,sourceFor:()=>({kind:'explicit-user-request'})});
+ const grant=await mandates.grant(actor,{requestKey:'read-only',capability:'draft',tools:['note.read'],purpose:'Read the current note',expiresAt:'2099-01-01T00:00:00Z'});
+ const read=defineCapability({name:'note.read',description:'Read the note',input:{type:'object'},output:{type:'object'},effect:'read',authorize:async a=>a.subjectId==='reader',revalidate:async()=>({text:'Prepare next week agenda'}),implementation:{kind:'function',execute:async()=>({text:'Prepare next week agenda'})}});
+ const agent=defineCapability({name:'draft',description:'Read a note',input:{type:'object'},output:{type:'object'},effect:'write',retry:'never-replay',authorize:async a=>a.subjectId==='reader',implementation:{kind:'agent',instructions:'Read the note',tools:['note.read'],verify:async(_i,_r,{history})=>history.calls.some(c=>c.capability==='note.read'&&c.status==='succeeded')}});
+ const dispatcher=new CapabilityDispatcher({capabilities:[read,agent]}),tasks=new TaskStore({pool});let turns=0;
+ runtime=new AgentRuntime({store:tasks,dispatcher,mandates,model:{name:'deterministic-mandate',next:async()=>++turns===1?{type:'call',name:'note.read',input:{}}:{type:'finish',result:{read:true}}},context:new ContextAssembler({skillRoot:process.cwd()}),version:'mandate-example-v1'});dispatcher.tasks=runtime;await runtime.initialize();
+ const input={goal:'Read note',mandate:{id:grant.id},allowedTools:['note.read']};const task=await runtime.create({capability:agent,input,actor,idempotencyKey:'read'});const finished=await runtime.tick();assert.equal(finished.status,'succeeded',finished.error||finished.waiting_reason);assert.equal((await new TaskStore({pool}).get(actor,task.id)).input.mandate.id,grant.id);
+ await mandates.revoke(actor,grant.id);await assert.rejects(runtime.create({capability:agent,input,actor,idempotencyKey:'after-revoke'}),{code:'MANDATE_DENIED'});assert.equal(turns,2);assert.ok((await new MandateStore({pool}).read(scope,grant.id)).revokedAt);
+ console.log(JSON.stringify({persistentAuthorization:true,sameRuntime:true,revocationBeforeInference:true,taskReferencePreserved:true,erpUsed:false}));
+}finally{await runtime?.stop();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}

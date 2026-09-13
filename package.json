@@ -1,0 +1,83 @@
+{
+  "name": "@immedi/iaic-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Headless modular IAiC capabilities, durable agents, memory, models and platform allowance rules.",
+  "engines": {
+    "node": ">=20 <21"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./agent/*": "./agent/*",
+    "./assistants/*": "./assistants/*",
+    "./billing/*": "./billing/*",
+    "./capabilities/*": "./capabilities/*",
+    "./context/*": "./context/*",
+    "./credentials/*": "./credentials/*",
+    "./memory/*": "./memory/*",
+    "./skills/*": "./skills/*",
+    "./tasks/*": "./tasks/*",
+    "./workspace/*": "./workspace/*",
+    "./knowledge/*": "./knowledge/*",
+    "./sessions/*": "./sessions/*",
+    "./deferred/*": "./deferred/*",
+    "./identities/*": "./identities/*",
+    "./triggers/*": "./triggers/*",
+    "./recurring/*": "./recurring/*",
+    "./events/*": "./events/*",
+    "./mandates/*": "./mandates/*",
+    "./mcp/*": "./mcp/*",
+    "./handoffs/*": "./handoffs/*"
+  },
+  "files": [
+    "index.js",
+    "README.md",
+    "agent",
+    "assistants",
+    "billing",
+    "capabilities",
+    "context",
+    "credentials",
+    "memory",
+    "skills",
+    "tasks",
+    "workspace",
+    "knowledge",
+    "sessions",
+    "deferred",
+    "identities",
+    "triggers",
+    "recurring",
+    "events",
+    "mandates",
+    "mcp",
+    "handoffs",
+    "GETTING_STARTED.md",
+    "STATUS.md",
+    "examples",
+    "scripts",
+    "SOURCE.json"
+  ],
+  "dependencies": {
+    "ajv": "8.20.0",
+    "yaml": "2.9.1"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0"
+  },
+  "peerDependenciesMeta": {
+    "@modelcontextprotocol/sdk": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "test": "node scripts/verify-examples.mjs",
+    "example:jobs": "node examples/core-configurable-jobs/run.mjs",
+    "verify:core-package": "node scripts/verify-package.mjs"
+  },
+  "devDependencies": {
+    "pg": "8.23.0",
+    "@modelcontextprotocol/sdk": "1.30.0"
+  }
+}

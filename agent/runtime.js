@@ -1,0 +1,219 @@
+import {Delegations} from './delegation.js';
+import {ResultWaits} from './result-waits.js';
+import {withExecutionSignal,executionSignal} from '../context/execution.js';
+import {setTimeout as delay} from 'node:timers/promises';
+const fail=(message,statusCode=409)=>Object.assign(new Error(message),{statusCode});
+
+export class AgentRuntime {
+  constructor({store,dispatcher,model,context,version,maxTurns=20,maxCalls=30,modelTimeoutMs=120000,maxOutputBytes=32000,taskTimeoutMs=300000,rateLimitDelayMs=60000,resolveModel=null,agentIdentity=null,mandates=null,handoffs=null}) {
+    if(!version||!model?.name)throw new Error('Runtime requires a code/Skill version and configured model');
+    if(!Number.isFinite(rateLimitDelayMs)||rateLimitDelayMs<0||rateLimitDelayMs>60000)throw new Error('Rate-limit delay must be between zero and 60000 ms');
+    Object.assign(this,{store,dispatcher,model,context,version,maxTurns,maxCalls,modelTimeoutMs,maxOutputBytes,taskTimeoutMs,rateLimitDelayMs,resolveModel,agentIdentity,mandates,handoffs});
+    this.resultWaits=new ResultWaits({store,dispatcher,version,authorizeTask:(actor,task,name)=>this.checkResultWait(actor,task,name)});
+    this.delegations=new Delegations({store,handoffs,version,authorizeTask:async(actor,task)=>{await this.state(actor,task.id);await this.checkMandate(actor,task);if(task.agent&&!this.agentIdentity)throw fail('Agent resolver unavailable',503);if(this.agentIdentity)await this.agentIdentity.check({actor,task,binding:task.agent});}});
+    this.executor=null;this.running=null;this.timer=null;
+  }
+  async initialize(){await this.store.initialize();this.executor=await this.store.acquireExecutor();return {ready:Boolean(this.executor)};}
+  async create({capability,input,actor,idempotencyKey}) {
+    if(capability.implementation.kind!=='agent')throw fail('Task requires an Agent capability',400);
+    if(await capability.authorize(actor,input)!==true)throw fail('Task access denied',403);
+    this.taskTools(capability,input);this.delegations.policy(input);
+    await this.checkMandate(actor,{capability:capability.name,input});
+    if(typeof idempotencyKey==='string'&&idempotencyKey.startsWith('iaic-handoff:')&&!this.handoffs)throw fail('Handoff resolver unavailable',503);
+    const handoff=this.handoffs?await this.handoffs.bind({actor,capability,input,idempotencyKey,version:this.version}):null;
+    const agent=this.agentIdentity?await this.agentIdentity.bind({actor,capability,input}):null;
+    const model=this.resolveModel?await this.resolveModel({actor,agent}):this.model;
+    return this.store.create({capability,input,actor,idempotencyKey,version:this.version,model:model.name,agent,handoff});
+  }
+  taskTools(capability,input){
+    const declared=capability.implementation.tools,allowed=input.allowedTools;
+    if(allowed===undefined)return declared;
+    if(!Array.isArray(allowed)||allowed.some(name=>typeof name!=='string'||!declared.includes(name))||new Set(allowed).size!==allowed.length)throw fail('Task allowedTools must be a unique subset of the Agent tools',400);
+    return declared.filter(name=>allowed.includes(name));
+  }
+  async checkMandate(actor,task,tool=null){
+    if(task.input.mandate!==undefined&&!this.mandates)throw fail('Task Mandate resolver is unavailable',503);
+    if(task.input.mandate!==undefined)await this.mandates.checkTask(actor,{capability:task.capability,input:task.input,tool});
+  }
+  async checkAgent(actor,task){return this.checkExecution(actor,task);}
+  async checkExecution(actor,task){
+    await this.checkMandate(actor,task);
+    if(task.handoff&&!this.handoffs)throw fail('Task Handoff resolver is unavailable',503);
+    if(this.handoffs)await this.handoffs.checkTask({actor,task});
+    if(task.agent&&!this.agentIdentity)throw fail('Task Agent identity resolver is unavailable',503);
+    if(this.agentIdentity)await this.agentIdentity.check({actor,task,binding:task.agent});
+  }
+  async checkResultWait(actor,task,name){
+    await this.state(actor,task.id);await this.checkExecution(actor,task);await this.checkMandate(actor,task,name);
+    const capability=this.dispatcher.capabilities.get(task.capability),action={name,input:task.wait_input};
+    if(!this.taskTools(capability,task.input).includes(name)||(capability.implementation.allowCall&&await capability.implementation.allowCall(task.input,action,{actor,task})!==true))throw fail('Result wait is outside Task scope',403);
+    if(this.handoffs)await this.handoffs.checkTool({actor,task,action});
+  }
+  async state(actor,id){
+    const task=await this.store.get(actor,id);const capability=this.dispatcher.capabilities.get(task.capability);
+    if(!capability||await capability.authorize(actor,task.input)!==true)throw fail('Task access denied',403);
+    // Lifecycle coordination needs status, not historical source/result access.
+    const {id:taskId,capability:name,input,request_key,version,status,waiting_reason,agent,handoff,delegation,updated_at}=task;
+    return {id:taskId,capability:name,input,request_key,version,status,waiting_reason,agent,handoff,delegation,updated_at};
+  }
+  async get(actor,id,{history=false}={}) {
+    await this.state(actor,id);const task=await this.store.get(actor,id);
+    const records=await this.store.history(actor,id);
+    // Validate current access before returning stored sources or report artifacts.
+    const visible=await this.context.revalidateHistory({history:records,actor,dispatcher:this.dispatcher});
+    return history?{...task,...visible}:task;
+  }
+  async transition(actor,id,request){
+    const task=await this.store.get(actor,id);const capability=this.dispatcher.capabilities.get(task.capability);
+    if(!capability||await capability.authorize(actor,task.input)!==true)throw fail('Task access denied',403);
+    // Cancellation must remain possible even when historical context exceeds limits.
+    if(request.action!=='cancel'){await this.checkExecution(actor,task);await this.get(actor,id);}
+    const result=await this.store.transition(actor,id,{...request,version:this.version});
+    if(request.action==='cancel'&&this.handoffs)await this.handoffs.cancelChildren(actor,id);
+    return result;
+  }
+  start(intervalMs=1000){if(this.timer)return;this.timer=setInterval(()=>this.tick().catch(error=>console.error('IAiC runtime stopped a tick',{message:error.message})),intervalMs);this.timer.unref?.();}
+  get ready(){return Boolean(this.executor&&!this.executor.failed&&!this.executor.closed);}
+  tick(){
+    if(this.running)return this.running;
+    this.running=(async()=>{
+      if(!this.ready){
+        if(this.executor)await this.executor.close();
+        this.executor=await this.store.acquireExecutor();
+      }
+      if(!this.ready)return null;
+      if(this.handoffs)await this.handoffs.tick();
+      await this.delegations.tick();
+      await this.resultWaits.tick();
+      return this.runNext();
+    })().finally(()=>{this.running=null;});
+    return this.running;
+  }
+  async runNext(){
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(Object.assign(new Error('Task execution time limit reached'),{limitReached:true})),this.taskTimeoutMs);
+    try{return await withExecutionSignal(controller.signal,()=>this.executeNext());}finally{clearTimeout(timer);}
+  }
+  async executeNext(){
+    const task=await this.executor.claim(this.version);if(!task)return null;
+    const actor=this.store.actor(task);
+    const capability=this.dispatcher.capabilities.get(task.capability);
+    try{
+      if(!capability||capability.implementation.kind!=='agent')throw fail('Task capability unavailable',503);
+      await this.checkExecution(actor,task);
+      const model=this.resolveModel?await this.resolveModel({actor,agent:task.agent,modelIdentity:task.model}):this.model;
+      if(task.model!==model.name)throw fail('Configured model differs from task model');
+      while(true){
+        executionSignal()?.throwIfAborted();
+        if((await this.store.get(actor,task.id)).status!=='running')break;
+        if(await capability.authorize(actor,task.input)!==true)throw fail('Task access revoked',403);
+        await this.checkExecution(actor,task);
+        const history=await this.store.history(actor,task.id);
+        if(history.calls.some(call=>['running','unknown'].includes(call.status))){await this.executor.finish(task.id,{status:'waiting',reason:'external_result'});break;}
+        const turns=history.events.filter(e=>e.kind==='model_requested').length;
+        if(turns>=this.maxTurns||history.calls.length>=this.maxCalls){await this.executor.finish(task.id,{status:'waiting',reason:'limit'});break;}
+        const messages=await this.context.assemble({task,capability,history,actor,dispatcher:this.dispatcher});
+        const allowedTools=this.taskTools(capability,task.input);
+        const tools=allowedTools.map(name=>{
+          const target=this.dispatcher.capabilities.get(name);
+          return {name,description:target.description,inputSchema:target.input};
+        });
+        await this.checkExecution(actor,task);
+        if(this.handoffs)await this.handoffs.admitModel({actor,task,turn:turns+1});
+        await this.executor.append(task.id,'model_requested',{model:model.name,turn:turns+1});
+        const controller=new AbortController();let timer;
+        let response;
+        try{response=await Promise.race([
+          model.next({messages,tools,delegationSchema:this.delegations.schema(task),outputSchema:capability.output,billingContext:{taskId:task.id,turn:turns+1,capability:task.capability},signal:AbortSignal.any([controller.signal,executionSignal()].filter(Boolean))}),
+          new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Object.assign(new Error('Model response timed out'),{limitReached:true}));},this.modelTimeoutMs);})
+        ]);}catch(error){
+          clearTimeout(timer);
+          await this.executor.append(task.id,'model_usage',{model:model.name,turn:turns+1,usage:error.usage??null,failed:true});
+          if(error.providerStatus===429){
+            const waitMs=Math.max(this.rateLimitDelayMs,Number.isFinite(error.retryAfterMs)?error.retryAfterMs:0);
+            const eligible=waitMs<=60000&&turns+1<this.maxTurns&&!history.events.some(event=>event.kind==='model_retry');
+            await this.executor.append(task.id,'model_provider_error',{providerStatus:429,retryScheduled:eligible,...(Number.isFinite(error.retryAfterMs)?{retryAfterMs:error.retryAfterMs}:{})});
+            if(eligible){
+              await this.executor.append(task.id,'model_retry',{providerStatus:429,delayMs:waitMs});
+              const until=Date.now()+waitMs;
+              while(Date.now()<until){
+                executionSignal()?.throwIfAborted();
+                if((await this.store.get(actor,task.id)).status!=='running')break;
+                try{await delay(Math.min(250,until-Date.now()),undefined,{signal:executionSignal()});}
+                catch(error){executionSignal()?.throwIfAborted();throw error;}
+              }
+              continue;
+            }
+          }
+          if(error.invalidAction===true){
+            executionSignal()?.throwIfAborted();
+            await this.executor.append(task.id,'feedback',{error:error.message});
+            continue;
+          }
+          throw error;
+        }finally{clearTimeout(timer);}
+        await this.executor.append(task.id,'model_usage',{model:model.name,turn:turns+1,usage:response?.usage??null,failed:false});
+        executionSignal()?.throwIfAborted();
+        if(Buffer.byteLength(JSON.stringify(response))>this.maxOutputBytes)throw Object.assign(new Error('Model output limit reached'),{limitReached:true});
+        const action=normalizeAction(response);
+        await this.executor.append(task.id,'model_response',{...action,usage:response.usage??null});
+        await this.checkExecution(actor,task);
+        if(action.type==='delegate'){
+          let intent;
+          try{intent=await this.delegations.prepare(actor,task,action.input);}catch(error){if(![400,403,409].includes(error.statusCode))throw error;await this.executor.append(task.id,'feedback',{error:'Delegation rejected: '+error.message});continue;}
+          await this.executor.delegate(task.id,intent);break;
+        }
+        if(action.type==='wait'){
+          await this.executor.append(task.id,'feedback',{question:action.question});
+          await this.executor.finish(task.id,{status:'waiting',reason:'input'});break;
+        }
+        if(action.type==='finish'){
+          // Verifier is application code; model cannot modify it or its required scope.
+          const valid=capability.validateOutput(action.result)&&await capability.implementation.verify(task.input,action.result,{actor,history})===true;
+          executionSignal()?.throwIfAborted();
+          await this.executor.append(task.id,'verification',{verified:valid});
+          if(valid){await this.executor.finish(task.id,{status:'succeeded',result:action.result});break;}
+          continue;
+        }
+        const selected=this.dispatcher.capabilities.get(action.name);
+        // Preserve a bound Mandate's fail-closed interruption before ordinary
+        // out-of-scope feedback; tool narrowing does not relax that contract.
+        if(capability.implementation.tools.includes(action.name)&&selected?.implementation.kind==='function')await this.checkMandate(actor,task,action.name);
+        if(!allowedTools.includes(action.name)||selected?.implementation.kind!=='function'
+          ||(capability.implementation.allowCall&&await capability.implementation.allowCall(task.input,action,{actor,task})!==true)){
+          await this.executor.append(task.id,'feedback',{error:'Requested capability is outside this task scope'});continue;
+        }
+        await this.checkExecution(actor,task);
+        await this.checkMandate(actor,task,action.name);
+        if(this.handoffs)await this.handoffs.checkTool({actor,task,action});
+        const call=await this.executor.prepare(task.id,{capability:action.name,input:action.input,effect:selected.effect});
+        await this.executor.dispatch(task.id,call.id);
+        try{
+          const result=await this.dispatcher.invoke(action.name,action.input,{actor,callId:call.id,signal:executionSignal(),allowedCapabilities:allowedTools});
+          const wait=selected.waitReady?await selected.waitReady(action.input,result,{actor})!==true:false;
+          await this.executor.settle(task.id,call.id,{result,wait});
+          if(wait)break;
+        }catch(error){
+          const unknown=error.outcomeUnknown===true;
+          await this.executor.settle(task.id,call.id,{error,unknown});
+          if(!unknown&&Array.isArray(error.validation))await this.executor.append(task.id,'feedback',{error:'Tool input failed schema validation; correct its JSON types and required fields.',capability:action.name,validation:error.validation.slice(0,10).map(({instancePath,keyword,message})=>({path:String(instancePath).slice(0,200),keyword,message}))});
+          if(!unknown&&error.preflightRejected===true)await this.executor.append(task.id,'feedback',{error:'Tool input failed preflight before execution; no operation was executed. Correct the input using the capability requirements.',capability:action.name});
+          if(unknown){await this.executor.finish(task.id,{status:'waiting',reason:'external_result'});break;}
+        }
+      }
+    }catch(error){
+      const current=await this.store.get(actor,task.id);
+      if(current.status==='running')await this.executor.finish(task.id,{status:'waiting',reason:error.code==='TOKEN_BALANCE_INSUFFICIENT'?'token_balance':error.code==='USAGE_RECONCILIATION_REQUIRED'?'usage_reconciliation':error.limitReached?'limit':'interrupted',error:String(error.message||error)});
+    }
+    return this.store.get(actor,task.id);
+  }
+  async stop(){clearInterval(this.timer);this.timer=null;if(this.running)await this.running;if(this.executor)await this.executor.close();this.executor=null;}
+}
+
+function normalizeAction(response){
+  if(response?.type==='delegate'&&response.input&&typeof response.input==='object'&&!Array.isArray(response.input))return {type:'delegate',input:response.input};
+  if(response?.type==='call'&&typeof response.name==='string'&&response.input&&typeof response.input==='object'&&!Array.isArray(response.input))return {type:'call',name:response.name,input:response.input};
+  if(response?.type==='finish'&&response.result!==undefined)return {type:'finish',result:response.result};
+  if(response?.type==='wait'&&typeof response.question==='string'&&response.question.trim())return {type:'wait',question:response.question};
+  throw new Error('Model returned an invalid action');
+}

@@ -1,0 +1,23 @@
+# Workspace and Artifact module
+
+Workspace contains working materials, not memory, session logs or authoritative business facts. `AssistantWorkspace({store, resolveScope, sourceFor})` exposes list/read/write/remove. Scope and source come from the host's current authorization; model input cannot select an owner. Application ID, Assistant ID and subject ID partition the workspace. Human and Agent callers use the same contract. No UI is provided.
+
+`write(actor, {path, content, mediaType, expectedRevision})` returns metadata and `reference: {path, revision, digest}`. Revision 0 creates a new logical path; updates require the current revision. Concurrent or stale writes return 409 without overwriting. Paths are logical names, never OS paths. `read(actor, reference)` returns exactly that revision and checks the content hash in the reference. Omit revision to read the current head. The caller's authorized workspace remains implicit: possessing a reference does not grant access or select another owner. Applications must carry the authorized workspace identity when delegating references.
+
+`list(actor, {after, limit})` returns metadata, not bodies, and a nextCursor for pagination. `remove(actor, {path, expectedRevision})` permanently removes all stored revisions; existing references then return 404. A content-free tombstone prevents stale writes from recreating the same path. Use a new path for a new document after deletion. There is no restore, share-link or permission expansion operation. A lost write response can be reconciled by reading the current document; do not blindly retry it with a new path.
+
+`PostgresWorkspaceStore({pool, maxBytes=256000})` is the included adapter for small UTF-8 plain text, Markdown and JSON documents. It owns the two `iaic_workspace_*` tables and packages its schema. It stores documents and revisions transactionally, not in the model context. An application can implement the same store methods using object storage for larger artifacts; Core does not mandate PostgreSQL for all files. Existing task and memory tables are never accessed by this module.
+
+`workspaceTools(workspace, actor)` supplies MCP descriptors and handlers. The application owns HTTP/session bindings in `ai-native/workspace-http.js`. ImmediToday exposes authenticated GET/POST `/api/assistant-workspace` and POST `/api/assistant-workspace/delete`; GET with path reads a document, GET without path lists metadata. Personal MCP exports the same operations. This does not yet add them to the internal Issue-review Agent's tool scope.
+
+Focused tests: `test/iaic-workspace.integration.test.js` with isolated PostgreSQL. `examples/core-workspace/run.mjs` demonstrates an independent Agent writing and verifying a document, returning its exact reference, preserving that version across an edit, then invalidating the reference by deletion. Package verification runs this example from a fresh tarball install.
+
+Limits still pending: binary/large-file adapters, retention/storage quotas, shared ACLs, search/indexing and derived-reference invalidation notifications. Deleted references stop resolving here; previously downloaded or copied content is outside this store's deletion boundary. None of these pending features require a file-manager UI in Core.
+
+## Historical model input after deletion
+
+The `my_write_workspace` descriptor provides `projectHistoryInput`, retaining path, media type and expected revision while omitting the document body. Assistant composition already forwards this module-owned hook to Context. Historical writes therefore carry an operation receipt, not another content copy; read a current or explicitly pinned Artifact when the body is needed. Custom capability wrappers should forward the descriptor hook when using Context history.
+
+Exact old revisions remain readable while the document exists. After deletion, their reads return404 and standard Assistant history marks those results unavailable; the omitted write arguments cannot reintroduce either the old or updated body. Original Task goals, Session input, raw audit/model-response events, downloaded files and derived copies retain their separate lifecycle. This does not claim global erasure or invalidate previously copied content everywhere. No schema change, UI or additional executor is required.
+
+Focused regression: `test/iaic-workspace-context-projection.integration.test.js` exercises write/read/edit/read-old/delete through the existing Runtime, checks subsequent model inputs and preserves original audit arguments. The independent Core Workspace example also forwards the hook and verifies deleted-body omission.
