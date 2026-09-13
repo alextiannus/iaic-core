@@ -18,6 +18,11 @@ test('Queued Agent work survives a separate worker process with scoped resources
   assert.equal((await app.models.snapshot(actor)).selectedProfile,'alternate');assert.equal((await app.ledger.balance(await app.scope(actor))).balance,'984');
   const current=await app.dispatcher.invoke('tasks.get',{id:task.id},{actor});assert.equal(current.status,'succeeded');assert.equal(current.result.artifacts[0].path,'draft.md');
   await assert.rejects(app.workspace.read({...actor,subjectId:'other'},{path:'draft.md'}),{statusCode:404});
+  const unfunded={...actor,subjectId:'no-allowance'};await app.memory.remember(unfunded,{key:'style',kind:'preference',content:'concise',expectedRevision:0});
+  const pending=await app.dispatcher.invoke('agent.work',{goal:'Prepare draft.md.',requiredArtifacts:['draft.md'],allowedTools:fixtureOptions.job.configuration.tools},{actor:unfunded,callId:'unfunded-task'});
+  assert.equal((await app.runtime.tick()).waiting_reason,'token_balance');
+  await app.ledger.grant(await app.scope(unfunded),{reference:'explicit-fixture-funding',amount:1000,evidence:{fixture:true}});
+  await app.dispatcher.invoke('tasks.resume',{id:pending.id},{actor:unfunded,callId:'resume-after-funding'});assert.equal((await app.runtime.tick()).status,'succeeded');
   const context=await app.sessions.context(actor,{id:session.id,throughSequence:2});assert.equal(context.events.at(-1).data.status,'succeeded');
  }finally{await app?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
 });

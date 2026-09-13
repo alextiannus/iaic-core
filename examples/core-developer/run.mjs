@@ -11,5 +11,5 @@ try{
  run([npm,'test'],target);
  const duplicate=spawnSync(process.execPath,[cli,'init',target,'--core-package',archive],{encoding:'utf8'});assert.equal(duplicate.status,1);assert.ok(await fs.stat(path.join(target,'app.mjs')));
  const agentTarget=path.join(temp,'agent-app');run([cli,'init',agentTarget,'--core-package',archive,'--template','agent'],root);run([npm,'install','--ignore-scripts','--no-audit','--no-fund'],agentTarget);run([npm,'test'],agentTarget);
- console.log(JSON.stringify({example:'core-developer',status:'passed',generatedAppInstalled:true,installedBin:true,sharedCapabilityTest:true,existingDirectoryPreserved:true,persistentAgentTemplate:true,separateWorkerProcess:true}));
+ console.log(JSON.stringify({example:'core-developer',status:'passed',generatedAppInstalled:true,installedBin:true,sharedCapabilityTest:true,existingDirectoryPreserved:true,persistentAgentTemplate:true,separateWorkerProcess:true,allowancePauseAndResume:true}));
 }finally{await fs.rm(temp,{recursive:true,force:true});}

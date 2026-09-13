@@ -27,7 +27,7 @@ export async function openApplication({pool,skillRoot,job,profiles,resolveSecret
  }}));
  let runtime;
  const idSchema={type:'object',properties:{id:{type:'string',minLength:1}},required:['id'],additionalProperties:false};
- for(const action of ['get','cancel'])capabilities.push(defineCapability({name:'tasks.'+action,description:action+' the current owner task',input:idSchema,output:{type:'object'},effect:action==='get'?'read':'write',...(action==='cancel'?{retry:'idempotent'}:{}),authorize:check,implementation:{kind:'function',execute:({id},{actor})=>action==='get'?runtime.get(actor,id):runtime.transition(actor,id,{action:'cancel'})}}));
+ for(const action of ['get','cancel','resume'])capabilities.push(defineCapability({name:'tasks.'+action,description:action+' the current owner task',input:idSchema,output:{type:'object'},effect:action==='get'?'read':'write',...(action==='get'?{}:{retry:action==='cancel'?'idempotent':'never-replay'}),authorize:check,implementation:{kind:'function',execute:({id},{actor})=>action==='get'?runtime.get(actor,id):runtime.transition(actor,id,{action})}}));
  const dispatcher=new CapabilityDispatcher({capabilities});
  runtime=new AgentRuntime({store:tasks,dispatcher,model:{name:'host-model-resolver'},resolveModel:request=>models.resolve(request),context:new ContextAssembler({skillRoot,sessionProvider:({actor,task})=>task.input.session?sessions.context(actor,task.input.session):null}),version,agentIdentity:{bind:({actor,capability})=>registry.bind(actor,job.id,capability.name),check:({actor,task,binding})=>registry.check(actor,binding,task.capability)}});
  dispatcher.tasks=runtime;
