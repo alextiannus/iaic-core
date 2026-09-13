@@ -23,7 +23,7 @@ export async function createCapabilityA2AHandler({dispatcher,capability,resolveA
   const invoke=async(n,input,key)=>{const a=await current();return dispatcher.invoke(n,input,{actor:a.actor,allowedCapabilities:a.capabilities,callId:key,signal:request.signal});};
   const project=async result=>{const task=Task.fromJSON(await taskBindings.project(result));if(task.metadata?.iaicCapability!==capability)throw new TaskNotFoundError();return task;};
   const history=(task,length)=>{if(length!==undefined){if(!Number.isInteger(length)||length<0)throw new RequestMalformedError('Invalid historyLength');task.history=length===0?[]:task.history.slice(-length);}return task;};
-  const query=async(id)=>{if(!taskBindings)throw new TaskNotFoundError();try{return await project(await invoke(taskBindings.get,{id}));}catch(e){if(e.statusCode===404)throw new TaskNotFoundError();throw e;}};
+  const query=async(id,binding=taskBindings?.get)=>{if(!taskBindings)throw new TaskNotFoundError();try{return await project(await invoke(binding,{id}));}catch(e){if(e.statusCode===404)throw new TaskNotFoundError();throw e;}};
   const handler={
    getAgentCard:async()=>card,getAuthenticatedExtendedAgentCard:unsupported,
    async sendMessage(params){
@@ -40,7 +40,7 @@ export async function createCapabilityA2AHandler({dispatcher,capability,resolveA
     return history(task,params.configuration?.historyLength);
    },
    async getTask(params){return history(await query(params.id),params.historyLength);},
-   async cancelTask(params){if(!taskBindings)throw new TaskNotFoundError();await query(params.id);try{return await project(await invoke(taskBindings.cancel,{id:params.id},'a2a-cancel:'+params.id));}catch(e){if(e.statusCode===409)throw new TaskNotCancelableError();throw e;}},
+   async cancelTask(params){if(!taskBindings)throw new TaskNotFoundError();await query(params.id,taskBindings.state||taskBindings.get);try{return await project(await invoke(taskBindings.cancel,{id:params.id},'a2a-cancel:'+params.id));}catch(e){if(e.statusCode===409)throw new TaskNotCancelableError();throw e;}},
    async listTasks(params){if(!taskBindings)return {tasks:[],nextPageToken:'',pageSize:0,totalSize:0};const result=await invoke(taskBindings.list,params);return {...result,tasks:await Promise.all(result.tasks.map(project))};},
    sendMessageStream:unsupported,resubscribe:unsupported,createTaskPushNotificationConfig:unsupported,getTaskPushNotificationConfig:unsupported,listTaskPushNotificationConfigs:unsupported,deleteTaskPushNotificationConfig:unsupported
   };
