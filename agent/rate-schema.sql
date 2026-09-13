@@ -12,3 +12,9 @@ CREATE TABLE IF NOT EXISTS iaic_model_rate_reservations (
  UNIQUE(namespace,task_id,turn)
 );
 CREATE INDEX IF NOT EXISTS iaic_model_rate_window ON iaic_model_rate_reservations(namespace,window_start);
+
+-- Existing pools keep zero spacing. Older receipts are conservatively dated at
+-- migration time; this never proves that an unknown provider call has finished.
+ALTER TABLE iaic_model_rate_pools ADD COLUMN IF NOT EXISTS minimum_interval_ms integer NOT NULL DEFAULT 0 CHECK(minimum_interval_ms>=0 AND minimum_interval_ms<=60000);
+ALTER TABLE iaic_model_rate_reservations ADD COLUMN IF NOT EXISTS admitted_at timestamptz NOT NULL DEFAULT clock_timestamp();
+CREATE INDEX IF NOT EXISTS iaic_model_rate_spacing ON iaic_model_rate_reservations(namespace,admitted_at DESC) WHERE state<>'not-called';

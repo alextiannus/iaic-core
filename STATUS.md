@@ -541,3 +541,42 @@ checks passed without skips and all42 independently installed examples passed.
 Evidence: ImmediToday-evidence/2026-09-14/core-usage-diagnostics. The related real
 model run is retained in issue-quality-pro; no new real inference, production
 model switch or full quality acceptance is implied by this diagnostic fix.
+
+## 2026-09-14 — Shared model admission spacing and bounded waiting
+
+A new actual ImmediToday Pro diagnostic retained HTTP429 on its fourth request;
+three earlier calls measured15470 Provider Tokens. Huawei international model
+listing documents default Pro RPM3/TPM30000. This supports investigating request
+pacing, but does not prove the account quota or retroactively classify older
+failures whose status was lost. The original unknown request and allowance hold
+remain retained; there was no paid retry or production model change here.
+
+PostgresModelRateLimits now optionally persists minimumIntervalMs per namespace
+(default0, maximum60000). The existing database lock serializes admission across
+workers. Independent admission timestamps enforce the gap across reconstruction
+and fixed-minute boundaries; confirmed non-dispatch is excluded, while unknown
+and settled calls count. Old tables migrate with zero spacing and preserve their
+receipts; changed namespace configuration still rejects. This is admission pacing,
+not a guarantee of wire-send spacing after downstream scheduling or other clients.
+
+rateLimitedModel optionally waits within admissionWaitMs (default0, maximum60000)
+for local rate admission, preserving original Task/turn and cancellation. It stays
+inside the Runtime inference deadline and does not consume extra model turns or
+provider attempts. Provider execution happens at most once and provider errors
+never enter the local waiting loop. Unresolved provider usage remains subject to
+the existing reconciliation policy. No durable/fair queue or automatic Task
+resumption was added.
+
+All328 module checks passed without skips. New actual PostgreSQL fixtures cover
+contention, reconstruction, minute boundaries, unchanged unknown receipts, legacy
+migration and no model call/platform debit on rejected admission. Waiting tests
+cover cancellation, budget exhaustion and no retry of a provider429. All42
+independently installed examples pass; provider-cost now checks reconstructed
+spacing and an actual short database-timed admission wait with one fixture model
+call. Controlled timestamp aging is not a provider or crash-recovery experiment.
+Evidence: ImmediToday-evidence/2026-09-14/core-model-spacing.
+
+This supplies a reusable missing rate-control capability. ImmediToday remains on
+candidate.76; application composition, appropriate request Token bounds and new
+real-provider quality evaluation remain next steps. Full Note30/40 acceptance is
+not established by these fixtures.

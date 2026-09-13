@@ -3,17 +3,21 @@ const fail=(message,statusCode=400,code)=>Object.assign(new Error(message),{stat
 const key=v=>typeof v==='string'&&v.trim()&&v.length<=200;
 const uuid=v=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(v);
 export class PostgresModelRateLimits {
- constructor({pool,namespace,requestsPerMinute,tokensPerMinute}){
-  if(!pool||!key(namespace)||!Number.isInteger(requestsPerMinute)||requestsPerMinute<1||requestsPerMinute>2147483647||!Number.isSafeInteger(tokensPerMinute)||tokensPerMinute<1)throw fail('Rate pool, namespace and positive request/Token limits required');
-  Object.assign(this,{pool,namespace,requestsPerMinute,tokensPerMinute});
+ constructor({pool,namespace,requestsPerMinute,tokensPerMinute,minimumIntervalMs=0}){
+  if(!pool||!key(namespace)||!Number.isInteger(requestsPerMinute)||requestsPerMinute<1||requestsPerMinute>2147483647||!Number.isSafeInteger(tokensPerMinute)||tokensPerMinute<1||!Number.isInteger(minimumIntervalMs)||minimumIntervalMs<0||minimumIntervalMs>60000)throw fail('Rate pool, namespace and positive request/Token limits required');
+  Object.assign(this,{pool,namespace,requestsPerMinute,tokensPerMinute,minimumIntervalMs});
  }
- async initialize(){await this.pool.query(await fs.readFile(new URL('./rate-schema.sql',import.meta.url),'utf8'));await this.pool.query('INSERT INTO iaic_model_rate_pools(namespace,requests_per_minute,tokens_per_minute) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[this.namespace,this.requestsPerMinute,this.tokensPerMinute]);await this.checkConfiguration();}
- async checkConfiguration(db=this.pool){const row=(await db.query('SELECT * FROM iaic_model_rate_pools WHERE namespace=$1',[this.namespace])).rows[0];if(row?.requests_per_minute!==this.requestsPerMinute||Number(row?.tokens_per_minute)!==this.tokensPerMinute)throw fail('Rate namespace has another configuration',409);}
+ async initialize(){await this.pool.query(await fs.readFile(new URL('./rate-schema.sql',import.meta.url),'utf8'));await this.pool.query('INSERT INTO iaic_model_rate_pools(namespace,requests_per_minute,tokens_per_minute,minimum_interval_ms) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[this.namespace,this.requestsPerMinute,this.tokensPerMinute,this.minimumIntervalMs]);await this.checkConfiguration();}
+ async checkConfiguration(db=this.pool){const row=(await db.query('SELECT * FROM iaic_model_rate_pools WHERE namespace=$1',[this.namespace])).rows[0];if(row?.requests_per_minute!==this.requestsPerMinute||Number(row?.tokens_per_minute)!==this.tokensPerMinute||row?.minimum_interval_ms!==this.minimumIntervalMs)throw fail('Rate namespace has another configuration',409);}
  async admit({taskId,turn,maximumTokens}){
   if(!key(taskId)||!Number.isInteger(turn)||turn<1||turn>2147483647||!Number.isSafeInteger(maximumTokens)||maximumTokens<1||maximumTokens>this.tokensPerMinute)throw fail('Trusted Task turn and bounded maximum Tokens required');
   const db=await this.pool.connect();
   try{await db.query('BEGIN');await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[JSON.stringify(['model-rate',this.namespace])]);await this.checkConfiguration(db);
    if((await db.query('SELECT id FROM iaic_model_rate_reservations WHERE namespace=$1 AND task_id=$2 AND turn=$3',[this.namespace,taskId,turn])).rowCount)throw fail('Original Task turn already has a rate receipt; do not replay',409,'MODEL_TURN_ALREADY_ADMITTED');
+   if(this.minimumIntervalMs){
+    const last=(await db.query("SELECT greatest(0,ceil(extract(epoch FROM (admitted_at+($2::integer*interval '1 millisecond')-statement_timestamp()))*1000))::integer AS wait FROM iaic_model_rate_reservations WHERE namespace=$1 AND state<>'not-called' ORDER BY admitted_at DESC LIMIT 1",[this.namespace,this.minimumIntervalMs])).rows[0];
+    if(last?.wait>0)throw Object.assign(fail('Model admission spacing limit reached',429,'MODEL_RATE_LIMITED'),{providerStatus:429,retryAfterMs:last.wait});
+   }
    const clock=(await db.query("SELECT date_trunc('minute',statement_timestamp()) AS start,ceil(extract(epoch FROM (date_trunc('minute',statement_timestamp())+interval '1 minute'-statement_timestamp()))*1000)::integer AS wait")).rows[0];
    const used=(await db.query("SELECT count(*) AS requests,COALESCE(sum(CASE WHEN state='settled' THEN actual_tokens ELSE reserved_tokens END),0) AS tokens FROM iaic_model_rate_reservations WHERE namespace=$1 AND window_start=$2 AND state<>'not-called'",[this.namespace,clock.start])).rows[0];
    if(Number(used.requests)>=this.requestsPerMinute||BigInt(used.tokens)+BigInt(maximumTokens)>BigInt(this.tokensPerMinute))throw Object.assign(fail('Model admission rate limit reached',429,'MODEL_RATE_LIMITED'),{providerStatus:429,retryAfterMs:clock.wait});
