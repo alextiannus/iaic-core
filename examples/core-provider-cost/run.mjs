@@ -9,11 +9,11 @@ try{
  const cap=defineCapability({name:'cost.demo',description:'Run the deterministic cost fixture',input:{type:'object'},output:{type:'object'},effect:'read',authorize:a=>a.subjectId==='owner',implementation:{kind:'agent',instructions:'Return the fixture result',tools:[],verify:async(_i,r)=>r.done===true}});
  const tasks=new TaskStore({pool}),dispatcher=new CapabilityDispatcher({capabilities:[cap]});runtime=new AgentRuntime({store:tasks,dispatcher,model,context:new ContextAssembler({skillRoot:'/tmp'}),version:'cost-example-v1'});dispatcher.tasks=runtime;await runtime.initialize();
  const task=await runtime.create({actor,capability:cap,input:{goal:'Complete the deterministic cost fixture'},idempotencyKey:'cost'});assert.equal((await runtime.tick()).status,'succeeded');
- const costs=new ProviderCostAccounting({ledger:new TokenLedger({pool})}),summary=await costs.task(scope,task.id);assert.equal(summary.complete,true);assert.equal(summary.totals[0].microMinorUnits,'84600');
+ const costs=new ProviderCostAccounting({ledger:new TokenLedger({pool})}),summary=await costs.task(scope,task.id);assert.equal(summary.complete,true);assert.equal(summary.totals[0].minorUnitsNumerator,'84600000000');
  const source=createTaskObservationSource({tasks,ledger,resolveContext:()=>({actor,taskId:task.id,billingScope:scope}),resolveRelease:()=>({releaseId:'fixture-release',manifestDigest:'a'.repeat(64)}),costForTask:async({context,task})=>{
   const current=await costs.task(context.billingScope,task.id);if(!current.complete||current.totals.length!==1)return null;
   const cost=current.totals[0];return {kind:current.kind,currency:cost.currency,minorUnits:cost.minorUnitsCeiling};
  }});
  const observed=await source('fixture-source',{sourceScope:'fixture'});assert.equal(observed.record.providerTokens,'150');assert.equal(observed.record.platformUnits,'330');assert.deepEqual(observed.record.cost,{kind:'usage_rate_estimate',currency:'USD',minorUnits:'1'});
- console.log(JSON.stringify({example:'core-provider-cost',status:'passed',providerTokens:'150',platformUnits:'330',estimatedMicroMinorUnits:'84600',costObserved:true,actualCurrencyCharge:false}));
+ console.log(JSON.stringify({example:'core-provider-cost',status:'passed',providerTokens:'150',platformUnits:'330',estimatedMinorUnitsNumerator:'84600000000',costObserved:true,actualCurrencyCharge:false}));
 }finally{await runtime?.stop();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
