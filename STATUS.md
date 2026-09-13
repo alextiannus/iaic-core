@@ -43,3 +43,8 @@ These items are capability work. Broader security hardening and final acceptance
 ## Prepared deployment recovery
 
 The optional RecoverableDockerDeployment composes Docker preparation with a separate PostgreSQL activation journal. It can continue an original prepared container after the creator process dies, while serializing concurrent start admissions and retaining uncertainty after an admitted but unconfirmed start. Actual SIGKILL tests cover both boundaries; Docker identity and no-restart checks cover accepted response loss, stopped workloads and removed originals. An admission is never silently reset. This adds a usable deployment recovery path, not complete desired-state orchestration, cloud/traffic activation or all crash-window recovery.
+
+
+## Actual-model composition baseline
+
+The opt-in core-real-composition example uses the public Runtime, Skill/Memory discovery, Workspace, metered provider and independent evaluation ports with synthetic source records. Its first DeepSeek V4 Flash run at 87cafa4 scored 0/3: 30 model responses included 18 rejected multiple-call responses, and all Tasks stopped at their turn limits. A fixture omission of Memory listing also prevented key discovery. The harness now supplies listing and grader v2 accepts the same preference content through either read path; this changed harness is not yet real-model validated. No successful acceptance is inferred from repository CI. The next concrete runtime gap is durable bounded multi-call handling with per-action authority and recovery, while preserving the current default single-action contract and retained failed baseline.

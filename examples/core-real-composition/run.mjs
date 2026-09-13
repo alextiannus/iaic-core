@@ -29,7 +29,7 @@ const runner=new EvaluationRunner({
    await ledger.grant(scope,{reference:'acceptance-only',amount:1000000,evidence:{fixture:true}});
    const model=meteredModel({model:provider,ledger,scope,mode:'SYSTEM_MANAGED',policy:{maximum:100000,price:{revision:'synthetic-allowance-units-v1',input:1,cachedInput:1,output:1}}});
    runtime=new AgentRuntime({store:new TaskStore({pool}),dispatcher,model,context:new ContextAssembler({skillRoot,skillCatalog}),version:frozen.revision,maxTurns:frozen.maxTurns,maxCalls:frozen.maxCalls,modelTimeoutMs:60000,taskTimeoutMs:frozen.taskTimeoutMs});dispatcher.tasks=runtime;await runtime.initialize();
-   const allowedTools=['warehouse.records','assistant.skills.list','assistant.skills.read','my_read_assistant_memory','my_read_workspace','my_write_workspace'];
+   const allowedTools=['warehouse.records','assistant.skills.list','assistant.skills.read','my_read_assistant_memory','my_list_assistant_memories','my_read_workspace','my_write_workspace'];
    const artifactPath=caseId==='correct-draft'?'draft.json':'result.json';
    const task=await dispatcher.invoke('assistant.run',{...input,requiredArtifacts:[artifactPath],allowedTools},{actor,callId:runId+':'+caseId});
    // Reconstruct after admission; this is continuity, not a process-kill claim.
@@ -45,12 +45,12 @@ const runner=new EvaluationRunner({
  },
  grade:async({testCase,observation:o})=>{
   const successful=o.calls.filter(c=>c.status==='succeeded');
-  const checks=[['task_succeeded',o.status==='succeeded'],['artifact_content',isDeepStrictEqual(o.content,testCase.expected)],['source_read',successful.some(c=>c.capability==='warehouse.records')],['skill_read',successful.some(c=>c.capability==='assistant.skills.read'&&c.input.id===skillEntry)],['memory_read',successful.some(c=>c.capability==='my_read_assistant_memory'&&c.input.key==='presentation')],['scope_preserved',o.scopePreserved],['billing_settled',o.billingSettled]].map(([name,passed])=>({name,passed}));
+  const checks=[['task_succeeded',o.status==='succeeded'],['artifact_content',isDeepStrictEqual(o.content,testCase.expected)],['source_read',successful.some(c=>c.capability==='warehouse.records')],['skill_read',successful.some(c=>c.capability==='assistant.skills.read'&&c.input.id===skillEntry)],['memory_read',successful.some(c=>(c.capability==='my_read_assistant_memory'&&c.input.key==='presentation')||(c.capability==='my_list_assistant_memories'&&Array.isArray(c.result)&&c.result.some(m=>m.memory_key==='presentation'&&m.content==='Sort selectedIds in descending lexicographic order.')))],['scope_preserved',o.scopePreserved],['billing_settled',o.billingSettled]].map(([name,passed])=>({name,passed}));
   return {passed:checks.every(c=>c.passed),score:checks.filter(c=>c.passed).length/checks.length,checks};
  },
  onRecord:async({runId,record})=>{await fs.appendFile(path.join(out,'records.ndjson'),JSON.stringify({runId,record})+'\n',{mode:0o600});console.log(JSON.stringify({caseId:record.caseId,status:record.status,passed:record.passed,checks:record.checks,providerRequests:record.observation?.providerRequests}));}
 });
-const run=await runner.run({dataset,revision:frozen.revision,graderRevision:'synthetic-selection-grader-v1',environmentRevision:evidenceDigest({source:sourceRecords,skillDigest,preference:'descending',maxTurns:10,maxCalls:8})});
+const run=await runner.run({dataset,revision:frozen.revision,graderRevision:'synthetic-selection-grader-v2',environmentRevision:evidenceDigest({source:sourceRecords,skillDigest,preference:'descending',maxTurns:10,maxCalls:8})});
 const stored=await new FileEvaluationStore({directory:out}).put(run),gate=evaluateGate(run,{requiredChecks:frozen.requiredChecks});
 await fs.writeFile(path.join(out,'result.json'),JSON.stringify({stored,gate,realModel:true,fullCoreAcceptance:false},null,2),{flag:'wx',mode:0o600});
 console.log(JSON.stringify({runId:run.id,gate,realModel:true,fullCoreAcceptance:false}));if(!gate.passed)process.exitCode=1;
