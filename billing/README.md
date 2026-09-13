@@ -26,3 +26,20 @@ The optional costBasis admission snapshot and costCalls projection support the i
 
 
 The providerNotCalled release evidence is now named provider-preflight to cover both credential and capacity admission checks. Optional capacityModel belongs inside meteredModel; see ../agent/CAPACITY.md. Busy capacity does not debit platform allowance, and capacity/usage reconciliation remain independent.
+
+When a provider error has no measured usage, metering preserves a bounded
+`diagnostic` in the unknown ledger entry and on the reconciliation error. It
+contains the original internal request ID, an enumerated failure kind, and any
+valid HTTP status, Retry-After duration (at most one day) or explicit completion
+boolean reported by the provider adapter. Raw messages, headers, response bodies,
+credentials and arbitrary provider fields are excluded. The shared contract is
+`agent/usage-diagnostic.js`; Runtime projects the same validated metadata into the
+failed `model_usage` event so authenticated Task history can explain the hold.
+
+This is diagnostic context, not proof of zero usage or non-acceptance. Even a
+reported HTTP 429 retains the original hold until existing reconciliation policy
+has authoritative evidence. The diagnostic is nested and does not trigger the
+Runtime's unmetered-provider retry path. Older unknown entries cannot recover
+provider information that was discarded at the time. If a timeout wins before
+metering returns, its later ledger evidence remains authoritative for the hold;
+no new Task event is promised after the Task's original timeout transition.

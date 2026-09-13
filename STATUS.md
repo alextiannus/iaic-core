@@ -517,3 +517,27 @@ release gates. Evidence is in ImmediToday-evidence/2026-09-14/core-starter-relea
 including failed/successful developer logs and the successful installed package.
 ImmediToday production remains on candidate.74; this optional starter integration
 does not require another application dependency deployment.
+
+## 2026-09-14 — Preserve safe diagnostics for unresolved model usage
+
+A real ImmediToday Pro-model development probe entered usage reconciliation after
+three measured responses; four subsequent unresolved requests retained allowance
+holds but the wrapper discarded their provider errors. Historical evidence cannot
+now identify their HTTP status or prove rate limiting. Those attempts remain
+unaccepted with their original unknown reservations.
+
+meteredModel now retains an enumerated failure kind, internal request ID and any
+bounded HTTP status, Retry-After or completion boolean in its unknown ledger entry
+and reconciliation error. Runtime validates the shared usage-diagnostic contract
+and projects it into the existing model_usage event. It excludes raw messages,
+bodies, headers, credentials and arbitrary provider fields. This adds traceability,
+not permission to settle/release unknown use or retry failed requests.
+
+Real PostgreSQL integration injects a 429 error without measured usage, verifies
+matching ledger/history request diagnostics across store reconstruction, no leaked
+message/header, one provider call, unchanged reservation and no model_retry event.
+Another attempted call on the same unresolved Task is still blocked. All323 module
+checks passed without skips and all42 independently installed examples passed.
+Evidence: ImmediToday-evidence/2026-09-14/core-usage-diagnostics. The related real
+model run is retained in issue-quality-pro; no new real inference, production
+model switch or full quality acceptance is implied by this diagnostic fix.

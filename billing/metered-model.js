@@ -1,3 +1,4 @@
+import {usageDiagnostic} from '../agent/usage-diagnostic.js';
 import {providerCostBasis} from '../costs/provider.js';
 import {randomUUID} from 'node:crypto';
 const pending=()=>Object.assign(new Error('Model usage requires reconciliation before continuing'),{code:'USAGE_RECONCILIATION_REQUIRED',statusCode:409});
@@ -27,8 +28,9 @@ export function meteredModel({model,ledger,scope,policy,mode='SYSTEM_MANAGED'}){
   const usage=observed?.usage;
   const integer=value=>Number.isSafeInteger(value)&&value>=0;
   if(!integer(usage?.inputTokens)||!integer(usage?.outputTokens)){
-   await ledger.markUnknown(scope,{requestId,evidence:{reason:'usage_unavailable'}});
-   throw pending();
+   const diagnostic=usageDiagnostic({requestId,kind:!providerError?'missing_usage':Number.isInteger(providerError.providerStatus)?'http':providerError.name==='AbortError'?'aborted':providerError.name==='TimeoutError'?'timeout':'provider_error',providerStatus:providerError?.providerStatus,retryAfterMs:providerError?.retryAfterMs,providerCompleted:observed?.providerCompleted});
+   await ledger.markUnknown(scope,{requestId,evidence:{reason:'usage_unavailable',diagnostic}});
+   throw Object.assign(pending(),{usageDiagnostic:diagnostic});
   }
   const rawUsage=observed?.usageEvidence?.rawUsage??null;
   const normalized={input_tokens:usage.inputTokens,output_tokens:usage.outputTokens,

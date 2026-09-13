@@ -1,3 +1,4 @@
+import {usageDiagnostic} from './usage-diagnostic.js';
 import {verificationResult} from './verification.js';
 import {remainingToolAttempts} from './tool-limits.js';
 import {randomUUID} from 'node:crypto';
@@ -177,7 +178,8 @@ export class AgentRuntime {
           new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Object.assign(new Error('Model response timed out'),{limitReached:true}));},this.modelTimeoutMs);})
         ]);}catch(error){
           clearTimeout(timer);
-          await this.executor.append(task.id,'model_usage',{model:model.name,turn:turns+1,usage:error.usage??null,failed:true});
+          const diagnostic=usageDiagnostic(error.usageDiagnostic);
+          await this.executor.append(task.id,'model_usage',{model:model.name,turn:turns+1,usage:error.usage??null,failed:true,...(diagnostic?{diagnostic}:{})});
           if(error.providerStatus===429){
             const waitMs=Math.max(this.rateLimitDelayMs,Number.isFinite(error.retryAfterMs)?error.retryAfterMs:0);
             const eligible=waitMs<=60000&&turns+1<this.maxTurns&&!history.events.some(event=>event.kind==='model_retry');
