@@ -55,6 +55,12 @@ Resource ports resolve user-plus-organization/job scope. Select installed Skills
 
 Use AssistantModels/AssistantSettings for model selection. System-managed profiles are the default. The configured ledger accounts in platform-issued allowance units; these are distinct from provider Tokens and money. Exhaustion prevents further paid model admission until allowance is added or the user selects an available own-model configuration. Credentials, provider use and settlement remain separate module responsibilities. BYOK does not silently fall back to a paid platform profile.
 
+For explicit alternatives, compose [AssistantModelRouting](assistants/ROUTING.md) through Runtime's existing resolveModel port. The generated Agent starter accepts optional routing policy/availability ports. A new Task chooses an authorized available profile; a resumed Task retains its real model identity. Route candidates must remain in the user's selected credential mode. Errors and exhausted allowance do not trigger another model.
+
+Provider factories can compose [rateLimitedModel](agent/RATES.md) around [capacityModel](agent/CAPACITY.md) before AssistantModels applies metering. Initialize the shared stores once in the host before constructing providers. Rate limits count provider Tokens; ledger policies count platform allowance. The host supplies a conservative input/output Token bound. See [the starter's optional gateway composition](developer/templates/agent/README.md) and [the installed cost example](examples/core-provider-cost/run.mjs).
+
+[RetentionSweep](resources/RETENTION.md) optionally clears expired current Memory/Knowledge payload under explicit host authorization. It is separate from routing, model calls and app UI, and does not erase Task/Session history or backups.
+
 ## 5. Continue work after a conversation closes
 
 `createAgentSessions` projects current Task status and accessible artifact references into the existing Session timeline. `createAgentDeferredTasks` composes the existing deferred worker with ordinary Agent admission and Session receipt recovery. The host supplies trusted actor restoration for background work.
@@ -73,4 +79,4 @@ Build business capabilities, Skills, configuration editors, billing/top-up integ
 
 ## Work on a module independently
 
-Existing Core-only checks are in `test/`. Set `SUBMISSION_TEST_DATABASE_URL` and run `npm run test:modules`, or run a relevant file with `node --test test/iaic-capabilities.test.js`. No application server or ERP client is imported. The Core workflow runs these checks and installs the packed library in a fresh consumer for the 17 composition examples. Application integration checks remain with the application. Adding a module does not require reading its business implementation.
+Existing Core-only checks are in `test/`. Set `SUBMISSION_TEST_DATABASE_URL` and run `npm run test:modules`, or run a relevant file with `node --test test/iaic-capabilities.test.js`. No application server or ERP client is imported. The Core workflow runs these checks and installs the packed library in a fresh consumer for the installed composition examples. Application integration checks remain with the application. Adding a module does not require reading its business implementation.

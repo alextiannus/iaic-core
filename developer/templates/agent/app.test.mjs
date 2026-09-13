@@ -28,3 +28,26 @@ test('Queued Agent work survives a separate worker process with scoped resources
   const context=await app.sessions.context(actor,{id:session.id,throughSequence:2});assert.equal(context.events.at(-1).data.status,'succeeded');
  }finally{await app?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
 });
+
+test('Generated app composes explicit routing, shared rate/capacity and original metering after reconstruction',async()=>{
+ const {PostgresModelRateLimits,rateLimitedModel,PostgresModelCapacity,capacityModel}=await import('@immedi/iaic-core');
+ const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw Error('Isolated PostgreSQL required');
+ const schema='routed_starter_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let app;
+ try{
+  const rates=new PostgresModelRateLimits({pool,namespace:'fixture-account',requestsPerMinute:100,tokensPerMinute:1000}),capacity=new PostgresModelCapacity({pool,namespace:'fixture-account',maxConcurrent:1});await rates.initialize();await capacity.initialize();
+  let primaryAvailable=false,allowed=true;
+  const options={pool,...fixtureOptions,routing:{resolvePolicy:async()=>allowed?{revision:'fixture-routes',profileIds:['system','alternate']}:null,availability:async({profile})=>profile.id==='system'&&!primaryAvailable?'unavailable':'available'},modelFactory:config=>rateLimitedModel({rates,maximumTokens:()=>2,model:capacityModel({capacity,model:fixtureOptions.modelFactory(config)})})};
+  const actor={subjectId:'fixture-user',scopeId:'fixture-org'};
+  app=await openApplication(options);await app.memory.remember(actor,{key:'style',kind:'preference',content:'concise'});
+  await app.knowledgeStore.put({id:'working-guide',title:'Guide',description:'Fixture',text:'verified source',source:{kind:'fixture',reference:'guide'},policy:{organization:actor.scopeId},expectedRevision:0});
+  await app.ledger.grant(await app.scope(actor),{reference:'fixture-funding',amount:1000,evidence:{fixture:true}});
+  const input={goal:'Create and verify draft.md.',requiredArtifacts:['draft.md'],allowedTools:fixtureOptions.job.configuration.tools};
+  const task=await app.dispatcher.invoke('agent.work',input,{actor,callId:'routed-work'});assert.ok(task.model.startsWith('alternate:'));
+  await app.close();app=null;primaryAvailable=true;app=await openApplication(options);
+  assert.equal((await app.runtime.tick()).status,'succeeded');assert.equal(JSON.parse((await app.workspace.read(actor,{path:'draft.md'})).content).model,'alternate');
+  assert.equal((await app.ledger.balance(await app.scope(actor))).balance,'984');assert.equal((await capacity.pending()).items.length,0);
+  const receipts=(await pool.query('SELECT state,actual_tokens FROM iaic_model_rate_reservations')).rows;assert.equal(receipts.length,8);assert.ok(receipts.every(r=>r.state==='settled'&&r.actual_tokens==='2'));
+  const fresh=await app.dispatcher.invoke('agent.work',input,{actor,callId:'fresh-work'});assert.ok(fresh.model.startsWith('system:'));await app.runtime.transition(actor,fresh.id,{action:'cancel'});
+  allowed=false;await assert.rejects(app.dispatcher.invoke('agent.work',input,{actor,callId:'denied-work'}),{statusCode:403});
+ }finally{await app?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
+});

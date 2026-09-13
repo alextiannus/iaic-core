@@ -20,7 +20,7 @@ The configured-jobs example combines user-plus-organization scopes, an organizat
 
 ```sh
 docker pull node@sha256:8094c002d08262dba12645a3b4a15cd6cd627d30bc782f53229a2ec13ee22a00
-npm test                     # module checks and 29 standalone examples
+npm test                     # module checks and standalone examples
 npm run verify:core-package  # pack, install elsewhere, run examples there
 npm pack                     # create a reusable Core npm archive
 ```
@@ -48,6 +48,8 @@ An application installs the resulting `.tgz` and imports `@immedi/iaic-core` or 
 | Configure jobs and long-lived work identity | [Identities](identities/README.md): `AgentRegistry.register`, host JSON configuration, revision-bound tasks |
 | Remember, reference and produce | [Memory](memory/README.md), [Knowledge](knowledge/README.md), [Workspace](workspace/README.md) |
 | Discover installed working methods | [Skills](skills/README.md): selected catalogs and progressive reads |
+| Route and bound model requests | [Explicit routing](assistants/ROUTING.md), [shared concurrency](agent/CAPACITY.md), [request/Token rates](agent/RATES.md), [currency estimates](costs/README.md) |
+| Clean expired current resources | [Retention](resources/RETENTION.md): opt-in bounded Memory/Knowledge cleanup and version tombstones |
 | Choose a model and account for use | [Assistants](assistants/README.md), [Credentials](credentials/README.md), [Billing](billing/README.md) |
 | Continue conversations and proactive work | [Sessions](sessions/README.md), [Deferred](deferred/README.md), [Events](events/README.md), [Triggers](triggers/README.md), [Recurring](recurring/README.md) |
 | Authorize and cooperate | [Mandates](mandates/README.md), [Handoffs](handoffs/README.md) |
