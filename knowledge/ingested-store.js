@@ -9,6 +9,20 @@ const document=row=>({entry:{...row.metadata,id:row.id,revision:Number(row.revis
 export class PostgresIngestedKnowledgeStore{
  constructor({pool,namespace}){if(!pool||!sourceIdValid(namespace))throw fail('Knowledge pool and namespace required');Object.assign(this,{pool,namespace});}
  async initialize(){await this.pool.query(await fs.readFile(new URL('./ingested-schema.sql',import.meta.url),'utf8'));}
+ async expired({limit=100}={}){
+  if(!Number.isInteger(limit)||limit<1||limit>100)throw fail('Retention limit must be 1–100');
+  return (await this.pool.query("SELECT source_id AS id,revision FROM iaic_ingested_knowledge_sources WHERE namespace=$1 AND NOT withdrawn AND (metadata->>'expiresAt')::timestamptz<=statement_timestamp() ORDER BY source_id LIMIT $2",[this.namespace,limit])).rows.map(r=>({id:r.id,revision:Number(r.revision)}));
+ }
+ async expire({id,revision:expectedRevision}){
+  if(!revision(expectedRevision)||expectedRevision<1)throw fail('Current expired source reference required');
+  return this.transaction(id,async db=>{
+   const result=await db.query("UPDATE iaic_ingested_knowledge_sources SET revision=revision+1,metadata=NULL,digest=NULL,withdrawn=true WHERE namespace=$1 AND source_id=$2 AND revision=$3 AND NOT withdrawn AND (metadata->>'expiresAt')::timestamptz<=statement_timestamp() RETURNING revision",[this.namespace,id,expectedRevision]);
+   if(!result.rowCount)throw fail('Knowledge source changed or is no longer expired',409);
+   await db.query('DELETE FROM iaic_ingested_knowledge_chunks WHERE namespace=$1 AND source_id=$2',[this.namespace,id]);
+   return {id,revision:Number(result.rows[0].revision)};
+  });
+ }
+
  async transaction(sourceId,run){
   if(!sourceIdValid(sourceId))throw fail('Valid source ID required');const db=await this.pool.connect();
   try{await db.query('BEGIN');await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[JSON.stringify(['knowledge-ingestion',this.namespace,sourceId])]);const result=await run(db);await db.query('COMMIT');return result;}catch(error){await db.query('ROLLBACK').catch(()=>{});throw error;}finally{db.release();}

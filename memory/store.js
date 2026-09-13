@@ -12,6 +12,16 @@ function version(value){if(!Number.isSafeInteger(value)||value<0)throw error('Me
 export class MemoryStore{
  constructor({pool}){this.pool=pool;}
  async initialize(){await this.pool.query(await fs.readFile(new URL('./schema.sql',import.meta.url),'utf8'));}
+ async expired(scope,{limit=100}={}){
+  if(!Number.isInteger(limit)||limit<1||limit>100)throw error('Retention limit must be 1–100');
+  return (await this.pool.query('SELECT memory_key AS id,revision FROM iaic_memories WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3 AND NOT deleted AND expires_at<=statement_timestamp() ORDER BY memory_key LIMIT $4',[...partition(scope),limit])).rows;
+ }
+ async expire(scope,{id,revision}){
+  version(revision);if(!identifier(id)||revision<1)throw error('Current expired memory reference required');
+  const result=await this.pool.query('UPDATE iaic_memories SET deleted=true,content=NULL,source=NULL,dispute=NULL,assessment=NULL,revision=revision+1,updated_at=now() WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3 AND memory_key=$4 AND revision=$5 AND NOT deleted AND expires_at<=statement_timestamp() RETURNING memory_key AS id,revision',[...partition(scope),id,revision]);
+  if(!result.rowCount)throw error('Memory changed or is no longer expired',409);return result.rows[0];
+ }
+
  async remember(scope,input){return this.#write(scope,input,'remember');}
  async relearn(scope,input){version(input.expectedRevision);if(input.expectedRevision<1)throw error('Current forgotten memory revision required');return this.#write(scope,input,'relearn');}
  async resolveDispute(scope,input){version(input.expectedRevision);if(input.expectedRevision<1)throw error('Current disputed memory revision required');return this.#write(scope,input,'resolve');}

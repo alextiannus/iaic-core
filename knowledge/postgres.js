@@ -8,6 +8,16 @@ const document=row=>({entry:{...row.metadata,id:row.id,revision:Number(row.revis
 export class PostgresKnowledgeStore{
  constructor({pool,namespace,maxBytes=60000}){if(!pool||!idValid(namespace)||!Number.isSafeInteger(maxBytes)||maxBytes<1)throw fail('Knowledge pool, namespace and positive content limit required');Object.assign(this,{pool,namespace,maxBytes});}
  async initialize(){await this.pool.query(await fs.readFile(new URL('./schema.sql',import.meta.url),'utf8'));}
+ async expired({limit=100}={}){
+  if(!Number.isInteger(limit)||limit<1||limit>100)throw fail('Retention limit must be 1–100');
+  return (await this.pool.query("SELECT id,revision FROM iaic_knowledge_documents WHERE namespace=$1 AND NOT withdrawn AND (metadata->>'expiresAt')::timestamptz<=statement_timestamp() ORDER BY id LIMIT $2",[this.namespace,limit])).rows.map(r=>({id:r.id,revision:Number(r.revision)}));
+ }
+ async expire({id,revision}){
+  if(!idValid(id)||!revisionValid(revision)||revision<1)throw fail('Current expired Knowledge reference required');
+  const result=await this.pool.query("UPDATE iaic_knowledge_documents SET metadata='{}'::jsonb,content=NULL,revision=revision+1,withdrawn=true,updated_at=now() WHERE namespace=$1 AND id=$2 AND revision=$3 AND NOT withdrawn AND (metadata->>'expiresAt')::timestamptz<=statement_timestamp() RETURNING id,revision",[this.namespace,id,revision]);
+  if(!result.rowCount)throw fail('Knowledge changed or is no longer expired',409);return {id:result.rows[0].id,revision:Number(result.rows[0].revision)};
+ }
+
  async put({id,title,description,source,text,expiresAt=null,policy={},expectedRevision}){
   if(!idValid(id)||typeof title!=='string'||!title.trim()||title.length>300||typeof description!=='string'||description.length>2000||!source||typeof source!=='object'||Array.isArray(source)||typeof source.kind!=='string'||!source.kind.trim()||typeof source.reference!=='string'||!source.reference.trim()||typeof text!=='string'||!revisionValid(expectedRevision)||expectedRevision===Number.MAX_SAFE_INTEGER||!policy||typeof policy!=='object'||Array.isArray(policy))throw fail('Valid sourced knowledge, policy and expectedRevision required');
   if(expiresAt!==null&&(typeof expiresAt!=='string'||!Number.isFinite(Date.parse(expiresAt))))throw fail('Invalid knowledge expiry');
