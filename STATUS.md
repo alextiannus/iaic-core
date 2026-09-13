@@ -217,3 +217,9 @@ AgentRuntime and Assistant task composition accept a trusted boolean verdict or 
 ## Remaining-budget context and effective batch bounds
 
 Runtime now communicates durable remaining tool attempts/model turns before every inference and caps both batch guidance and provider admission at the current remaining attempts. Completion-only context explicitly reports zero remaining tool calls while preserving the existing final finish/wait opportunity. Counts survive waiting and Runtime reconstruction; no budget, authority or retry policy is expanded. PostgreSQL verification covers 2-to-1-to-0 remaining calls and final verified completion. This closes a planning-information gap, not a diagnosis of the exact unconfigured control names lost in earlier traces or proof of improved actual-model completion.
+
+## Actual-model control protocol isolation
+
+A two-request synthetic protocol probe on candidate.66 source 0cb0b9c confirmed that the configured deepseek-v4-flash Chat Completions endpoint returns the exact declared iaic_finish and iaic_wait names and that the shared adapter parses them correctly. Both requests offered only the control tools, used the default automatic tool choice and a one-action bound, and passed their fixed expected action checks. Usage was 867 input + 157 output = 1,024 Provider Tokens; this direct development probe did not use a platform allowance ledger.
+
+This rules out an unconditional inability to emit/parse the basic controls in that narrow setting; it does not identify the unknown selected names lost from prior long-task traces or prove reliable completion with full history. No permissive function-name rewriting, parser relaxation, production change or new runtime release follows from this probe. Prior full-task failures remain open.
