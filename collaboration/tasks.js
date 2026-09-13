@@ -6,25 +6,28 @@ const same=(a,b)=>evidenceDigest(a)===evidenceDigest(b);
 export const delegationExecutorKey=p=>JSON.stringify([p.applicationId,p.subjectId]);
 // Shared Runtime hook: durable authorization binding, not a new task engine.
 export class DelegatedTasks {
- constructor({grants,ledger,modelPolicy,logger=console}){if(!grants||!ledger||typeof modelPolicy!=='function')throw fail('Grant, ledger and trusted model policy ports required');Object.assign(this,{grants,ledger,modelPolicy,logger});this.cursor=null;}
+ constructor({grants,ledger,modelPolicy,parents=null,logger=console}){if(!grants||!ledger||typeof modelPolicy!=='function')throw fail('Grant, ledger and trusted model policy ports required');Object.assign(this,{grants,ledger,modelPolicy,parents,logger});this.cursor=null;}
  async current(actor,id){
   const row=await this.grants.access(actor,id,'execute'),terms=row.terms;
   if(row.revoked||Date.parse(terms.deadlineAt)<=Date.now()||!same(await this.grants.principal(actor),terms.delegate))throw fail('Task delegation unavailable',403);
   const issuerActor=await this.grants.restoreActor(terms.issuer);
   if(!same(await this.grants.principal(issuerActor),terms.issuer)||await this.grants.authorizeGrant(issuerActor,{action:'continue',terms})!==true)throw fail('Task issuer authority unavailable',403);
   const t=terms.task,cap=t&&this.grants.dispatcher.capabilities.get(t.capability);
-  if(!t||Object.keys(t).some(k=>!['capability','input','budgetId'].includes(k))||typeof t.budgetId!=='string'||!t.budgetId||!cap||cap.implementation.kind!=='agent'||this.grants.dispatcher.validateActor(actor,cap)!==true||this.grants.dispatcher.validateActor(issuerActor,cap)!==true||!cap.validateInput(t.input)||!Array.isArray(t.input.allowedTools)||t.input.allowedTools.some(n=>!terms.tools.includes(n)||!cap.implementation.tools.includes(n))||t.input.delegation!==undefined||await cap.authorize(actor,t.input)!==true||await cap.authorize(issuerActor,t.input)!==true)throw fail('Task grant does not bind a valid narrowed Agent input',403);
+  if(!t||Object.keys(t).some(k=>!['capability','input','budgetId','parent'].includes(k))||typeof t.budgetId!=='string'||!t.budgetId||!cap||cap.implementation.kind!=='agent'||this.grants.dispatcher.validateActor(actor,cap)!==true||this.grants.dispatcher.validateActor(issuerActor,cap)!==true||!cap.validateInput(t.input)||!Array.isArray(t.input.allowedTools)||t.input.allowedTools.some(n=>!terms.tools.includes(n)||!cap.implementation.tools.includes(n))||t.input.delegation!==undefined||await cap.authorize(actor,t.input)!==true||await cap.authorize(issuerActor,t.input)!==true)throw fail('Task grant does not bind a valid narrowed Agent input',403);
+  if(t.parent){if(!this.parents)throw fail('Parent authority resolver required',503);await this.parents.check({terms});}
   return {row,issuerActor,cap};
  }
- async bind({actor,capability,input,idempotencyKey}){
+ async bind({actor,capability,input,idempotencyKey,version}){
   if(!idempotencyKey?.startsWith(prefix))return null;
   const id=idempotencyKey.slice(prefix.length),{row}=await this.current(actor,id);
   if(capability.name!==row.terms.task.capability||!same(input,row.terms.task.input))throw fail('Task input differs from approved grant',403);
+  if(row.terms.task.parent)await this.parents.check({terms:row.terms,version});
   return {grantId:id,digest:row.digest};
  }
  async check({actor,task}){
   const {row}=await this.current(actor,task.authority.grantId);
   if(row.digest!==task.authority.digest||task.request_key!==prefix+row.id||task.capability!==row.terms.task.capability||!same(task.input,row.terms.task.input))throw fail('Persistent Task authority binding changed',403);
+  if(row.terms.task.parent)await this.parents.check({terms:row.terms,version:task.version});
   return row;
  }
  async model({actor,task,model}){
@@ -37,6 +40,7 @@ export class DelegatedTasks {
  }
  async checkTool({actor,task,action}){
   const row=await this.check({actor,task}),issuerActor=await this.grants.restoreActor(row.terms.issuer),cap=this.grants.dispatcher.capabilities.get(action.name);
+  if(row.terms.task.parent)await this.parents.checkTool({terms:row.terms,action});
   if(!row.terms.tools.includes(action.name)||!cap||cap.implementation.kind!=='function'||!cap.validateInput(action.input)||await cap.authorize(issuerActor,action.input)!==true||await cap.authorize(actor,action.input)!==true||await this.grants.allowInput({issuerActor,delegateActor:actor,terms:row.terms,capability:action.name,input:action.input})!==true)throw fail('Delegated Task tool exceeds current authority',403);
  }
  async checkContext({actor,task,history}){for(const call of history.calls)if(call.status==='succeeded')await this.checkTool({actor,task,action:{name:call.capability,input:call.input}});}
@@ -50,12 +54,14 @@ export class DelegatedTasks {
   return this.#cancelClosed(await this.grants.store.get(grantId));
  }
  async #cancelClosed(row){
-  if(!row.revoked&&Date.parse(row.terms.deadlineAt)>Date.now())throw fail('Grant is still active',409);
+  const closedByGrant=row.revoked||Date.parse(row.terms.deadlineAt)<=Date.now();
+  const parentClosed=!closedByGrant&&row.terms.task?.parent&&this.parents&&await this.parents.isClosed(row.terms);
+  if(!closedByGrant&&!parentClosed)throw fail('Grant is still active',409);
   const grantId=row.id;
   const delegate=await this.grants.restoreActor(row.terms.delegate),runtime=this.grants.dispatcher.tasks;
   if(!same(await this.grants.principal(delegate),row.terms.delegate))throw fail('Cancellation principal mismatch',403);
   const task=await runtime.store.findRequest(delegate,row.terms.task.capability,prefix+grantId);
-  if(!task)return {grantId,taskId:null,status:row.revoked?'revoked':'expired'};
+  if(!task)return {grantId,taskId:null,status:row.revoked?'revoked':parentClosed?'parent_closed':'expired'};
   if(!same(task.authority,{grantId,digest:row.digest}))throw fail('Cancellation Task binding mismatch',403);
   if(['succeeded','failed','cancelled'].includes(task.status))return {grantId,taskId:task.id,status:task.status};
   const cancelled=await runtime.store.transition(delegate,task.id,{action:'cancel',version:runtime.version});
@@ -66,7 +72,7 @@ export class DelegatedTasks {
   if(!ids.length&&this.cursor!==null){this.cursor=null;ids=await this.grants.store.taskPage({limit:20});}
   for(const id of ids){this.cursor=id;try{
    const row=await this.grants.store.get(id);
-   if(row.revoked||Date.parse(row.terms.deadlineAt)<=Date.now())await this.#cancelClosed(row);
+   if(row.revoked||Date.parse(row.terms.deadlineAt)<=Date.now()||(row.terms.task?.parent&&this.parents&&await this.parents.isClosed(row.terms)))await this.#cancelClosed(row);
   }catch(error){this.logger.warn('Delegated Task cancellation remains pending',{grantId:id,statusCode:error.statusCode||500});}}
  }
 }

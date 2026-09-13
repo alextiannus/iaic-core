@@ -45,6 +45,12 @@ export class TaskStore {
     const row=(await this.pool.query('SELECT * FROM iaic_tasks WHERE id=$1 AND employee_id=$2 AND erp_user=$3',[id,...this.identity(actor)])).rows[0];
     if(!row)throw notFound();return row;
   }
+  async controlState(actor,id) {
+    const row=(await this.pool.query(`SELECT t.id,t.capability,t.input,t.version,t.model,t.agent,t.status,t.waiting_reason,t.handoff,t.authority,t.delegation,t.updated_at,e.seq::text AS "controlSeq"
+      FROM iaic_tasks t LEFT JOIN LATERAL (SELECT seq FROM iaic_task_events WHERE task_id=t.id ORDER BY seq DESC LIMIT 1) e ON true
+      WHERE t.id=$1 AND t.employee_id=$2 AND t.erp_user=$3`,[id,...this.identity(actor)])).rows[0];
+    if(!row)throw notFound();return row;
+  }
   async history(actor,id) {
     await this.get(actor,id);
     const events=await this.pool.query('SELECT seq,kind,data,created_at FROM iaic_task_events WHERE task_id=$1 ORDER BY seq',[id]);

@@ -25,3 +25,5 @@ The sweep verifies immutable grant/Task and principal bindings, then uses the ex
 Missing Task receipts remain eligible for future scans: a Task admitted before revocation might commit after the first scan. The next scan cancels that late receipt. This deliberately avoids treating an absent receipt as proof that no admission can still arrive. Existing execution checks already block further tool/model admission under closed grants.
 
 This is bounded Runtime-driven cancellation recovery, not an immediate provider hard kill, infrastructure daemon, parent/child failure takeover or compensation of external effects. The host must keep ticking a Runtime connected to the owning Task/grant stores. Large namespaces may require multiple ticks; normal execution authorization still checks deadlines and revocation on every attempt.
+
+DelegationParents optionally binds a grant to the exact issuer-owned parent waiting receipt and its current domain restrictions; see PARENTS.md.

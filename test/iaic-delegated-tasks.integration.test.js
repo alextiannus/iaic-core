@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import {Pool} from 'pg';
-import {PostgresWorkspaceStore,AssistantWorkspace,DelegationArtifacts,TaskStore,AgentRuntime,ContextAssembler,CapabilityDispatcher,defineCapability,TokenLedger,AllowanceBudgets,PostgresDelegationStore,DelegatedCapabilities,DelegatedTasks,delegationExecutorKey} from '@immedi/iaic-core';
+import {PostgresWorkspaceStore,AssistantWorkspace,DelegationArtifacts,DelegationParents,TaskStore,AgentRuntime,ContextAssembler,CapabilityDispatcher,defineCapability,TokenLedger,AllowanceBudgets,PostgresDelegationStore,DelegatedCapabilities,DelegatedTasks,delegationExecutorKey} from '@immedi/iaic-core';
 async function fixture(fn){
  const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL required');const schema='delegated_task_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let runtime;
  try{
@@ -16,7 +16,7 @@ async function fixture(fn){
   const authority=new DelegatedTasks({grants,ledger,modelPolicy:()=>({mode:'SYSTEM_MANAGED',policy:{maximum:'5',price:{revision:'fixture',input:'1',cachedInput:'1',output:'1'}}})});
   const input={goal:'Write the fixture record and verify it',allowedTools:['records.write']};
   await grants.issue(issuer,{id:'task-grant',delegate:principal(delegate),payer:principal(issuer),tools:['records.write'],constraints:{},deadlineAt:new Date(Date.now()+60000).toISOString(),maxCalls:1,task:{capability:agent.name,input,budgetId:'work'}});
-  let modelCalls=0;const model={name:'fixture-model',next:async r=>{modelCalls++;return {...(r.billingContext.turn===1?{type:'call',name:'records.write',input:{}}:{type:'finish',result:{done:true,summary:'Produced an artifact',artifacts:outputArtifact?[outputArtifact.reference]:[]}}),usage:{inputTokens:1,outputTokens:1}};}};
+  let modelCalls=0;const model={name:'fixture-model',next:async r=>{modelCalls++;if(r.billingContext.capability==='parent.run')return {type:'wait',question:'Delegate the scoped work',usage:{inputTokens:1,outputTokens:1}};return {...(!outputArtifact?{type:'call',name:'records.write',input:{}}:{type:'finish',result:{done:true,summary:'Produced an artifact',artifacts:outputArtifact?[outputArtifact.reference]:[]}}),usage:{inputTokens:1,outputTokens:1}};}};
   const build=async(enabled=true)=>{if(runtime)await runtime.stop();runtime=new AgentRuntime({store:new TaskStore({pool}),dispatcher,model,authority:enabled?authority:null,context:new ContextAssembler({skillRoot:'/tmp'}),version:'fixture-v1'});dispatcher.tasks=runtime;await runtime.initialize();return runtime;};
   await build();await fn({issuer,delegate,authority,grants,grantStore,dispatcher,workspace,ledger,budgets,principal,pool,build,permitted,modelCalls:()=>modelCalls,getRuntime:()=>runtime});
  }finally{if(runtime)await runtime.stop();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
@@ -73,4 +73,26 @@ test('Expired unfinished delegation is cancelled while its original grant eviden
  const prior=await f.grantStore.get('task-grant');await f.grants.issue(f.issuer,{...prior.terms,id:'expiring',deadlineAt:new Date(Date.now()+3000).toISOString()});
  const task=await f.authority.submit(f.delegate,'expiring');await new Promise(r=>setTimeout(r,3100));
  await f.getRuntime().tick();assert.equal((await f.getRuntime().store.get(f.delegate,task.id)).status,'cancelled');assert.equal((await f.grantStore.get('expiring')).revoked,false);assert.equal(f.modelCalls(),0);
+}));
+
+async function linkedParent(f,{allowCall=()=>true}={}){
+ const cap=defineCapability({name:'parent.run',description:'Parent work',input:{type:'object'},output:{type:'object'},effect:'read',authorize:a=>f.permitted.has(a.subjectId),implementation:{kind:'agent',instructions:'Wait for scoped delegated work',tools:['records.write'],allowCall,verify:async()=>true}});
+ f.dispatcher.capabilities.set(cap.name,cap);
+ const runtime=f.getRuntime();await runtime.create({capability:cap,input:{goal:'Parent goal',allowedTools:['records.write']},actor:f.issuer,idempotencyKey:'parent'});const parent=await runtime.tick();assert.equal(parent.waiting_reason,'input');
+ const prior=await f.grantStore.get('task-grant');await f.grants.issue(f.issuer,{...prior.terms,id:'linked',task:{...prior.terms.task,parent:{taskId:parent.id,version:parent.version,waitingSeq:(await runtime.store.controlState(f.issuer,parent.id)).controlSeq}}});
+ f.authority.parents=new DelegationParents({grants:f.grants,allowLink:()=>true});return parent;
+}
+test('Child grant is pinned to the owned parent waiting receipt and domain restrictions',async()=>fixture(async f=>{
+ let allowed=false;const parent=await linkedParent(f,{allowCall:()=>allowed});await f.authority.submit(f.delegate,'linked');
+ const waiting=await f.getRuntime().tick();assert.equal(waiting.status,'waiting');assert.match(waiting.error,/parent domain restrictions/);assert.equal((await f.pool.query('SELECT * FROM effects')).rowCount,0);
+ allowed=true;await f.getRuntime().transition(f.delegate,waiting.id,{action:'resume'});assert.equal((await f.getRuntime().tick()).status,'succeeded');assert.equal((await f.getRuntime().store.get(f.issuer,parent.id)).status,'waiting');
+}));
+test('Parent cancellation propagates to its child and a missing parent resolver fails closed',async()=>fixture(async f=>{
+ const parent=await linkedParent(f);const resolver=f.authority.parents;f.authority.parents=null;await assert.rejects(f.authority.submit(f.delegate,'linked'),{statusCode:503});f.authority.parents=resolver;
+ const child=await f.authority.submit(f.delegate,'linked');await f.getRuntime().transition(f.issuer,parent.id,{action:'cancel'});await f.getRuntime().tick();assert.equal((await f.getRuntime().store.get(f.delegate,child.id)).status,'cancelled');assert.equal(f.modelCalls(),1);
+}));
+test('A later parent waiting episode cannot revive a grant bound to an earlier wait',async()=>fixture(async f=>{
+ const parent=await linkedParent(f);await f.getRuntime().transition(f.issuer,parent.id,{action:'provide_input',input:'Continue planning'});await f.getRuntime().tick();
+ await f.pool.query('UPDATE iaic_tasks SET updated_at=$2 WHERE id=$1',[parent.id,parent.updated_at]);
+ await assert.rejects(f.authority.submit(f.delegate,'linked'),{statusCode:403});
 }));
