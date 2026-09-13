@@ -16,6 +16,7 @@ test('explicit invocation policy reaches both transports and constrains returned
   }});
   await assert.rejects(model.next(request),error=>error.invalidAction&&error.usage.inputTokens===3);
   assert.equal(wire.tool_choice,'required');assert.equal(wire.parallel_tool_calls,false);
+  const messages=provider==='openai'?wire.input:wire.messages;assert.equal(messages.at(-1).role,'system');assert.match(messages.at(-1).content,/stricter one-action limit/);assert.deepEqual(request.messages,[]);
  }
 });
 test('unsupported explicit policy is not automatically downgraded or retried',async()=>{

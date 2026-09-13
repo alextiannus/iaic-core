@@ -12,6 +12,7 @@ export class OpenAIProvider {
   async next({messages,tools,outputSchema,delegationSchema,signal,maxBatchCalls=1}) {
     if(!Number.isInteger(maxBatchCalls)||maxBatchCalls<1||maxBatchCalls>8)throw new Error('Batch bound must be 1..8');
     const batchBound=this.#invocation.parallelToolCalls===false?1:maxBatchCalls;
+    const providerMessages=this.#invocation.parallelToolCalls===false?[...messages,{role:'system',content:'This model invocation has a stricter one-action limit than any Runtime batch ceiling. Return exactly one function call. Do not return multiple tool calls or mix a tool with finish, wait or delegation. Wait for the result before choosing the next action.'}]:messages;
     const wireNames=wireToolNames(tools);
     const mapped=new Map(tools.map((tool,index)=>[wireNames[index],tool.name]));
     const definitions=tools.map((tool,index)=>({type:'function',name:wireNames[index],
@@ -23,7 +24,7 @@ export class OpenAIProvider {
     if(delegationSchema)definitions.push({type:'function',name:'iaic_delegate',description:'Delegate one bounded subgoal to a child and pause until its result. The host fixes target, owner, model admission limit and deadline. After continuation, inspect child evidence and finish the original goal. Child success is not parent success.',parameters:delegationSchema,strict:false});
     const response=await this.fetch('https://api.openai.com/v1/responses',{
       method:'POST',signal,headers:{Authorization:`Bearer ${this.#apiKey}`,'Content-Type':'application/json'},
-      body:JSON.stringify({model:this.name,input:messages,tools:definitions,tool_choice:this.#invocation.toolChoice??'required',parallel_tool_calls:batchBound>1,
+      body:JSON.stringify({model:this.name,input:providerMessages,tools:definitions,tool_choice:this.#invocation.toolChoice??'required',parallel_tool_calls:batchBound>1,
         store:false,max_output_tokens:this.maxOutputTokens})
     });
     if(!response.ok){
