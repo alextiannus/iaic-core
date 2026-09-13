@@ -56,3 +56,6 @@ export {createDeferredScheduleCapability,createDeferredControlCapabilities,allow
 export {PostgresKnowledgeStore} from './knowledge/postgres.js';
 
 export {createAgentSessions,createAgentDeferredTasks} from './assistants/work.js';
+
+export {createCapabilityHttpHandler} from './http/server.js';
+export {CapabilityHttpClient,CapabilityHttpError} from './http/client.js';

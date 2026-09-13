@@ -2,7 +2,7 @@
 
 A headless JavaScript framework for AI Native Applications: configure an Agent's responsibility and resources, give it a goal, let it use authorized capabilities, and retain work and results beyond a chat connection.
 
-This is the **0.1.0 private release candidate**. An open-source license has not yet been selected, and this directory has not been publicly published. See [STATUS.md](STATUS.md) for verified capabilities and limits.
+This is the **0.1.0 public source candidate**, published at https://github.com/alextiannus/iaic-core. A reuse license has not yet been selected; public visibility does not imply an MIT or other open-source license grant. See [STATUS.md](STATUS.md) for verified capabilities and limits.
 
 ## Start here
 
@@ -19,7 +19,7 @@ Use your own database connection. The examples create temporary synthetic schema
 The configured-jobs example combines user-plus-organization scopes, an organization-shared job, Memory, Workspace, sourced Knowledge, selected Skills, models and platform allowance, Session continuity, model-directed scheduling and an external MCP client. It includes application policy to illustrate composition; it does not prescribe job types or business flows.
 
 ```sh
-npm test                     # module checks and 17 standalone examples
+npm test                     # module checks and 18 standalone examples
 npm run verify:core-package  # pack, install elsewhere, run examples there
 npm pack                     # create a reusable Core npm archive
 ```
@@ -38,7 +38,7 @@ An application installs the resulting `.tgz` and imports `@immedi/iaic-core` or 
 | Choose a model and account for use | [Assistants](assistants/README.md), [Credentials](credentials/README.md), [Billing](billing/README.md) |
 | Continue conversations and proactive work | [Sessions](sessions/README.md), [Deferred](deferred/README.md), [Events](events/README.md), [Triggers](triggers/README.md), [Recurring](recurring/README.md) |
 | Authorize and cooperate | [Mandates](mandates/README.md), [Handoffs](handoffs/README.md) |
-| Connect an external Agent | [MCP](mcp/README.md), ordinary ESM interfaces and host API adapters |
+| Connect an external Agent | [MCP](mcp/README.md), [HTTP API and remote SDK](http/README.md), ordinary ESM interfaces |
 
 Each module owns its state and documents its injected dependencies. [Assistant work composition](assistants/TASKS.md) combines these ports without another Runtime or container framework.
 

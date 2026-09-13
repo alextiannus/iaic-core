@@ -2,11 +2,11 @@
 
 Source revision: `19e80c637e83a16f2197cebacfe729d804ca0e54`.
 
-This candidate is private and has no selected open-source license yet. It is a standalone extraction for review and reuse preparation, not a claim of public publication, final application acceptance or support for every environment.
+This standalone repository is public. Its reuse license remains undecided and does not block capability development. Public source availability is not a claim of final framework/application acceptance or support for every environment.
 
 ## Usable foundation
 
-The existing modules provide capability contracts/dispatch, a persistent Agent work loop and task/call state, model providers/profiles and per-scope selection, encrypted own-model credentials, platform allowance rules, memory lifecycle operations, selected Skill loading, sourced Knowledge, versioned Workspace artifacts, persistent job identity/configuration, Session timelines, schedules/events/recurring work, Mandates and bounded same-owner handoffs. MCP and ESM expose shared capability contracts.
+The existing modules provide capability contracts/dispatch, a persistent Agent work loop and task/call state, model providers/profiles and per-scope selection, encrypted own-model credentials, platform allowance rules, memory lifecycle operations, selected Skill loading, sourced Knowledge, versioned Workspace artifacts, persistent job identity/configuration, Session timelines, schedules/events/recurring work, Mandates and bounded same-owner handoffs. MCP, HTTP, the remote SDK and ESM expose shared capability contracts.
 
 The configured-job example combines these foundations into scoped work, Session-to-scheduled-task continuity and external Agent access. The other examples demonstrate individual modules or smaller combinations. Methods and resource selectors are injected; there is no dependency on a private application server.
 
@@ -25,3 +25,14 @@ The configured-job example combines these foundations into scoped work, Session-
 The standalone suite uses deterministic models to verify interfaces and persistence. Earlier bounded real-provider samples proved several working paths, but broad application quality remains incomplete. In a recent Session-continuity sample, the model scheduled work and generated/read the correct artifact after service reconstruction, then repeated reads until the sample's six-call limit. The child remained waiting rather than formally finishing. That sample is retained as partial, not passed; this candidate does not hide it or substitute a deterministic result for model-quality acceptance.
 
 Application-specific report quality and business acceptance remain separate work. The framework can be usable as a foundation while Harness/model execution efficiency and broader community extensions continue to improve.
+
+## Foundational development priorities
+
+The design's complete capability map remains the target; headless design does not remove foundational services from that scope. Current modules are usable building blocks, not completion of the entire map.
+
+1. Protocol access: HTTP discovery/execution and a typed remote client are now supplied alongside MCP export. Generic remote MCP/API import, A2A and external identity mapping adapters remain incomplete.
+2. Application foundation: allowance accounting, events and workspace persistence exist. Reusable account/organization/member services, subscription and billing defaults, payment/refund adapters and notification delivery are still needed. Applications continue to own business-specific rules and UI.
+3. Execution resources: add replaceable device/code execution and sandbox ports; do not place these inside the model loop or business application.
+4. Evaluation and evolution: build reusable dataset/outcome evaluation and revision/release tooling. Repository CI and current runtime version fences are useful parts, not a full general evaluation/release platform. External Codex may act as Platform AI without another mandatory internal Agent.
+
+These items are capability work. Broader security hardening and final acceptance follow usable foundational implementations, without changing the design's concepts or adding mandatory role classes.

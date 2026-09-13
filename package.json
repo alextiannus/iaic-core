@@ -28,7 +28,8 @@
     "./events/*": "./events/*",
     "./mandates/*": "./mandates/*",
     "./mcp/*": "./mcp/*",
-    "./handoffs/*": "./handoffs/*"
+    "./handoffs/*": "./handoffs/*",
+    "./http/*": "./http/*"
   },
   "files": [
     "index.js",
@@ -57,7 +58,8 @@
     "STATUS.md",
     "examples",
     "scripts",
-    "SOURCE.json"
+    "SOURCE.json",
+    "http"
   ],
   "dependencies": {
     "ajv": "8.20.0",
