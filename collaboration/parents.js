@@ -12,7 +12,7 @@ export class DelegationParents {
   return {parent,actor,ref,capability:runtime.dispatcher.capabilities.get(parent.capability)};
  }
  waiting({parent,ref}){
-  return parent.status==='waiting'&&parent.version===ref.version&&parent.controlSeq===ref.waitingSeq&&
+  return parent.status==='waiting'&&parent.version===ref.version&&parent.waitingSeq===ref.waitingSeq&&
    (ref.delegationId?parent.waiting_reason==='external_result'&&parent.delegation?.id===ref.delegationId&&!parent.delegation.received:parent.waiting_reason==='input'&&!parent.delegation);
  }
  async check({terms,version=null}){

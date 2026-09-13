@@ -46,8 +46,9 @@ export class TaskStore {
     if(!row)throw notFound();return row;
   }
   async controlState(actor,id) {
-    const row=(await this.pool.query(`SELECT t.id,t.capability,t.input,t.version,t.model,t.agent,t.status,t.waiting_reason,t.handoff,t.authority,t.delegation,t.updated_at,e.seq::text AS "controlSeq"
+    const row=(await this.pool.query(`SELECT t.id,t.capability,t.input,t.version,t.model,t.agent,t.status,t.waiting_reason,t.handoff,t.authority,t.delegation,t.updated_at,e.seq::text AS "controlSeq",w.seq::text AS "waitingSeq"
       FROM iaic_tasks t LEFT JOIN LATERAL (SELECT seq FROM iaic_task_events WHERE task_id=t.id ORDER BY seq DESC LIMIT 1) e ON true
+      LEFT JOIN LATERAL (SELECT seq FROM iaic_task_events WHERE task_id=t.id AND (kind='delegation_requested' OR (kind='outcome' AND data->>'status'='waiting' AND data->>'reason'='input')) ORDER BY seq DESC LIMIT 1) w ON true
       WHERE t.id=$1 AND t.employee_id=$2 AND t.erp_user=$3`,[id,...this.identity(actor)])).rows[0];
     if(!row)throw notFound();return row;
   }

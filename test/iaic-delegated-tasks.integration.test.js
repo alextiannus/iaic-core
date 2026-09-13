@@ -79,7 +79,7 @@ async function linkedParent(f,{allowCall=()=>true}={}){
  const cap=defineCapability({name:'parent.run',description:'Parent work',input:{type:'object'},output:{type:'object'},effect:'read',authorize:a=>f.permitted.has(a.subjectId),implementation:{kind:'agent',instructions:'Wait for scoped delegated work',tools:['records.write'],allowCall,verify:async()=>true}});
  f.dispatcher.capabilities.set(cap.name,cap);
  const runtime=f.getRuntime();await runtime.create({capability:cap,input:{goal:'Parent goal',allowedTools:['records.write']},actor:f.issuer,idempotencyKey:'parent'});const parent=await runtime.tick();assert.equal(parent.waiting_reason,'input');
- const prior=await f.grantStore.get('task-grant');await f.grants.issue(f.issuer,{...prior.terms,id:'linked',task:{...prior.terms.task,parent:{taskId:parent.id,version:parent.version,waitingSeq:(await runtime.store.controlState(f.issuer,parent.id)).controlSeq}}});
+ const prior=await f.grantStore.get('task-grant');await f.grants.issue(f.issuer,{...prior.terms,id:'linked',task:{...prior.terms.task,parent:{taskId:parent.id,version:parent.version,waitingSeq:(await runtime.store.controlState(f.issuer,parent.id)).waitingSeq}}});
  f.authority.parents=new DelegationParents({grants:f.grants,allowLink:()=>true});return parent;
 }
 test('Child grant is pinned to the owned parent waiting receipt and domain restrictions',async()=>fixture(async f=>{
@@ -95,4 +95,11 @@ test('A later parent waiting episode cannot revive a grant bound to an earlier w
  const parent=await linkedParent(f);await f.getRuntime().transition(f.issuer,parent.id,{action:'provide_input',input:'Continue planning'});await f.getRuntime().tick();
  await f.pool.query('UPDATE iaic_tasks SET updated_at=$2 WHERE id=$1',[parent.id,parent.updated_at]);
  await assert.rejects(f.authority.submit(f.delegate,'linked'),{statusCode:403});
+}));
+
+test('Parent model changes within one waiting episode do not cancel an approved child',async()=>fixture(async f=>{
+ const parent=await linkedParent(f),store=f.getRuntime().store,before=await store.controlState(f.issuer,parent.id);
+ await store.switchModel(f.issuer,parent.id,{model:'new-parent-model',expectedModel:parent.model,version:parent.version});
+ const after=await store.controlState(f.issuer,parent.id);assert.notEqual(after.controlSeq,before.controlSeq);assert.equal(after.waitingSeq,before.waitingSeq);
+ await f.authority.submit(f.delegate,'linked');assert.equal((await f.getRuntime().tick()).status,'succeeded');
 }));
