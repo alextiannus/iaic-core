@@ -39,3 +39,14 @@ only to test the evaluation plumbing; its pass is not actual-model evidence.
 This is not a third-party blind holdout, a statistical quality estimate, full
 protocol conformance or completion of all Note 30 criteria. Preserve unsuccessful
 runs rather than tuning the grader and presenting the old scenario as untouched.
+
+## First actual-model result
+
+The first DeepSeek V4 Flash run at f37c9ec302039aaabfa1dbdf820ffdb6371d8302 passed
+all 16 checks: parent f5a03e7a-0011-4ba3-b2cc-69c49b5b5573 and child
+802690e9-6781-46d4-ab30-e942d1473c39 both succeeded. Nine model requests, eight
+Tool attempts, four child model admissions and one artifact write produced the
+correct A/D selection and total 12. The parent read it back after automatic
+resumption. Usage was 25,420 input plus 4,364 output Tokens, with no unknown usage
+or remaining reservations. Deterministic preflight and actual-model evidence are
+stored separately; no paid retry or grader adjustment was performed.

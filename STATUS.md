@@ -382,3 +382,29 @@ and continued Task cancellation. Models are deterministic fixtures. No new Runti
 Mandate semantics, migration, actual-model evaluation or production deployment is
 introduced. Purpose remains explanatory rather than a semantic resource filter;
 application permission, model allowance and outcome verification remain separate.
+
+## Actual-model same-owner delegation evidence
+
+At source f37c9ec302039aaabfa1dbdf820ffdb6371d8302, the opt-in
+core-real-delegation scenario passed all 16 checks with DeepSeek V4 Flash. Parent
+f5a03e7a-0011-4ba3-b2cc-69c49b5b5573 delegated to child
+802690e9-6781-46d4-ab30-e942d1473c39 under distinct persistent Agent identities.
+The Runtime was reconstructed after persisted delegation. The child read a Skill
+and raw records, wrote and read readiness.json; the parent automatically resumed,
+read the exact current artifact and finished without writing it or owner input.
+Both Tasks succeeded; selected IDs A/D and total units 12 matched the host grader.
+
+Nine actual model calls and eight Tool attempts consumed 25,420 input plus 4,364
+output Provider Tokens (29,784 total). The child used four of its ten durable model
+admissions. The synthetic shared allowance ledger settled 29,784 platform units
+under its explicit 1:1 fixture rule, with zero pending/unknown usage and zero
+reserved units. This is not a currency invoice or debit to production users.
+No paid retry or runtime change was needed. The source and independent-installed
+fixture preflights passed, as did all 42 default installed examples and exact-source
+CI 34779735270.
+
+This authored sample adds actual-model collaboration evidence. It is same-owner,
+orderly Runtime reconstruction rather than process kill, and not a third-party
+blind holdout, cross-principal cancellation/takeover evaluation or full Core
+acceptance. Those requirements retain their separate evidence and limits. Latest
+runtime prerelease remains candidate.73; no production application was deployed.
