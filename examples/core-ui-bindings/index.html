@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>IAiC UI binding fixture</title>
+<style>body{font:16px system-ui;max-width:760px;margin:40px auto}label{display:block;margin:12px 0}input{width:65%;padding:6px}button{margin:4px;padding:8px}pre{white-space:pre-wrap;padding:16px;background:#f4f4f4}</style>
+<h1>Persistent Task · UI binding fixture</h1><p>Local test data and a deterministic model. This is an integration example.</p>
+<label>Goal <input id="goal" value="Create the confirmed record"></label>
+<label>Request key <input id="request-key"></label><button id="submit">Submit goal</button>
+<button id="discover">Find my Tasks</button>
+<label>Task ID <input id="task-id"></label><button id="read">Read Task</button><button id="cancel">Cancel Task</button>
+<p id="question"></p><label>Clarification <input id="clarification"></label><label>Clarification request key <input id="clarification-key"></label><button id="answer">Send clarification</button>
+<pre id="output" role="status" aria-live="polite">Ready</pre>
+<script type="module">
+import {CapabilityHttpClient} from '/client.js';
+const client=new CapabilityHttpClient({url:location.origin+'/capabilities',headers:()=>({authorization:'Bearer fixture-ui'})});
+const $=id=>document.getElementById(id),out=$('output');$('request-key').value=crypto.randomUUID();$('clarification-key').value=crypto.randomUUID();
+async function invoke(name,input,requestKey){out.dataset.state='pending';try{const {result}=await client.invoke(name,input,{requestKey});out.textContent=JSON.stringify(result,null,2);out.dataset.state='ok';if(result.id)$('task-id').value=result.id;$('question').textContent=result.inputRequest?.question??'';return result;}catch(error){out.textContent=JSON.stringify({error:error.message,statusCode:error.statusCode,outcomeUnknown:error.outcomeUnknown});out.dataset.state='error';}}
+$('submit').onclick=()=>invoke('work.run',{goal:$('goal').value},$('request-key').value);
+$('discover').onclick=async()=>{const result=await invoke('tasks.list',{limit:20});if(result?.items[0])$('task-id').value=result.items[0].id;};
+$('read').onclick=()=>invoke('tasks.get',{id:$('task-id').value});
+$('cancel').onclick=()=>invoke('tasks.cancel',{id:$('task-id').value},'cancel:'+ $('task-id').value);
+$('answer').onclick=()=>invoke('tasks.provide_input',{id:$('task-id').value,input:$('clarification').value},$('clarification-key').value);
+window.fixtureReady=true;
+</script></html>

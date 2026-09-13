@@ -4,7 +4,7 @@ export class CapabilityHttpError extends Error {
 
 // No automatic retry: a lost response cannot prove that a write did not happen.
 export class CapabilityHttpClient {
-  constructor({url, fetch: transport = globalThis.fetch, headers = () => ({})}) {
+  constructor({url, fetch: transport = globalThis.fetch.bind(globalThis), headers = () => ({})}) {
     this.url = new URL(url);
     if (!['http:', 'https:'].includes(this.url.protocol) || this.url.search || this.url.hash || this.url.username || this.url.password) throw new Error('Use an HTTP capability endpoint without credentials, query or fragment');
     this.url = this.url.href.replace(/\/$/, '');

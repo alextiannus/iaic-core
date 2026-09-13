@@ -74,7 +74,9 @@ export class AgentRuntime {
     const records=await this.store.history(actor,id);
     // Validate current access before returning stored sources or report artifacts.
     const visible=await this.context.revalidateHistory({history:records,actor,dispatcher:this.dispatcher});
-    return history?{...task,...visible}:task;
+    const request=task.status==='waiting'&&task.waiting_reason==='input'?[...visible.events].reverse().find(event=>event.kind==='model_response'&&event.data?.type==='wait'&&typeof event.data.question==='string'):null;
+    const view={...task,inputRequest:request?{question:request.data.question,reference:String(request.seq)}:null};
+    return history?{...view,...visible}:view;
   }
   async transitionReceipt(actor,id,requestKey){
     await this.state(actor,id);

@@ -1,0 +1,9 @@
+# Opt-in UI binding verification
+
+This is a minimal developer test page, not a Core UI kit or a product interface. It imports the package's unmodified browser-compatible HTTP client and calls the same Capability endpoints used by other clients.
+
+Run `node examples/core-ui-bindings/run.mjs` with IAIC_BROWSER_HOST_PACKAGE (absolute path to an independent package.json containing compatible puppeteer-core), IAIC_BROWSER_EXECUTABLE (chosen Chrome), IAIC_BROWSER_EVIDENCE (fresh output directory), and SUBMISSION_TEST_DATABASE_URL (isolated local PostgreSQL). The harness starts a loopback server, launches a fresh headless browser/profile, restricts page requests to that origin, creates/drops a random database schema, captures waiting/completed PNGs and writes result.json. No personal profile, production service or real model is used.
+
+The actual DOM flow submits the same stable request twice, closes the page, waits for the Agent's question, rediscovers the Task, displays its current inputRequest, submits clarification, closes the page and reconstructs Runtime before completion. The reopened page and a separate SDK client read the same verified result. An independent fixture-table query confirms exactly one business record; cancellation and current access revocation are also checked. Model outputs are deterministic and no process-kill claim is made.
+
+The page exposes request keys because it is a protocol fixture. Its fixed bearer identity is only for this isolated host. Applications own real authentication, rendering and interaction policy, key persistence/recovery, current question handling and error UX. The harness does not assert complete UI accessibility, every lifecycle state, all browser engines, streaming or full Note30 acceptance. The default installed suite does not require Chrome or puppeteer; this example is explicitly opt-in.
