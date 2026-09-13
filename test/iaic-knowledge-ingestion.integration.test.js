@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import {Pool} from 'pg';
-import {KnowledgeIngestion,PostgresIngestedKnowledgeStore,KnowledgeCatalog,splitKnowledgeText} from '@immedi/iaic-core';
+import {KnowledgeIngestion,PostgresIngestedKnowledgeStore,KnowledgeCatalog,splitKnowledgeText,PostgresKnowledgeStore,ContextAssembler,CapabilityDispatcher,createKnowledgeCapabilities,PostgresWorkspaceStore,AssistantWorkspace,WorkspaceLineage} from '@immedi/iaic-core';
 async function fixture(run){
  const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;assert.ok(connectionString);const schema='ingestion_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});
  try{const store=new PostgresIngestedKnowledgeStore({pool,namespace:'app'});await store.initialize();let source={confirmed:true,sourceId:'guide',sourceRevision:'v1',reference:'host://guides/guide',mediaType:'text/markdown',title:'Guide',description:'Sourced instructions',text:'中文🙂 first paragraph.\n\nSecond paragraph with facts.',policy:{owner:'reader'}};
@@ -34,4 +34,25 @@ test('Withdrawal clears all current content and policy; restoration requires the
  await assert.rejects(ingestion.withdraw({subjectId:'other'},{sourceId:'guide',expectedRevision:1}),{statusCode:403});await ingestion.withdraw(actor,{sourceId:'guide',expectedRevision:1});assert.equal((await catalog.revalidate(actor,reference)).unavailable,true);assert.equal((await store.list()).length,0);
  const persisted=(await pool.query('SELECT metadata,digest,withdrawn FROM iaic_ingested_knowledge_sources')).rows[0];assert.deepEqual(persisted,{metadata:null,digest:null,withdrawn:true});await assert.rejects(ingestion.sync(actor,{sourceId:'guide',expectedRevision:0}),{statusCode:409});
  await ingestion.sync(actor,{sourceId:'guide',expectedRevision:2});source.policy={owner:'other'};await ingestion.sync(actor,{sourceId:'guide',expectedRevision:3});assert.equal((await catalog.search(actor,{})).items.length,0);assert.equal((await catalog.revalidate(actor,reference)).unavailable,true);
+}));
+
+test('Withdrawal removes ingested bodies from current Agent context and invalidates derived Workspace content',()=>fixture(async({pool,store,catalog,ingestion,actor,source})=>{
+ source.text='private-source-marker';await ingestion.sync(actor,{sourceId:'guide',expectedRevision:0});const id=(await store.list())[0].id;
+ const dispatcher=new CapabilityDispatcher({capabilities:createKnowledgeCapabilities({knowledge:catalog,authorize:()=>true})});const input={id},result=await dispatcher.invoke('my_read_knowledge',input,{actor});
+ const history={events:[],calls:[{id:'read',capability:'my_read_knowledge',input,result,status:'succeeded'}]},context=new ContextAssembler({});
+ const workspaceStore=new PostgresWorkspaceStore({pool});await workspaceStore.initialize();
+ const workspace=new AssistantWorkspace({store:workspaceStore,resolveScope:()=>({applicationId:'app',assistantId:'helper',subjectId:'reader'}),sourceFor:()=>({kind:'fixture'}),lineage:new WorkspaceLineage({capture:()=>[{kind:'knowledge',reference:result.reference}],readKnowledge:(a,r)=>catalog.read(a,{id:r.id,expectedVersion:r.version}),authorizePurge:()=>true})});
+ await workspace.write(actor,{path:'derived.md',content:'Derived from private-source-marker'});
+ await ingestion.withdraw(actor,{sourceId:'guide',expectedRevision:1});
+ const messages=await context.assemble({actor,dispatcher,history,task:{input:{goal:'Continue using available sources'}},capability:{implementation:{instructions:'Use current references'}}});
+ assert.equal(JSON.stringify(messages).includes('private-source-marker'),false);assert.equal(history.calls[0].result.text,'private-source-marker');
+ await assert.rejects(workspace.read(actor,{path:'derived.md'}),{code:'SOURCE_INVALIDATED'});assert.equal((await workspace.purgeInvalid(actor)).removed.length,1);
+}));
+test('Replacing a Catalog adapter marks valid legacy references unavailable instead of interrupting context reconstruction',()=>fixture(async({pool,store,actor})=>{
+ const legacy=new PostgresKnowledgeStore({pool,namespace:'legacy'});await legacy.initialize();await legacy.put({id:'legacy/manual',title:'Legacy',description:'Original source',source:{kind:'fixture',reference:'legacy'},text:'legacy-body-marker',expectedRevision:0});
+ const catalog=new KnowledgeCatalog({store:legacy,authorize:()=>true}),dispatcher=new CapabilityDispatcher({capabilities:createKnowledgeCapabilities({knowledge:catalog,authorize:()=>true})}),input={id:'legacy/manual'},result=await dispatcher.invoke('my_read_knowledge',input,{actor});
+ catalog.store=store;
+ const projected=await new ContextAssembler({}).revalidateHistory({actor,dispatcher,history:{events:[],calls:[{id:'legacy',capability:'my_read_knowledge',input,result,status:'succeeded'}]}});
+ assert.equal(projected.calls[0].result.unavailable,true);assert.equal(JSON.stringify(projected).includes('legacy-body-marker'),false);
+ await assert.rejects(store.snapshot('../bad'),{statusCode:400});
 }));

@@ -84,3 +84,6 @@ HmacEventIngress now authenticates a bounded IAiC HMAC envelope using current ho
 ## Versioned Knowledge ingestion
 
 KnowledgeIngestion and PostgresIngestedKnowledgeStore now import authorized, versioned plain text/Markdown snapshots into bounded UTF-8 chunks through existing Catalog interfaces. Atomic source replacement removes old surplus parts; withdrawal clears all current content/metadata and retains a revision tombstone. Current source, policy and ingestion revision remain visible in chunk provenance, and original references invalidate after correction/withdrawal. Independent installation exercises large-document import and existing retrieval. This does not add embeddings, scalable search, format extraction/crawling, global erasure or model-quality acceptance. Separate reads spanning concurrent updates still require reference/source-revision checks.
+
+
+Knowledge ingestion context integration now verifies current body removal and derived Workspace invalidation after withdrawal. A reproduced adapter-replacement failure was fixed: syntactically valid legacy Catalog IDs now return not-found from the ingested store rather than invalid-input, allowing normal unavailable-reference projection. Malformed IDs still reject. Historical audit bodies are retained; no global-erasure claim is made.

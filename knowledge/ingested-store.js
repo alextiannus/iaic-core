@@ -36,7 +36,7 @@ export class PostgresIngestedKnowledgeStore{
   });
  }
  async sourceState(sourceId){if(!sourceIdValid(sourceId))throw fail('Valid source ID required');const row=(await this.pool.query('SELECT source_id,revision,withdrawn FROM iaic_ingested_knowledge_sources WHERE namespace=$1 AND source_id=$2',[this.namespace,sourceId])).rows[0];if(!row)throw fail('Knowledge source not found',404);return state(row);}
- async snapshot(id){if(typeof id!=='string'||!/^[a-f0-9]{64}-[0-9]{4}$/.test(id))throw fail('Invalid ingested Knowledge ID');const row=(await this.pool.query('SELECT c.*,s.metadata,s.revision FROM iaic_ingested_knowledge_chunks c JOIN iaic_ingested_knowledge_sources s USING(namespace,source_id) WHERE c.namespace=$1 AND c.id=$2 AND NOT s.withdrawn',[this.namespace,id])).rows[0];if(!row)throw fail('Knowledge unavailable',404);return document(row);}
+ async snapshot(id){if(typeof id!=='string'||!/^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,199}$/.test(id))throw fail('Invalid ingested Knowledge ID');const row=(await this.pool.query('SELECT c.*,s.metadata,s.revision FROM iaic_ingested_knowledge_chunks c JOIN iaic_ingested_knowledge_sources s USING(namespace,source_id) WHERE c.namespace=$1 AND c.id=$2 AND NOT s.withdrawn',[this.namespace,id])).rows[0];if(!row)throw fail('Knowledge unavailable',404);return document(row);}
  async describe(id){return (await this.snapshot(id)).entry;}
  async read(id){return (await this.snapshot(id)).text;}
  async list(){return (await this.pool.query('SELECT c.id,c.part,c.byte_start,c.byte_end,s.metadata,s.revision FROM iaic_ingested_knowledge_chunks c JOIN iaic_ingested_knowledge_sources s USING(namespace,source_id) WHERE c.namespace=$1 AND NOT s.withdrawn ORDER BY c.id LIMIT 1001',[this.namespace])).rows.map(row=>document(row).entry);}
