@@ -148,3 +148,6 @@ export {createHttpNotificationChannel} from './notifications/http-channel.js';
 export {AssistantModelRouting} from './assistants/model-routing.js';
 
 export {RetentionSweep} from './resources/retention.js';
+
+export {PostgresModelRateLimits} from './agent/rate-store.js';
+export {rateLimitedModel} from './agent/rate-model.js';
