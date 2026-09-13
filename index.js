@@ -59,3 +59,7 @@ export {createAgentSessions,createAgentDeferredTasks} from './assistants/work.js
 
 export {createCapabilityHttpHandler} from './http/server.js';
 export {CapabilityHttpClient,CapabilityHttpError} from './http/client.js';
+
+export {PostgresAccountStore} from './accounts/store.js';
+export {AccountDirectory} from './accounts/service.js';
+export {createAccountCapabilities} from './accounts/capabilities.js';

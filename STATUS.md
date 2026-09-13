@@ -31,7 +31,7 @@ Application-specific report quality and business acceptance remain separate work
 The design's complete capability map remains the target; headless design does not remove foundational services from that scope. Current modules are usable building blocks, not completion of the entire map.
 
 1. Protocol access: HTTP discovery/execution and a typed remote client are now supplied alongside MCP export. Explicit MCP tool import with paginated discovery is now available. Generic HTTP/OpenAPI import, A2A and external identity mapping adapters remain incomplete.
-2. Application foundation: allowance accounting, events and workspace persistence exist. Reusable account/organization/member services, subscription and billing defaults, payment/refund adapters and notification delivery are still needed. Applications continue to own business-specific rules and UI.
+2. Application foundation: allowance accounting, events and workspace persistence exist. A replaceable account/organization/member directory and shared Capability factory are now supplied, including a default PostgreSQL adapter. Subscription and billing defaults, payment/refund adapters and notification delivery are still needed. Applications continue to own business-specific rules and UI.
 3. Execution resources: add replaceable device/code execution and sandbox ports; do not place these inside the model loop or business application.
 4. Evaluation and evolution: build reusable dataset/outcome evaluation and revision/release tooling. Repository CI and current runtime version fences are useful parts, not a full general evaluation/release platform. External Codex may act as Platform AI without another mandatory internal Agent.
 
