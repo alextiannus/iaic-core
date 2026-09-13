@@ -20,6 +20,13 @@ export class ReleaseMonitor {
   }
   return snapshot;
  }
+ async recoverProtection(actor,{channel,assessmentId,expectedRevision}){
+  key(channel);if(await this.authorize(actor,{action:'history',channel})!==true)throw fail('Release monitoring history denied',403);
+  const assessment=await this.observation.readAssessment(actor,{assessmentId});
+  if(assessment.channel!==channel)throw fail('Monitor recovery channel differs',409);
+  return this.observation.protectionResult(actor,{assessmentId,expectedRevision});
+ }
+
  async run(actor,{channel}){
   key(channel);if(await this.authorize(actor,{action:'monitor',channel})!==true)throw fail('Release monitoring denied',403);
   const selected=jsonValue(await this.resolveTarget(actor,{channel}));

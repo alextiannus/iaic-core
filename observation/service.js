@@ -59,6 +59,19 @@ export class ReleaseObservation{
   await this.allowed(actor,'readAssessment',{assessmentId,channel:assessment.channel,releaseId:assessment.releaseId});
   return assessment;
  }
+ async protectionResult(actor,{assessmentId,expectedRevision}){
+  if(!/^[a-f0-9]{64}$/.test(assessmentId||'')||!Number.isInteger(expectedRevision)||expectedRevision<1||expectedRevision>2147483646)throw fail('Original assessment and channel revision required');
+  const assessment=await this.readAssessment(actor,{assessmentId});
+  const binding={assessmentId,expectedRevision,channel:assessment.channel,releaseId:assessment.releaseId};
+  await this.allowed(actor,'protectionResult',binding);
+  const receipt=await this.releases.rollbackReceipt(actor,{name:assessment.channel,expectedRevision,assessmentId});
+  await this.allowed(actor,'protectionResult',binding);
+  if(!receipt)return {status:'unknown',assessmentId,expectedRevision,protection:null,receipt:null};
+  const data=receipt.data;
+  if(data.stopped!==assessment.releaseId||data.manifestDigest!==assessment.manifestDigest||data.evidence?.sourceDigest!==assessment.sourceDigest||data.evidence?.policyDigest!==assessment.policyDigest||data.after?.name!==assessment.channel||data.after.revision!==expectedRevision+1)throw fail('Original protection receipt binding differs',409);
+  return {status:'confirmed',assessmentId,expectedRevision,protection:data.after,receipt};
+ }
+
  async protect(actor,{assessmentId,expectedRevision}){
   await this.allowed(actor,'protect',{assessmentId,expectedRevision});const assessment=await this.store.getAssessment(assessmentId),policy=this.policy(assessment.channel);
   const age=new Date(this.now()).getTime()-Date.parse(assessment.assessedAt);

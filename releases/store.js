@@ -45,5 +45,11 @@ export class PostgresReleaseStore{
    await db.query('INSERT INTO iaic_release_events(namespace,actor_ref,action,data) VALUES($1,$2,$3,$4)',[this.namespace,actorRef,'rollback',{before:current,after,stopped:candidateId,manifestDigest,evidence}]);return after;
   });
  }
+ async rollbackReceipt({name,expectedRevision,assessmentId}){
+  key(name);if(!Number.isInteger(expectedRevision)||expectedRevision<1||expectedRevision>=2147483647||!/^[a-f0-9]{64}$/.test(assessmentId||''))throw fail('Original rollback assessment and channel revision required');
+  const rows=(await this.pool.query("SELECT sequence::text,actor_ref,action,data,created_at FROM iaic_release_events WHERE namespace=$1 AND action='rollback' AND data->'before'->>'name'=$2 AND data->'before'->>'revision'=$3 AND data->'evidence'->>'assessmentId'=$4 ORDER BY sequence LIMIT 2",[this.namespace,name,String(expectedRevision),assessmentId])).rows;
+  if(rows.length>1)throw fail('Ambiguous original rollback receipt',409);return rows[0]??null;
+ }
+
  async history({after=0,limit=50}={}){if(!Number.isSafeInteger(after)||after<0||!Number.isInteger(limit)||limit<1||limit>100)throw fail('Invalid release history page');return (await this.pool.query('SELECT sequence::text,actor_ref,action,data,created_at FROM iaic_release_events WHERE namespace=$1 AND sequence>$2 ORDER BY sequence LIMIT $3',[this.namespace,after,limit])).rows;}
 }

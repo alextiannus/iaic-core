@@ -26,6 +26,8 @@ export class ReleaseManager{
  async setChannel(actor,input){return this.store.setChannel(input,await this.allowed(actor,'setChannel',input));}
  async stop(actor,id){return this.store.stop(id,await this.allowed(actor,'stop',{id}));}
  async rollback(actor,input){return this.store.rollback(input,await this.allowed(actor,'rollback',input));}
+ async rollbackReceipt(actor,input){await this.allowed(actor,'rollbackReceipt',input);const receipt=await this.store.rollbackReceipt(input);await this.allowed(actor,'rollbackReceipt',input);return receipt;}
+
  async history(actor,input){await this.allowed(actor,'history',input);return this.store.history(input);}
  async channel(actor,name){await this.allowed(actor,'channel',{name});return this.store.channel(name);}
  async resolve(actor,name){

@@ -55,3 +55,22 @@ test('Collection rejects unavailable, duplicate, excessive, unconfirmed and inco
  state.sourceIds=['task:1'];await assert.rejects(new ReleaseObservation({...options,resolveSource:()=>null}).collect(actor,{channel:'main',...ref}),{statusCode:409});
  const resolve=options.resolveSource;await assert.rejects(new ReleaseObservation({...options,resolveSource:async id=>{const value=await resolve(id);value.record.releaseId='other';return value;}}).collect(actor,{channel:'main',...ref}),{statusCode:409});
 }));
+
+test('Original protection result survives lost acknowledgement, later channel changes and policy aging without another rollback',()=>fixture(async({options,state,releasesStore,resolveTarget,releases})=>{
+ const observation=new ReleaseObservation(options),collected=await observation.collect(actor,{channel:'main',...ref});
+ const input={assessmentId:collected.assessment.id,expectedRevision:1};
+ assert.equal((await observation.protectionResult(actor,input)).status,'unknown');
+ const rollback=releases.rollback.bind(releases);let attempts=0;
+ releases.rollback=async(...args)=>{attempts++;await rollback(...args);throw Object.assign(new Error('Lost committed rollback acknowledgement'),{outcomeUnknown:true});};
+ await assert.rejects(observation.protect(actor,input),/Lost committed/);
+ state.clock='2026-01-02T00:00:00.000Z';
+ await releasesStore.setChannel({name:'main',stableId:'stable',expectedRevision:2},actor.subjectId);
+ const restored=new ReleaseObservation(options),monitor=new ReleaseMonitor({observation:restored,resolveTarget,authorize:()=>true});
+ const result=await monitor.recoverProtection(actor,{channel:'main',...input});assert.equal(result.status,'confirmed');assert.equal(result.protection.revision,2);assert.equal((await releases.channel(actor,'main')).revision,3);assert.equal(result.receipt.actor_ref,actor.subjectId);assert.equal(attempts,1);
+ const capability=createObservationCapabilities({observation:restored,includeRecovery:true}).find(c=>c.name==='observation.protection_result');assert.equal(capability.effect,'read');assert.equal((await capability.revalidate(input,result,{actor})).status,'confirmed');
+ assert.equal((await restored.protectionResult(actor,{...input,expectedRevision:2})).status,'unknown');
+ await assert.rejects(monitor.recoverProtection(actor,{channel:'another',...input}),{statusCode:409});
+ state.allowed=false;await assert.rejects(capability.revalidate(input,result,{actor}),{statusCode:403});state.allowed=true;
+ releases.authorize=()=>false;await assert.rejects(restored.protectionResult(actor,input),{statusCode:403});
+ assert.equal((await releasesStore.history()).filter(e=>e.action==='rollback').length,1);
+}));

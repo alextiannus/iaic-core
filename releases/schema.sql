@@ -13,3 +13,5 @@ CREATE TABLE IF NOT EXISTS iaic_release_events (
  sequence bigserial PRIMARY KEY,namespace text NOT NULL,actor_ref text NOT NULL,
  action text NOT NULL,data jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS iaic_release_rollback_receipt ON iaic_release_events
+(namespace,(data->'before'->>'name'),(data->'before'->>'revision'),(data->'evidence'->>'assessmentId')) WHERE action='rollback';
