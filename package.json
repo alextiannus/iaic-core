@@ -59,7 +59,8 @@
     "examples",
     "scripts",
     "SOURCE.json",
-    "http"
+    "http",
+    "CORE_REQUIREMENTS.md"
   ],
   "dependencies": {
     "ajv": "8.20.0",
