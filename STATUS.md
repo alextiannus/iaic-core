@@ -429,3 +429,39 @@ remaining reservations. No tools, Skill, grader or execution budget changed.
 The private dataset was frozen before inference; this is post-freeze composition
 evidence, not a third-party blind benchmark or full Core/application completion.
 No new runtime release or production deployment was made for this evidence update.
+
+## Actual Agent evaluation evidence bound to release decisions
+
+The optional prompt-append input in core-real-composition now binds host-supplied
+prompt bytes and source revision into a candidate revision before inference;
+without it, the original source revision/behavior remain unchanged. Tool scope,
+Skill, original verifier, grader and evaluation bounds are not changed. Source
+ df29f1f4fe4652abe9bd9f7041d4f881d37f2ddc passed exact CI 34780494478 and all 42
+independently installed default examples before candidate model evaluation.
+
+A frozen generic completion-discipline appendix produced candidate revision
+f5ab7ed484d08f4daa61741ad43f16551b709ba724085305ead36b739d5a3642. Its actual
+DeepSeek V4 Flash capability run 39522f7b-70a5-4f30-b683-f5313b4dddba and separate
+regression run 16ae6a7b-f0d7-4207-9c59-a410cb843659 each passed all seven unchanged
+checks. Baseline f37c9ec uses the retained post-freeze capability run and new
+regression run dbefbe64-4d1d-473e-945f-11d7f1c86089. Dataset/grader/environment/
+repeat pins are matched separately per suite; comparisons show no regressions.
+These are one-repeat authored samples, not a statistical improvement claim.
+
+The new opt-in core-evaluated-release consumer loads those actual immutable
+EvaluationStore snapshots and uses existing ReleaseManager, ObjectStorage,
+ReleaseResources and ReleaseBoundAgentIdentity modules. Independently installed
+execution against PostgreSQL verifies rejected wrong-version evidence, a rejected
+explicitly injected startup-failure evaluation, baseline/canary registration,
+checked archive/config/prompt bytes, revoked candidate bindings, one rollback
+receipt and baseline recovery after service reconstruction. The failure fixture
+makes no provider requests. Rollback is an authorized acceptance drill, not a
+claim that telemetry detected a regression in the passing candidate.
+
+The three new model stages used 62,609 Provider Tokens: baseline regression
+23,741, candidate capability 19,866 and candidate regression 19,002. All usage is
+confirmed and settled; fixture allowance uses the declared 1:1 unit rule. The
+previous baseline capability's 23,765 Tokens are not charged/count-added again.
+No paid retry, post-release inference or production deployment occurred. This
+connects actual Agent evaluation to local release selection/resource/current-binding
+checks; existing Runtime-stop and observation/Docker evidence remains separate.

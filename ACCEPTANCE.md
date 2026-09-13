@@ -19,7 +19,7 @@ below distinguish implemented mechanisms from remaining acceptance evidence.
 | 3. Shared UI/SDK/API/MCP/A2A semantics | [Function parity](examples/core-protocol-parity/README.md), [persistent Task surfaces](examples/core-agent-surfaces/README.md), [browser UI bindings](examples/core-ui-bindings/README.md) | One stable function request has one domain effect across five entries, with denial and unknown-response semantics. Task controls share original receipts and current results. A real Chrome UI fixture proves same-Task SDK continuation and clarification. These tests cover implemented contracts, not every protocol feature or identity vendor. |
 | 4. Recover/reconcile interruption without blind duplicate effects | [Execution recovery](examples/core-execution-recovery/run.mjs), [transition receipts](tasks/transition-requests.js), [delegated-task interruption tests](test/iaic-delegated-tasks.integration.test.js), [usage reconciliation](examples/core-usage-reconciliation/run.mjs) | Actual SIGKILL cases retain original effects/receipts; recovery uses current state and reconciliation. Unknown inference/effects are not assumed absent or blindly replayed. Infrastructure loss and arbitrary providers are not universally covered. An older real-provider unknown-usage sample remains unresolved; a later settled run does not erase it. |
 | 5. Delegation scope, budgets, artifacts, cancellation and takeover | [Delegated-task tests](test/iaic-delegated-tasks.integration.test.js), [same-owner actual model](examples/core-real-delegation/README.md), [handoffs](handoffs/README.md) | Deterministic integration includes cross-principal grants, cancellation and original-effect takeover after a child SIGKILL. Actual-model same-owner collaboration passes 16 checks with automatic parent continuation. Cross-principal actual-model operation is not claimed; no universal remote orchestration claim follows. |
-| 6. Evaluate changes and stop/roll back bad versions | [Evaluation example](examples/core-evaluation/run.mjs), [release pipeline](examples/core-releases/run.mjs), [release binding tests](test/iaic-releases.integration.test.js), [scheduled monitor](examples/core-recurring-monitor/run.mjs) | Capability/regression gates reject failed evidence; immutable versions, checked executable resources, Docker execution, observation-driven stop/rollback and released-Agent fences run independently of repository CI. Existing release demonstrations use fixture evaluations. Connecting representative Agent evaluation evidence to a concrete changed candidate and its release/rollback remains an end-to-end acceptance task. |
+| 6. Evaluate changes and stop/roll back bad versions | [Evaluation example](examples/core-evaluation/run.mjs), [release pipeline](examples/core-releases/run.mjs), [release binding tests](test/iaic-releases.integration.test.js), [scheduled monitor](examples/core-recurring-monitor/run.mjs) | Capability/regression gates reject failed evidence; immutable versions, checked executable resources, Docker execution, observation-driven stop/rollback and released-Agent fences run independently of repository CI. A concrete changed-prompt candidate now has separate actual-model capability/regression suites bound to the [evaluated-release consumer](examples/core-evaluated-release/README.md), checked resources and a PostgreSQL stop/rollback drill. Post-release inference and production observation are not performed by that consumer; Runtime-stop and monitoring evidence remain separate. |
 | 7. Replaceable defaults without transferring domain ownership | [Accounts](accounts/README.md), [adapter substitution test](test/iaic-accounts.integration.test.js), [payments](examples/core-payments/run.mjs), [module catalog](README.md#basic-modules) | Default generic stores and services run independently; an existing-system directory adapter is exercised with current revocation. Invoice facts come from a host-owned confirmed source; payment response loss reconciles without duplicate capture. A provider-specific login/payment UI is not a Core prerequisite. Applications retain domain facts and invariants. |
 | 8. Explainable authorization and revocable later execution | [Mandates](mandates/README.md), [execution policy](capabilities/POLICY.md), [policy integration](test/iaic-execution-policy.integration.test.js), [template Mandates](developer/templates/agent/README.md#optional-standing-authorization) | Current Permission, persistent Mandate source/terms and recorded Policy revision/reason are distinct. Mid-response revocation blocks subsequent writes; denied scheduled work is blocked before admission. Recording is a required port when ExecutionPolicy is enabled; hosts still own audit durability/access and must actually wire their chosen policies. A library alone cannot prove every deployed application records every autonomous action. |
 
@@ -70,12 +70,23 @@ repeating the same selection sample without a new unresolved requirement.
 
 ## Remaining work order
 
-1. Bind representative Agent capability/regression evidence to an actual changed
-   candidate and demonstrate its release decision and recovery under the same
-   evidence chain. Existing framework gates and rollback modules are reused.
-2. Close the domain-by-domain technical acceptance review, fix actual omissions,
-   then perform the required application integration and production verification.
-   Passing Core examples is not evidence that ImmediToday runs the latest Core.
+1. Close the domain-by-domain technical acceptance review and fix actual omissions.
+   Preserve separate evidence for runtime recovery, protocol parity and application
+   ownership rather than requiring every check to invoke an LLM again.
+2. Perform the required application integration and production verification.
+   Passing Core examples or a local release drill is not evidence that ImmediToday
+   runs the latest Core or that its production business results are accepted.
+
+The local evaluation-to-release evidence chain is recorded in
+`2026-09-14/core-real-release`: four actual evaluation snapshots across distinct
+capability/regression suites, one concrete prompt candidate, checked package and
+configuration resources, rejected mismatched/failed evidence, current stopped
+binding checks, and one original rollback receipt recovered after reconstruction.
+The baseline capability snapshot is reused without repeating its inference.
+The three new model runs used 62,609 Provider Tokens with no unknown reservations.
+The injected startup-failure fixture and authorized rollback drill are explicitly
+separate from the actual-model results. No post-release inference or production
+deployment is inferred from this exercise.
 
 Do not add unbounded requirements for every LLM, identity vendor, cloud provider,
 UI framework or protocol extension. Equally, do not reinterpret existing module
