@@ -10,6 +10,7 @@ export function capacityModel({model,capacity}){
   try{result=await model.next(request);}catch(error){
    // Transport errors/timeouts do not prove the provider stopped generating.
    if(error.providerNotCalled===true)await release({kind:'provider-not-called'});
+   else if(error.providerCompleted===true)await release({kind:'provider-completed-error'});
    throw Object.assign(error,{capacityReservationId:receipt.id});
   }
   const releaseConfirmed=await release({kind:'provider-returned'});

@@ -92,3 +92,6 @@ Knowledge ingestion context integration now verifies current body removal and de
 ## Shared model capacity
 
 PostgresModelCapacity and capacityModel now enforce a host-configured concurrency pool across workers, preserving original Task-turn admission and uncertain reservations through process failure. A SIGKILL fixture verifies no automatic slot reclamation; current-authorized trusted terminal evidence releases the original slot. Real ledger integration proves busy preflight causes no provider call or platform debit, and an installed Runtime example combines capacity, metering and cost accounting. The module does not implement provider RPM/TPM, waiting fairness, routing/fallback, automatic unknown-release assumptions or real-provider liveness reconciliation. Full Note 30 acceptance remains incomplete.
+
+
+Model capacity now recognizes trusted provider-completed validation errors. A reproduced Runtime correction failure was fixed: a completed response with an invalid action releases its slot so the next model turn can correct it, while both confirmed usages remain billed and transport uncertainty still retains capacity. This is deterministic protocol/Runtime integration, not a new actual-model quality claim.

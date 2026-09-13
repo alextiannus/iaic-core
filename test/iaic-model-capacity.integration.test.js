@@ -1,5 +1,6 @@
+import {OpenAIProvider} from '@immedi/iaic-core/agent/openai-provider.js';
 import test from 'node:test';import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import {spawn} from 'node:child_process';import {once} from 'node:events';import {Pool} from 'pg';
-import {PostgresModelCapacity,capacityModel,ModelCapacityReconciliation,TokenLedger,meteredModel} from '@immedi/iaic-core';
+import {PostgresModelCapacity,capacityModel,ModelCapacityReconciliation,TokenLedger,meteredModel,AgentRuntime,TaskStore,ContextAssembler,CapabilityDispatcher,defineCapability} from '@immedi/iaic-core';
 async function fixture(run){const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;assert.ok(connectionString);const schema='capacity_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});try{const capacity=new PostgresModelCapacity({pool,namespace:'provider-account',maxConcurrent:1});await capacity.initialize();await run({pool,capacity,schema});}finally{await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}}
 const request=(taskId,turn=1)=>({billingContext:{taskId,turn}});
 test('Shared capacity serializes admissions, persists original turns and preserves mismatched pool policy',()=>fixture(async({pool,capacity})=>{
@@ -23,4 +24,13 @@ test('SIGKILL retains capacity until a trusted original-request terminal receipt
  let confirmed=false,allowed=true;const reconcile=new ModelCapacityReconciliation({capacity:restored,authorize:()=>allowed,resolveSource:(_a,{reservationId,sourceId})=>({reservationId,sourceId,namespace:'provider-account',confirmedTerminal:confirmed,outcome:'finished'})});
  await assert.rejects(reconcile.resolve({}, {reservationId:id,sourceId:'provider-receipt'}),{statusCode:409});confirmed=true;allowed=false;await assert.rejects(reconcile.resolve({}, {reservationId:id,sourceId:'provider-receipt'}),{statusCode:403});allowed=true;
  assert.equal((await reconcile.resolve({}, {reservationId:id,sourceId:'provider-receipt'})).state,'released');assert.equal((await restored.admit({taskId:'later',turn:1})).state,'active');
+}));
+
+test('Completed invalid provider output releases capacity so the same Runtime can request a corrected action',()=>fixture(async({pool,capacity})=>{
+ const ledger=new TokenLedger({pool});await ledger.initialize();const actor={subjectId:'user',scopeId:'app'},scope={applicationId:'app',subjectId:'user'};await ledger.grant(scope,{reference:'fixture',amount:100,evidence:{fixture:true}});let calls=0;
+ const provider=new OpenAIProvider({apiKey:'fixture-not-a-key',model:'fixture',fetchImpl:async()=>{calls++;return new Response(JSON.stringify({id:'response-'+calls,status:'completed',usage:{input_tokens:3,output_tokens:2},output:[{type:'function_call',name:calls===1?'not_configured':'iaic_finish',arguments:JSON.stringify(calls===1?{}:{result:{done:true}})}]}));}});
+ const model=meteredModel({model:capacityModel({model:provider,capacity}),ledger,scope,policy:{maximum:20,price:{revision:'fixture',input:1,cachedInput:1,output:2}}});
+ const agent=defineCapability({name:'work',description:'Correct an invalid action',input:{type:'object'},output:{type:'object'},effect:'read',authorize:()=>true,implementation:{kind:'agent',instructions:'Finish correctly',tools:[],verify:(_input,result)=>result.done===true}});
+ const store=new TaskStore({pool}),dispatcher=new CapabilityDispatcher({capabilities:[agent]}),runtime=new AgentRuntime({store,dispatcher,model,context:new ContextAssembler({}),version:'fixture',maxTurns:3,rateLimitDelayMs:0});dispatcher.tasks=runtime;
+ try{await runtime.initialize();const task=await runtime.create({actor,capability:agent,input:{goal:'Complete with a corrected action'},idempotencyKey:'correct'});const outcome=await runtime.tick();assert.equal(outcome.status,'succeeded',outcome.error);assert.equal(calls,2);assert.equal((await capacity.pending()).items.length,0);assert.equal((await ledger.balance(scope)).available,'86');assert.equal((await ledger.pending(scope)).length,0);assert.ok((await store.history(actor,task.id)).events.some(e=>e.kind==='feedback'));}finally{await runtime.stop();}
 }));

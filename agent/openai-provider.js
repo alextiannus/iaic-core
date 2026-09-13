@@ -31,7 +31,7 @@ export class OpenAIProvider {
     const text=await readBoundedResponse(response,2_000_000);
     const body=JSON.parse(text);const usage=normalizeUsage(body.usage);
     const usageEvidence={rawUsage:body.provider_usage??body.usage??null,providerReference:body.id||response.headers?.get('x-request-id')||null};
-    const error=(message,invalidAction=false)=>Object.assign(new Error(message),{usage,usageEvidence,invalidAction});
+    const error=(message,invalidAction=false)=>Object.assign(new Error(message),{usage,usageEvidence,invalidAction,providerCompleted:body.status==='completed'});
     const reason=['stop','tool_calls','length','content_filter','insufficient_system_resource','unknown'].includes(body.completion_reason)?`; finish_reason=${body.completion_reason}`:'';
     if(body.status!=='completed')throw error(`Model response not completed: ${body.status||'unknown'}${reason}`);
     const calls=(body.output||[]).filter(item=>item.type==='function_call');
