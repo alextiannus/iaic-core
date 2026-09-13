@@ -1,6 +1,6 @@
 import {fileURLToPath} from 'node:url';
 export const actor={subjectId:'continuity-user',scopeId:'synthetic-continuity'};
-export const tools=['assistant.skills.list','assistant.skills.read','my_search_knowledge','my_read_knowledge','my_read_assistant_memory','my_write_workspace','my_read_workspace','my_read_assistant_session'];
+export const tools=['assistant.skills.list','assistant.skills.read','my_search_knowledge','my_read_knowledge','my_read_assistant_memory','my_list_assistant_memories','my_write_workspace','my_read_workspace','my_read_assistant_session'];
 export const options={skillRoot:fileURLToPath(new URL('./skills/',import.meta.url)),version:process.env.IAIC_SOURCE_REVISION,
  job:{id:'continuity',purpose:'Produce verified working artifacts for the user after the conversation ends.',capabilities:['agent.work'],configuration:{skills:['source-summary/SKILL.md'],knowledge:['working-guide'],tools}},
  profiles:[{id:'system',model:process.env.IAIC_MODEL,provider:process.env.IAIC_PROVIDER||'chat-completions',baseUrl:process.env.IAIC_MODEL_BASE_URL,credentialRef:'host'}],resolveSecret:()=>process.env.IAIC_MODEL_API_KEY,

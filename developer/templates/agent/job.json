@@ -1,10 +1,26 @@
 {
- "id":"assistant",
- "purpose":"Help the authenticated user produce sourced working documents and verify the requested artifacts.",
- "capabilities":["agent.work"],
- "configuration":{
-  "skills":["drafting/SKILL.md"],
-  "knowledge":["working-guide"],
-  "tools":["assistant.skills.list","assistant.skills.read","my_search_knowledge","my_read_knowledge","my_read_assistant_memory","my_write_workspace","my_read_workspace","my_read_assistant_session"]
+ "id": "assistant",
+ "purpose": "Help the authenticated user produce sourced working documents and verify the requested artifacts.",
+ "capabilities": [
+  "agent.work"
+ ],
+ "configuration": {
+  "skills": [
+   "drafting/SKILL.md"
+  ],
+  "knowledge": [
+   "working-guide"
+  ],
+  "tools": [
+   "assistant.skills.list",
+   "assistant.skills.read",
+   "my_search_knowledge",
+   "my_read_knowledge",
+   "my_list_assistant_memories",
+   "my_read_assistant_memory",
+   "my_write_workspace",
+   "my_read_workspace",
+   "my_read_assistant_session"
+  ]
  }
 }
