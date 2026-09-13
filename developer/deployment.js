@@ -34,7 +34,10 @@ export class DockerDeployment {
   if(ports.some(p=>p.HostIp!=='127.0.0.1'))throw fail('Deployment endpoint binding changed');
   const endpoint=c.State?.Running&&ports.length===1?'http://127.0.0.1:'+ports[0].HostPort:null;
   let ready=false;
-  if(endpoint)try{const response=await fetch(endpoint+this.healthPath,{signal:AbortSignal.timeout(2000),redirect:'error'});ready=response.status===200;await response.body?.cancel();}catch{}
+  if(endpoint){const controller=new AbortController();let timer;
+   try{const response=await Promise.race([fetch(endpoint+this.healthPath,{signal:controller.signal,redirect:'error'}),new Promise(resolve=>{timer=setTimeout(()=>resolve(null),2000);})]);ready=response?.status===200;}catch{}
+   finally{clearTimeout(timer);controller.abort();}
+  }
   return {requestKey,containerId:c.Id,image:this.image,status:c.State?.Running?(ready?'ready':'starting'):c.State?.Status==='created'?'prepared':c.State?.Status==='exited'?'stopped':'unknown',endpoint,ready,exitCode:c.State?.Status==='exited'?c.State.ExitCode:null};
  }
  async deploy(requestKey,{signal}={}){
