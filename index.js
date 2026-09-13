@@ -142,3 +142,5 @@ export {PostgresIngestedKnowledgeStore} from './knowledge/ingested-store.js';
 
 export {PostgresModelCapacity} from './agent/capacity-store.js';
 export {capacityModel,ModelCapacityReconciliation} from './agent/capacity.js';
+
+export {createHttpNotificationChannel} from './notifications/http-channel.js';

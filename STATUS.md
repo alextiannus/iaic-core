@@ -95,3 +95,8 @@ PostgresModelCapacity and capacityModel now enforce a host-configured concurrenc
 
 
 Model capacity now recognizes trusted provider-completed validation errors. A reproduced Runtime correction failure was fixed: a completed response with an invalid action releases its slot so the next model turn can correct it, while both confirmed usages remain billed and transport uncertainty still retains capacity. This is deterministic protocol/Runtime integration, not a new actual-model quality claim.
+
+
+## Default HTTP notification channel
+
+createHttpNotificationChannel now binds approved JSON HTTP providers to existing outbox send/query ports using the shared transport. Stable-key and terminal-receipt checks preserve unknown results after response loss or mismatched evidence. Loopback HTTP/PostgreSQL integration reconciles a lost acknowledgement without another send and checks current credentials/permission. The installed notification example consumes the adapter with a fixture transport. No external messages, vendor registration, recipient UI or notification policy product were created; vendor-specific delivery semantics and full Note 30 acceptance remain incomplete.
