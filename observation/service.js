@@ -54,6 +54,11 @@ export class ReleaseObservation{
   const metrics={samples,errors,errorRate:samples?errors/samples:null,toolErrors,meanLatencyMs,providerTokens:records.reduce((n,r)=>n+BigInt(r.providerTokens),0n).toString(),platformUnits:records.reduce((n,r)=>n+BigInt(r.platformUnits),0n).toString(),cost:costsComplete?{currency:currencies[0],minorUnits:costMinor}:null};
   return this.store.putAssessment({channel,releaseId,manifestDigest,since,until,assessedAt,policyDigest:evidenceDigest(policy),sourceDigest:evidenceDigest(records),sourceIds:records.map(r=>r.sourceId),metrics,complete,violations,shouldStop:complete&&violations.length>0});
  }
+ async readAssessment(actor,{assessmentId}){
+  const assessment=await this.store.getAssessment(key(assessmentId));
+  await this.allowed(actor,'readAssessment',{assessmentId,channel:assessment.channel,releaseId:assessment.releaseId});
+  return assessment;
+ }
  async protect(actor,{assessmentId,expectedRevision}){
   await this.allowed(actor,'protect',{assessmentId,expectedRevision});const assessment=await this.store.getAssessment(assessmentId),policy=this.policy(assessment.channel);
   const age=new Date(this.now()).getTime()-Date.parse(assessment.assessedAt);

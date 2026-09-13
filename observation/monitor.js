@@ -9,6 +9,17 @@ export class ReleaseMonitor {
   if(typeof observation?.collect!=='function'||typeof observation?.protect!=='function'||typeof resolveTarget!=='function'||typeof authorize!=='function'||typeof autoProtect!=='boolean')throw fail('Monitor requires observation, trusted target and current authorization ports');
   Object.assign(this,{observation,resolveTarget,authorize});this.#protect=autoProtect;
  }
+ async revalidate({channel},result,{actor}){
+  key(channel);if(await this.authorize(actor,{action:'history',channel})!==true)throw fail('Release monitoring history denied',403);
+  if(!result||result.channel!==channel)throw fail('Monitor history binding differs',409);
+  const snapshot=jsonValue(result);
+  if(snapshot.assessment){
+   const assessment=await this.observation.readAssessment(actor,{assessmentId:snapshot.assessment.id});
+   if(assessment.channel!==channel||assessment.releaseId!==snapshot.target?.releaseId||assessment.manifestDigest!==snapshot.target?.manifestDigest)throw fail('Monitor assessment binding differs',409);
+   snapshot.assessment=assessment;
+  }
+  return snapshot;
+ }
  async run(actor,{channel}){
   key(channel);if(await this.authorize(actor,{action:'monitor',channel})!==true)throw fail('Release monitoring denied',403);
   const selected=jsonValue(await this.resolveTarget(actor,{channel}));
@@ -25,5 +36,5 @@ export class ReleaseMonitor {
  }
 }
 export function createReleaseMonitorCapability({monitor,name='observation.monitor'}){
- return defineCapability({name,description:'Collect trusted evidence and assess a host-selected release. Only host configuration and current policy may enable protective rollback.',input:{type:'object',properties:{channel:{type:'string',minLength:1,maxLength:500}},required:['channel'],additionalProperties:false},output:{type:'object'},effect:'write',retry:'never-replay',authorize:async()=>true,implementation:{kind:'function',execute:(input,{actor})=>monitor.run(actor,input)}});
+ return defineCapability({name,description:'Collect trusted evidence and assess a host-selected release. Only host configuration and current policy may enable protective rollback.',input:{type:'object',properties:{channel:{type:'string',minLength:1,maxLength:500}},required:['channel'],additionalProperties:false},output:{type:'object'},effect:'write',retry:'never-replay',authorize:async()=>true,revalidate:(input,result,context)=>monitor.revalidate(input,result,context),implementation:{kind:'function',execute:(input,{actor})=>monitor.run(actor,input)}});
 }

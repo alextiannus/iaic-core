@@ -69,3 +69,8 @@ DirectoryResourceScopes now supplies an optional current-directory and resource-
 ## Trusted observation collection
 
 ReleaseObservation now discovers bounded trusted source references and assesses one pinned window only when collection is complete. ReleaseMonitor composes collection and optional host-enabled protection as an ordinary capability, retaining current authorization, manifest/revision checks and the original release evidence. Independent installed Docker release execution exercises the collection-to-rollback operation. It adds no scheduler: production source discovery, recurring monitoring Task wiring and uncertain cycle receipt reconciliation remain incomplete. This is a foundation increment, not completion of Note 30 acceptance.
+
+
+## Scheduled Agent task composition
+
+createAgentTaskSchedules now connects existing recurring/deferred services to shared Agent dispatch and scoped original Task receipt lookup with immutable input comparison and current schema/authorization checks. A separately installed example runs a scheduled monitoring Task across two worker processes after losing the successful admission response, then verifies one original Task, one monitor call and one rollback. This integration found and fixed ReleaseMonitor's missing history permission revalidator; historical evidence remains readable under current permission after the candidate stops. These are deterministic fixtures and orderly process replacement, not continuous production monitoring, a SIGKILL monitoring proof or full Note 30 acceptance. Production source discovery and uncertain protection receipt reconciliation remain incomplete.

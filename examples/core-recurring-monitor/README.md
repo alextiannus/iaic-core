@@ -1,0 +1,9 @@
+# Periodic release monitoring through the shared Runtime
+
+Run `DATABASE_URL=<isolated-postgresql> node examples/core-recurring-monitor/run.mjs` after installing Core and pg. The example creates/drops a random schema and runs two child Node processes. No production service or model is contacted.
+
+The host composes the default Agent scheduling adapter, RecurringTasks, DeferredTasks, AgentRuntime and ReleaseMonitor. The first worker materializes the due occurrence and intentionally loses its successfully created Task acknowledgement. The second recovers the exact original Task and performs one authorized observation/rollback. The final verifier checks original request links, one Task, one monitor call, one release rollback and Task success. Model behavior and failing operational telemetry are fixtures; releases are preseeded as already admitted, with evaluation gating covered in core-releases.
+
+The initial integrated attempt exposed a missing history permission revalidator: rollback succeeded, then Runtime correctly paused before exposing its historical result. ReleaseMonitor now rechecks current history access and reads the immutable assessment under observation authorization, allowing Task completion without replaying protection. A stopped candidate does not erase its authorized historical evidence. This does not reconcile an unknown rollback response automatically.
+
+Applications supply their own Agent instructions, outcome verifier, persistent role identity, current model/allowance settings, production evidence discovery, authenticated scope restoration and policy. They run existing workers and reserve their internal task keys at public entrypoints. This example verifies a finite one-occurrence schedule across process replacement, not continuous production monitoring availability or monitoring during infrastructure loss.

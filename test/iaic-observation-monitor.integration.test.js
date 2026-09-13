@@ -30,11 +30,13 @@ test('Collection retains partial evidence and pins one window across discovery, 
  const result=await observation.collect(actor,{channel:'main',...ref});assert.equal(result.assessment.until,'2026-01-01T00:00:02.000Z');assert.equal(state.discovery.until,result.assessment.until);assert.equal(result.assessment.shouldStop,true);assert.equal(result.assessment.metrics.samples,1);assert.equal(result.assessment.metrics.providerTokens,'3');assert.equal(result.assessment.metrics.platformUnits,'9');
  assert.equal((await store.window({...ref,since:state.discovery.since,until:state.discovery.until,limit:10})).records.length,1);
 }));
-test('Monitor defaults to assessment; explicit host protection atomically stops the candidate and selects fallback',()=>fixture(async({options,releasesStore,resolveTarget})=>{
+test('Monitor defaults to assessment; explicit host protection atomically stops the candidate and selects fallback',()=>fixture(async({options,state,releasesStore,resolveTarget})=>{
  const monitorOptions={observation:new ReleaseObservation(options),resolveTarget,authorize:()=>true};
  const readout=await new ReleaseMonitor(monitorOptions).run(actor,{channel:'main'});assert.equal(readout.assessment.shouldStop,true);assert.equal(readout.protection,null);assert.equal((await releasesStore.get('candidate')).disabled,false);
  const monitor=new ReleaseMonitor({...monitorOptions,autoProtect:true});const capability=createReleaseMonitorCapability({monitor});assert.equal(capability.retry,'never-replay');assert.deepEqual(Object.keys(capability.input.properties),['channel']);
  const result=await monitor.run(actor,{channel:'main'});assert.equal(result.protection.stableId,'stable');assert.equal((await releasesStore.get('candidate')).disabled,true);
+ const historical=await capability.revalidate({channel:'main'},result,{actor});assert.equal(historical.assessment.id,result.assessment.id);assert.equal(historical.protection.revision,2);
+ state.allowed=false;await assert.rejects(capability.revalidate({channel:'main'},result,{actor}),{statusCode:403});state.allowed=true;
  await assert.rejects(monitor.run(actor,{channel:'main'}),{statusCode:409});assert.equal((await releasesStore.history()).filter(e=>e.action==='rollback').length,1);
  assert.ok(createObservationCapabilities({observation:monitorOptions.observation,includeCollection:true}).some(c=>c.name==='observation.collect'));
 }));
