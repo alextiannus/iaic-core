@@ -105,3 +105,5 @@ export {PostgresObservationStore} from './observation/store.js';
 export {ReleaseObservation} from './observation/service.js';
 export {createObservationCapabilities} from './observation/capabilities.js';
 export {createTaskObservationSource} from './observation/task-source.js';
+
+export {PostgresExecutionJournal,RecoverableDockerSandbox} from './execution/journal.js';

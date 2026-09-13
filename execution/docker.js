@@ -21,6 +21,32 @@ export class DockerSandbox{
   if(!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>300000||!Number.isInteger(maxOutputBytes)||maxOutputBytes<1||!Number.isInteger(memoryMiB)||memoryMiB<16||!Number.isFinite(cpus)||cpus<=0||!Number.isInteger(pids)||pids<1||typeof onStart!=='function')throw fail('Invalid sandbox resource limits');
   Object.assign(this,{image,entrypoint:[...entrypoint],dockerPath,user,timeoutMs,maxOutputBytes,memoryMiB,cpus,pids,onStart});
  }
+ async reconcile(receipt,{stop=false}={}){
+  if(typeof stop!=='boolean')throw fail('Execution stop must be boolean');
+  const {containerName:name,image,directory,startedAt,timeoutMs}=receipt;
+  if(!/^iaic-sandbox-[a-f0-9-]{36}$/.test(name||'')||image!==this.image||typeof directory!=='string'||!Number.isFinite(Date.parse(startedAt))||!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>300000)throw fail('Invalid or incompatible execution receipt');
+  const started=Date.parse(startedAt),base={containerName:name,image,durationMs:Math.max(0,Date.now()-started),stdout:'',stderr:'',exitCode:null,cleanupConfirmed:false};
+  const run=(args,maxOutputBytes=8000)=>command(this.dockerPath,args,{timeoutMs:10000,maxOutputBytes});
+  const inspection=await run(['inspect',name],1048576);
+  if(inspection.reason||inspection.exitCode!==0)return {...base,status:'unknown',reason:'container_inspection_unavailable'};
+  let c;try{c=JSON.parse(inspection.stdout)[0];}catch{return {...base,status:'unknown',reason:'invalid_inspection'};}
+  // Verify the receipt binding, then operate on the inspected immutable container ID.
+  if(c.Name!=='/'+name||c.Config?.Image!==image||!c.Mounts?.some(m=>m.Source===directory&&m.Destination==='/work'&&m.RW===false))throw fail('Container does not match execution receipt');
+  const expired=Date.now()-started>=timeoutMs;
+  if(c.State?.Running&&!stop&&!expired)return {...base,status:'running'};
+  let forced=false;
+  if(c.State?.Running){
+   const killed=await run(['kill',c.Id]);
+   if(killed.reason||killed.exitCode!==0)return {...base,status:'unknown',reason:'container_stop_unconfirmed'};
+   forced=true;
+  }else if(c.State?.Status!=='exited')return {...base,status:'unknown',reason:'container_not_finished'};
+  const logs=await run(['logs',c.Id],this.maxOutputBytes);
+  const cleanup=await run(['rm','-f',c.Id]);
+  const cleanupConfirmed=!cleanup.reason&&cleanup.exitCode===0;
+  // Lost/truncated logs cannot establish a successful recovered result.
+  const status=!cleanupConfirmed||logs.reason||logs.exitCode!==0?'unknown':forced?(stop?'cancelled':'timed_out'):c.State.ExitCode===0?'succeeded':'failed';
+  return {...base,status,reason:logs.reason||(forced?(stop?'cancelled':'timed_out'):null),stdout:logs.stdout,stderr:logs.stderr,exitCode:forced?null:c.State.ExitCode,cleanupConfirmed,recovered:true};
+ }
  async execute({directory,stdin='',signal}){
   if(typeof stdin!=='string'||Buffer.byteLength(stdin)>1048576)throw fail('Sandbox stdin must be text within 1 MiB');
   const source=await fs.realpath(directory);if(source.includes(',')||source.includes('\n'))throw fail('Sandbox mount path cannot contain comma or newline');
