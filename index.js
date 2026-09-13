@@ -96,3 +96,6 @@ export {PostgresPaymentStore} from './payments/store.js';
 export {Payments} from './payments/service.js';
 export {createPaymentCapabilities} from './payments/capabilities.js';
 export {createHttpPaymentProvider} from './payments/http-provider.js';
+
+export {migratePostgres} from './developer/migrations.js';
+export {scaffoldCapabilityApp} from './developer/scaffold.js';

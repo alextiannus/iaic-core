@@ -38,7 +38,8 @@
     "./storage/*": "./storage/*",
     "./execution/*": "./execution/*",
     "./a2a/*": "./a2a/*",
-    "./payments/*": "./payments/*"
+    "./payments/*": "./payments/*",
+    "./developer/*": "./developer/*"
   },
   "files": [
     "index.js",
@@ -78,7 +79,8 @@
     "storage",
     "execution",
     "a2a",
-    "payments"
+    "payments",
+    "developer"
   ],
   "dependencies": {
     "ajv": "8.20.0",
@@ -106,5 +108,8 @@
     "@a2a-js/sdk": "1.1.0",
     "@modelcontextprotocol/sdk": "1.30.0",
     "pg": "8.23.0"
+  },
+  "bin": {
+    "iaic": "./developer/cli.js"
   }
 }

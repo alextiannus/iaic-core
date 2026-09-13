@@ -20,7 +20,7 @@ The configured-jobs example combines user-plus-organization scopes, an organizat
 
 ```sh
 docker pull node@sha256:8094c002d08262dba12645a3b4a15cd6cd627d30bc782f53229a2ec13ee22a00
-npm test                     # module checks and 28 standalone examples
+npm test                     # module checks and 29 standalone examples
 npm run verify:core-package  # pack, install elsewhere, run examples there
 npm pack                     # create a reusable Core npm archive
 ```
@@ -33,6 +33,7 @@ An application installs the resulting `.tgz` and imports `@immedi/iaic-core` or 
 
 | Need | Modules and contracts |
 | --- | --- |
+| Develop and migrate an application | [Developer tools](developer/README.md): CLI, independent starter and versioned PostgreSQL migrations |
 | Manage accounts and organizations | [Accounts](accounts/README.md): replaceable directory, memberships and current identity mapping |
 | Record money and execute payments | [Payments](payments/README.md): confirmed invoice sources, charge/refund intents, provider adapters and reconciliation |
 | Resolve subscription access | [Subscriptions](subscriptions/README.md): versioned plan snapshots, current periods and entitlements |
