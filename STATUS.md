@@ -48,3 +48,8 @@ The optional RecoverableDockerDeployment composes Docker preparation with a sepa
 ## Actual-model composition baseline
 
 The opt-in core-real-composition example uses the public Runtime, Skill/Memory discovery, Workspace, metered provider and independent evaluation ports with synthetic source records. Its first DeepSeek V4 Flash run at 87cafa4 scored 0/3: 30 model responses included 18 rejected multiple-call responses, and all Tasks stopped at their turn limits. A fixture omission of Memory listing also prevented key discovery. The harness now supplies listing and grader v2 accepts the same preference content through either read path; this changed harness is not yet real-model validated. No successful acceptance is inferred from repository CI. The next concrete runtime gap is durable bounded multi-call handling with per-action authority and recovery, while preserving the current default single-action contract and retained failed baseline.
+
+
+## Bounded multi-call execution
+
+AgentRuntime now offers explicit maxBatchCalls (default 1, at most 8). A model batch is persisted before sequential dispatch, and each original call is bound to its batch position atomically. Current authorization, tool budgets and result verification remain per action. Unknown calls pause later steps; failed steps abandon the unexecuted remainder. PostgreSQL integration verifies reconstruction/reconciliation, preparation interruption, scope rejection and cancellation. The opt-in real composition fixture now enables a bound of four; its new real-model result must be recorded separately from the retained 0/3 baseline. See agent/BATCHES.md for adapter requirements and limits.

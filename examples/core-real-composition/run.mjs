@@ -8,7 +8,7 @@ await fs.mkdir(out,{recursive:true,mode:0o700});
 const dataset=JSON.parse(await fs.readFile(path.join(root,'dataset.json'),'utf8'));
 const sourceRecords=[{id:'R-01',region:'North',status:'ready',held:false,units:4},{id:'R-02',region:'South',status:'ready',held:false,units:5},{id:'R-03',region:'North',status:'ready',held:true,units:6},{id:'R-04',region:'South',status:'draft',held:false,units:9},{id:'R-05',region:'North',status:'ready',held:false,units:8},{id:'R-06',region:'South',status:'draft',held:true,units:7},{id:'R-07',region:'North',status:'ready',held:false,units:0}];
 const skillRoot=path.join(root,'skills'),skillEntry='record-selection/SKILL.md',skillDigest=evidenceDigest(await fs.readFile(path.join(skillRoot,skillEntry),'utf8'));
-const frozen={datasetDigest:evidenceDigest(dataset),skillDigest,sourceDigest:evidenceDigest(sourceRecords),model:process.env.IAIC_MODEL,provider:process.env.IAIC_PROVIDER||'openai',revision:process.env.IAIC_SOURCE_REVISION,maxTurns:10,maxCalls:8,taskTimeoutMs:300000,requiredChecks:['task_succeeded','artifact_content','source_read','skill_read','memory_read','scope_preserved','billing_settled']};
+const frozen={datasetDigest:evidenceDigest(dataset),skillDigest,sourceDigest:evidenceDigest(sourceRecords),model:process.env.IAIC_MODEL,provider:process.env.IAIC_PROVIDER||'openai',revision:process.env.IAIC_SOURCE_REVISION,maxTurns:10,maxCalls:8,maxBatchCalls:4,taskTimeoutMs:300000,requiredChecks:['task_succeeded','artifact_content','source_read','skill_read','memory_read','scope_preserved','billing_settled']};
 await fs.writeFile(path.join(out,'frozen.json'),JSON.stringify(frozen,null,2),{flag:'wx',mode:0o600});
 const runner=new EvaluationRunner({
  execute:async({input,caseId,runId,signal})=>{
@@ -28,7 +28,7 @@ const runner=new EvaluationRunner({
    const provider=createModelProvider({apiKey:process.env.IAIC_MODEL_API_KEY,model:frozen.model,provider:frozen.provider,baseUrl:process.env.IAIC_MODEL_BASE_URL||'',maxOutputTokens:2048});
    await ledger.grant(scope,{reference:'acceptance-only',amount:1000000,evidence:{fixture:true}});
    const model=meteredModel({model:provider,ledger,scope,mode:'SYSTEM_MANAGED',policy:{maximum:100000,price:{revision:'synthetic-allowance-units-v1',input:1,cachedInput:1,output:1}}});
-   runtime=new AgentRuntime({store:new TaskStore({pool}),dispatcher,model,context:new ContextAssembler({skillRoot,skillCatalog}),version:frozen.revision,maxTurns:frozen.maxTurns,maxCalls:frozen.maxCalls,modelTimeoutMs:60000,taskTimeoutMs:frozen.taskTimeoutMs});dispatcher.tasks=runtime;await runtime.initialize();
+   runtime=new AgentRuntime({store:new TaskStore({pool}),dispatcher,model,context:new ContextAssembler({skillRoot,skillCatalog}),version:frozen.revision,maxTurns:frozen.maxTurns,maxCalls:frozen.maxCalls,maxBatchCalls:frozen.maxBatchCalls,modelTimeoutMs:60000,taskTimeoutMs:frozen.taskTimeoutMs});dispatcher.tasks=runtime;await runtime.initialize();
    const allowedTools=['warehouse.records','assistant.skills.list','assistant.skills.read','my_read_assistant_memory','my_list_assistant_memories','my_read_workspace','my_write_workspace'];
    const artifactPath=caseId==='correct-draft'?'draft.json':'result.json';
    const task=await dispatcher.invoke('assistant.run',{...input,requiredArtifacts:[artifactPath],allowedTools},{actor,callId:runId+':'+caseId});
@@ -50,7 +50,7 @@ const runner=new EvaluationRunner({
  },
  onRecord:async({runId,record})=>{await fs.appendFile(path.join(out,'records.ndjson'),JSON.stringify({runId,record})+'\n',{mode:0o600});console.log(JSON.stringify({caseId:record.caseId,status:record.status,passed:record.passed,checks:record.checks,providerRequests:record.observation?.providerRequests}));}
 });
-const run=await runner.run({dataset,revision:frozen.revision,graderRevision:'synthetic-selection-grader-v2',environmentRevision:evidenceDigest({source:sourceRecords,skillDigest,preference:'descending',maxTurns:10,maxCalls:8})});
+const run=await runner.run({dataset,revision:frozen.revision,graderRevision:'synthetic-selection-grader-v2',environmentRevision:evidenceDigest({source:sourceRecords,skillDigest,preference:'descending',maxTurns:10,maxCalls:8,maxBatchCalls:4})});
 const stored=await new FileEvaluationStore({directory:out}).put(run),gate=evaluateGate(run,{requiredChecks:frozen.requiredChecks});
 await fs.writeFile(path.join(out,'result.json'),JSON.stringify({stored,gate,realModel:true,fullCoreAcceptance:false},null,2),{flag:'wx',mode:0o600});
 console.log(JSON.stringify({runId:run.id,gate,realModel:true,fullCoreAcceptance:false}));if(!gate.passed)process.exitCode=1;

@@ -57,3 +57,12 @@ test('normal text completion is an invalid action, while truncation and provider
   });
  }
 });
+
+test('Explicit bounded batches preserve every configured call and reject mixed control actions',async()=>{
+ let parallel;
+ const provider=reply=>createModelProvider({...config,fetchImpl:async(_u,o)=>{parallel=JSON.parse(o.body).parallel_tool_calls;return new Response(JSON.stringify(reply));}});
+ const multiple=body([call('issues_read',{id:'I1'}),call('issues_read',{id:'I2'})]);
+ const result=await provider(multiple).next({...request,maxBatchCalls:2});assert.equal(parallel,true);assert.equal(result.type,'batch');assert.deepEqual(result.actions.map(a=>a.input.id),['I1','I2']);assert.equal(result.usage.totalTokens,10);
+ await assert.rejects(provider(multiple).next(request),{invalidAction:true});
+ for(const calls of [[call('issues_read',{}),call('iaic_finish',{result:{}})],[call('issues_read',{}),call('unknown',{})],[call('issues_read',{}),call('issues_read',{}),call('issues_read',{})]])await assert.rejects(provider(body(calls)).next({...request,maxBatchCalls:2}),{invalidAction:true});
+});

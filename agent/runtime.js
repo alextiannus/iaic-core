@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto';
+import {pendingBatch} from './batches.js';
 import {Delegations} from './delegation.js';
 import {ResultWaits} from './result-waits.js';
 import {withExecutionSignal,executionSignal} from '../context/execution.js';
@@ -6,10 +7,11 @@ import {setTimeout as delay} from 'node:timers/promises';
 const fail=(message,statusCode=409)=>Object.assign(new Error(message),{statusCode});
 
 export class AgentRuntime {
-  constructor({store,dispatcher,model,context,version,maxTurns=20,maxCalls=30,modelTimeoutMs=120000,maxOutputBytes=32000,taskTimeoutMs=300000,rateLimitDelayMs=60000,resolveModel=null,agentIdentity=null,mandates=null,handoffs=null,authority=null}) {
+  constructor({store,dispatcher,model,context,version,maxTurns=20,maxCalls=30,modelTimeoutMs=120000,maxOutputBytes=32000,taskTimeoutMs=300000,rateLimitDelayMs=60000,maxBatchCalls=1,resolveModel=null,agentIdentity=null,mandates=null,handoffs=null,authority=null}) {
+    if(!Number.isInteger(maxBatchCalls)||maxBatchCalls<1||maxBatchCalls>8)throw new Error('Batch bound must be 1..8');
     if(!version||!model?.name)throw new Error('Runtime requires a code/Skill version and configured model');
     if(!Number.isFinite(rateLimitDelayMs)||rateLimitDelayMs<0||rateLimitDelayMs>60000)throw new Error('Rate-limit delay must be between zero and 60000 ms');
-    Object.assign(this,{store,dispatcher,model,context,version,maxTurns,maxCalls,modelTimeoutMs,maxOutputBytes,taskTimeoutMs,rateLimitDelayMs,resolveModel,agentIdentity,mandates,handoffs,authority});
+    Object.assign(this,{store,dispatcher,model,context,version,maxTurns,maxCalls,modelTimeoutMs,maxOutputBytes,taskTimeoutMs,rateLimitDelayMs,maxBatchCalls,resolveModel,agentIdentity,mandates,handoffs,authority});
     this.resultWaits=new ResultWaits({store,dispatcher,version,authorizeTask:(actor,task,name)=>this.checkResultWait(actor,task,name),admitRead:async(actor,task,action)=>{if(!task.authority)return null;const callId=randomUUID();await this.authority.admitTool({actor,task,action,callId});return callId;},settleRead:async(task,callId,outcome)=>{if(task.authority)await this.authority.settleTool({task,callId,outcome});}});
     this.delegations=new Delegations({store,handoffs,version,authorizeTask:async(actor,task)=>{await this.state(actor,task.id);await this.checkMandate(actor,task);if(task.agent&&!this.agentIdentity)throw fail('Agent resolver unavailable',503);if(this.agentIdentity)await this.agentIdentity.check({actor,task,binding:task.agent});}});
     this.executor=null;this.running=null;this.timer=null;
@@ -118,24 +120,31 @@ export class AgentRuntime {
         await this.checkExecution(actor,task);
         const history=await this.store.history(actor,task.id);
         if(history.calls.some(call=>['running','unknown'].includes(call.status))){await this.executor.finish(task.id,{status:'waiting',reason:'external_result'});break;}
+        const batch=pendingBatch(history);
+        if(batch&&this.maxBatchCalls===1)throw fail('Pending batch requires its original enabled Runtime policy',503);
+        if(batch?.closeReason){await this.executor.append(task.id,'action_batch_closed',{id:batch.id,reason:batch.closeReason});continue;}
+        let action=batch?.action;
+        const allowedTools=this.taskTools(capability,task.input);
         const turns=history.events.filter(e=>e.kind==='model_requested').length;
         const completionOnly=history.calls.length>=this.maxCalls;
+        if(batch&&completionOnly){await this.executor.finish(task.id,{status:'waiting',reason:'limit'});break;}
+        if(!batch){
         if(turns>=this.maxTurns||(completionOnly&&history.events.some(event=>event.kind==='model_requested'&&event.data.completionOnly===true))){await this.executor.finish(task.id,{status:'waiting',reason:'limit'});break;}
         if(task.authority)await this.authority.checkContext({actor,task,history});
         const messages=await this.context.assemble({task,capability,history,actor,dispatcher:this.dispatcher});
         if(completionOnly)messages.push({role:'system',content:'The tool-call budget is exhausted. No further tools or delegation are available. Use the existing evidence to submit iaic_finish for application verification, or iaic_wait if essential user input is missing. This is the final completion opportunity; do not claim unfinished work is complete.'});
-        const allowedTools=completionOnly?[]:this.taskTools(capability,task.input);
-        const tools=allowedTools.map(name=>{
+        const tools=(completionOnly?[]:allowedTools).map(name=>{
           const target=this.dispatcher.capabilities.get(name);
           return {name,description:target.description,inputSchema:target.input};
         });
+        if(this.maxBatchCalls>1&&!completionOnly)messages.push({role:'system',content:'This Runtime explicitly permits a batch of up to '+this.maxBatchCalls+' independent tool calls in one response. They execute sequentially with current permission checks. Actions requiring earlier results must wait for the next response. Never combine finish, wait or delegation with other calls.'});
         await this.checkExecution(actor,task);
         if(this.handoffs)await this.handoffs.admitModel({actor,task,turn:turns+1});
         await this.executor.append(task.id,'model_requested',{model:model.name,turn:turns+1,...(completionOnly?{completionOnly:true}:{})});
         const controller=new AbortController();let timer;
         let response;
         try{response=await Promise.race([
-          model.next({messages,tools,delegationSchema:completionOnly?null:this.delegations.schema(task),outputSchema:capability.output,billingContext:{taskId:task.id,turn:turns+1,capability:task.capability},signal:AbortSignal.any([controller.signal,executionSignal()].filter(Boolean))}),
+          model.next({messages,tools,maxBatchCalls:completionOnly?1:this.maxBatchCalls,delegationSchema:completionOnly?null:this.delegations.schema(task),outputSchema:capability.output,billingContext:{taskId:task.id,turn:turns+1,capability:task.capability},signal:AbortSignal.any([controller.signal,executionSignal()].filter(Boolean))}),
           new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Object.assign(new Error('Model response timed out'),{limitReached:true}));},this.modelTimeoutMs);})
         ]);}catch(error){
           clearTimeout(timer);
@@ -166,7 +175,11 @@ export class AgentRuntime {
         await this.executor.append(task.id,'model_usage',{model:model.name,turn:turns+1,usage:response?.usage??null,failed:false});
         executionSignal()?.throwIfAborted();
         if(Buffer.byteLength(JSON.stringify(response))>this.maxOutputBytes)throw Object.assign(new Error('Model output limit reached'),{limitReached:true});
-        const action=normalizeAction(response);
+        action=normalizeAction(response);
+        if(action.type==='batch'){
+          if(completionOnly||action.actions.length>this.maxBatchCalls||action.actions.length>this.maxCalls-history.calls.length){await this.executor.append(task.id,'feedback',{error:'Batch exceeds the current action budget; propose fewer calls.'});continue;}
+          await this.executor.append(task.id,'action_batch',{id:randomUUID(),actions:action.actions});continue;
+        }
         await this.executor.append(task.id,'model_response',{...action,usage:response.usage??null});
         await this.checkExecution(actor,task);
         if(completionOnly&&!['finish','wait'].includes(action.type)){
@@ -189,19 +202,22 @@ export class AgentRuntime {
           if(valid){await this.executor.finish(task.id,{status:'succeeded',result:action.result});break;}
           continue;
         }
+        } // A pending batch consumes no additional model request.
+        if(batch){if(task.authority)await this.authority.checkContext({actor,task,history});await this.context.revalidateHistory({history,actor,dispatcher:this.dispatcher});}
         const selected=this.dispatcher.capabilities.get(action.name);
         // Preserve a bound Mandate's fail-closed interruption before ordinary
         // out-of-scope feedback; tool narrowing does not relax that contract.
         if(capability.implementation.tools.includes(action.name)&&selected?.implementation.kind==='function')await this.checkMandate(actor,task,action.name);
         if(!allowedTools.includes(action.name)||selected?.implementation.kind!=='function'
           ||(capability.implementation.allowCall&&await capability.implementation.allowCall(task.input,action,{actor,task})!==true)){
+          if(batch)await this.executor.append(task.id,'action_batch_closed',{id:batch.id,reason:'scope_rejected'});
           await this.executor.append(task.id,'feedback',{error:'Requested capability is outside this task scope'});continue;
         }
         await this.checkExecution(actor,task);
         await this.checkMandate(actor,task,action.name);
         if(this.handoffs)await this.handoffs.checkTool({actor,task,action});
         if(task.authority)await this.authority.checkTool({actor,task,action});
-        const call=await this.executor.prepare(task.id,{capability:action.name,input:action.input,effect:selected.effect});
+        const call=await this.executor.prepare(task.id,{capability:action.name,input:action.input,effect:selected.effect,actionRef:batch?.reference??null});
         if(task.authority)await this.authority.admitTool({actor,task,action,callId:call.id});
         await this.executor.dispatch(task.id,call.id);
         try{
@@ -229,6 +245,7 @@ export class AgentRuntime {
 }
 
 function normalizeAction(response){
+  if(response?.type==='batch'&&Array.isArray(response.actions)&&response.actions.length>=2&&response.actions.length<=8&&response.actions.every(a=>a?.type==='call'&&typeof a.name==='string'&&a.input&&typeof a.input==='object'&&!Array.isArray(a.input)))return {type:'batch',actions:response.actions.map(a=>({type:'call',name:a.name,input:a.input}))};
   if(response?.type==='delegate'&&response.input&&typeof response.input==='object'&&!Array.isArray(response.input))return {type:'delegate',input:response.input};
   if(response?.type==='call'&&typeof response.name==='string'&&response.input&&typeof response.input==='object'&&!Array.isArray(response.input))return {type:'call',name:response.name,input:response.input};
   if(response?.type==='finish'&&response.result!==undefined)return {type:'finish',result:response.result};

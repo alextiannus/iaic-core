@@ -15,6 +15,7 @@ export class TaskStore {
     await this.pool.query(await fs.readFile(new URL('./migrations/011_iaic_handoff.sql',import.meta.url),'utf8'));
     await this.pool.query(await fs.readFile(new URL('./migrations/012_iaic_delegation.sql',import.meta.url),'utf8'));
     await this.pool.query(await fs.readFile(new URL('./migrations/013_iaic_task_authority.sql',import.meta.url),'utf8'));
+    await this.pool.query(await fs.readFile(new URL('./migrations/014_iaic_action_batches.sql',import.meta.url),'utf8'));
   }
   async create({actor,capability,input,idempotencyKey,version,model,agent=null,handoff=null,authority=null}) {
     if(!idempotencyKey||!version||!model)throw conflict('Task identity, key, code/Skill version and model are required');
@@ -200,9 +201,10 @@ class TaskExecutor {
   });}
   async active(c,id){const row=(await c.query('SELECT * FROM iaic_tasks WHERE id=$1 FOR UPDATE',[id])).rows[0];
     if(!row||row.status!=='running'||row.executor_token!==this.token)throw conflict('Task is no longer active');return row;}
-  prepare(taskId,{capability,input,effect}){return this.transaction(async c=>{
+  prepare(taskId,{capability,input,effect,actionRef=null}){return this.transaction(async c=>{
     await this.active(c,taskId);
-    const row=(await c.query("INSERT INTO iaic_calls(id,task_id,capability,input,effect,status) VALUES($1,$2,$3,$4,$5,'prepared') RETURNING *",[randomUUID(),taskId,capability,JSON.stringify(input),effect])).rows[0];
+    if(actionRef!==null&&(typeof actionRef!=='string'||! /^[a-f0-9-]{36}:[0-7]$/.test(actionRef)))throw conflict('Invalid batch action reference');
+    const row=(await c.query("INSERT INTO iaic_calls(id,task_id,capability,input,effect,status,action_ref) VALUES($1,$2,$3,$4,$5,'prepared',$6) RETURNING *",[randomUUID(),taskId,capability,JSON.stringify(input),effect,actionRef])).rows[0];
     await event(c,taskId,'call_prepared',{callId:row.id,capability});return row;
   });}
   dispatch(taskId,callId){return this.transaction(async c=>{

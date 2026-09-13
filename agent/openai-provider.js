@@ -7,7 +7,8 @@ export class OpenAIProvider {
     if(!apiKey||!model)throw new Error('OPENAI_API_KEY and IAIC_MODEL must be configured on the server');
     this.#apiKey=apiKey;this.name=model;this.fetch=fetchImpl;this.maxOutputTokens=maxOutputTokens;
   }
-  async next({messages,tools,outputSchema,delegationSchema,signal}) {
+  async next({messages,tools,outputSchema,delegationSchema,signal,maxBatchCalls=1}) {
+    if(!Number.isInteger(maxBatchCalls)||maxBatchCalls<1||maxBatchCalls>8)throw new Error('Batch bound must be 1..8');
     const wireNames=wireToolNames(tools);
     const mapped=new Map(tools.map((tool,index)=>[wireNames[index],tool.name]));
     const definitions=tools.map((tool,index)=>({type:'function',name:wireNames[index],
@@ -19,7 +20,7 @@ export class OpenAIProvider {
     if(delegationSchema)definitions.push({type:'function',name:'iaic_delegate',description:'Delegate one bounded subgoal to a child and pause until its result. The host fixes target, owner, model admission limit and deadline. After continuation, inspect child evidence and finish the original goal. Child success is not parent success.',parameters:delegationSchema,strict:false});
     const response=await this.fetch('https://api.openai.com/v1/responses',{
       method:'POST',signal,headers:{Authorization:`Bearer ${this.#apiKey}`,'Content-Type':'application/json'},
-      body:JSON.stringify({model:this.name,input:messages,tools:definitions,tool_choice:'required',parallel_tool_calls:false,
+      body:JSON.stringify({model:this.name,input:messages,tools:definitions,tool_choice:'required',parallel_tool_calls:maxBatchCalls>1,
         store:false,max_output_tokens:this.maxOutputTokens})
     });
     if(!response.ok){
@@ -34,6 +35,15 @@ export class OpenAIProvider {
     const reason=['stop','tool_calls','length','content_filter','insufficient_system_resource','unknown'].includes(body.completion_reason)?`; finish_reason=${body.completion_reason}`:'';
     if(body.status!=='completed')throw error(`Model response not completed: ${body.status||'unknown'}${reason}`);
     const calls=(body.output||[]).filter(item=>item.type==='function_call');
+    if(calls.length>1&&calls.length<=maxBatchCalls){
+      const actions=calls.map(call=>{
+        const name=mapped.get(call.name);let input;
+        try{input=JSON.parse(call.arguments);}catch{throw error('Batch arguments must be JSON objects',true);}
+        if(!name||!input||typeof input!=='object'||Array.isArray(input))throw error('Batch must contain only configured tool calls; control actions require a separate response',true);
+        return {type:'call',name,input};
+      });
+      return {type:'batch',actions,usage,usageEvidence};
+    }
     if(calls.length!==1)throw error(`Model must return exactly one action; received ${calls.length}. No action was executed. Use iaic_wait for missing information, iaic_finish for a proposed result, or one declared tool.`,true);
     const call=calls[0];let input;
     try{input=JSON.parse(call.arguments);}catch{throw error('Model action arguments are not valid JSON',true);}
