@@ -20,3 +20,6 @@ Focused verification: `node --test test/iaic-wallet.test.js test/iaic-token-ledg
 `reconciliation.js` adds trusted-source reconciliation of an original unresolved model request. See `RECONCILIATION.md` for measured use, definitive non-acceptance, immutable source binding, operator CLI and unchanged Task resume rules. It uses ledger ports only; no Task-table, ERP, provider SDK or UI dependency.
 
 `taskUsage(scope,taskId)` reads scoped settled provider tokens and charged platform units separately, with request/pending counts and completeness. It exposes no raw ledger evidence and does not compute currency cost. The observation module consumes this port without querying billing tables itself.
+
+
+The optional costBasis admission snapshot and costCalls projection support the independent costs module. Provider currency estimates remain separate from platform allowance and do not add monetary charges; see costs/README.md.

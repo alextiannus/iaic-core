@@ -38,3 +38,5 @@ CREATE TABLE IF NOT EXISTS iaic_token_reconciliations (
 );
 
 ALTER TABLE iaic_token_calls ADD COLUMN IF NOT EXISTS budget jsonb;
+
+ALTER TABLE iaic_token_calls ADD COLUMN IF NOT EXISTS cost_basis jsonb;

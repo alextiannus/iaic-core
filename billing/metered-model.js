@@ -1,3 +1,4 @@
+import {providerCostBasis} from '../costs/provider.js';
 import {randomUUID} from 'node:crypto';
 const pending=()=>Object.assign(new Error('Model usage requires reconciliation before continuing'),{code:'USAGE_RECONCILIATION_REQUIRED',statusCode:409});
 
@@ -5,13 +6,14 @@ const pending=()=>Object.assign(new Error('Model usage requires reconciliation b
 // platform allowance rates come from trusted configuration, never model output.
 export function meteredModel({model,ledger,scope,policy,mode='SYSTEM_MANAGED'}){
  if(!policy?.price||policy.maximum===undefined)throw new Error('Platform allowance policy required');
+ const costBasis=policy.costBasis==null?null:providerCostBasis(policy.costBasis,{mode,model:model.model??model.name});
  return Object.freeze({metered:true,name:model.name,model:model.model,profileId:model.profileId,async next(request){
   const context=request.billingContext;
   if(!context?.taskId||!Number.isInteger(context.turn))throw new Error('Trusted runtime billing context required');
   request.signal?.throwIfAborted();
   if(await ledger.hasPendingTask(scope,context.taskId))throw pending();
   const requestId=randomUUID();
-  await ledger.reserve(scope,{requestId,mode,maximum:mode==='BYOK'?0:policy.maximum,price:policy.price,budget:policy.budget??null,
+  await ledger.reserve(scope,{requestId,mode,maximum:mode==='BYOK'?0:policy.maximum,price:policy.price,budget:policy.budget??null,costBasis,
    attribution:{...context,model:model.name,profile:model.profileId??null}});
   // A crash after reservation leaves a durable hold; never assume zero usage.
   if(request.signal?.aborted){

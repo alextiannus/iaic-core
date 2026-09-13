@@ -56,6 +56,15 @@ export class TokenLedger {
    WHERE c.application_id=$1 AND c.subject_id=$2 AND c.attribution->>'taskId'=$3`,[...identity(scope),taskId])).rows[0];
   return {...row,complete:row.pending==='0'};
  }
+ async costCalls(scope,taskId){
+  if(!text(taskId))throw fail('Task identity required');
+  const rows=(await this.pool.query(`SELECT c.request_id AS "requestId",c.mode,c.state,c.cost_basis AS "costBasis",e.id::text AS "entryId",
+   e.evidence->'usage'->>'input_tokens' AS "inputTokens",e.evidence->'usage'->>'output_tokens' AS "outputTokens",
+   e.evidence->'usage'->'input_tokens_details'->>'cached_tokens' AS "cachedInputTokens"
+   FROM iaic_token_calls c LEFT JOIN iaic_token_entries e ON e.application_id=c.application_id AND e.subject_id=c.subject_id AND e.kind='settlement' AND e.reference=c.request_id
+   WHERE c.application_id=$1 AND c.subject_id=$2 AND c.attribution->>'taskId'=$3 ORDER BY c.request_id LIMIT 1001`,[...identity(scope),taskId])).rows;
+  if(rows.length>1000)throw fail('Task cost projection exceeds source limit',413);return rows;
+ }
  async balance(scope){return this.readBalance(this.pool,identity(scope));}
  async readBalance(client,account){
   const {rows:[row]}=await client.query(`SELECT
@@ -97,22 +106,22 @@ export class TokenLedger {
   }
   return (await client.query('INSERT INTO iaic_token_entries(application_id,subject_id,kind,reference,delta,evidence) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[...account,kind,reference,delta,evidence])).rows[0];
  }
- async reserve(scope,{requestId,mode,maximum,price,attribution,budget=null}){
+ async reserve(scope,{requestId,mode,maximum,price,attribution,budget=null,costBasis=null}){
   if(!text(requestId)||!['SYSTEM_MANAGED','BYOK'].includes(mode))throw fail('Call identity and credential mode required');
   const reserved=String(units(maximum)),snapshot=pricing(price),owner=document(attribution);
-  const budgetBinding=budget===null?null:document(budget);
+  const budgetBinding=budget===null?null:document(budget),costSnapshot=costBasis===null?null:document(costBasis);
   if(budgetBinding&&!this.budgets)throw fail('Budget resolver required',503);
   if(mode==='BYOK'&&reserved!=='0')throw fail('BYOK cannot reserve system credits');
   if(mode==='SYSTEM_MANAGED'&&reserved==='0')throw fail('System call requires positive reservation');
   return this.transaction(scope,async(client,account)=>{
    const existing=await this.call(client,account,requestId,false);
    if(existing){
-    if(!isDeepStrictEqual(existing.budget??null,budgetBinding)||existing.mode!==mode||existing.reserved!==reserved||!isDeepStrictEqual(existing.price,snapshot)||!isDeepStrictEqual(existing.attribution,owner))throw fail('Model request identity reused',409);
+    if(!isDeepStrictEqual(existing.cost_basis??null,costSnapshot)||!isDeepStrictEqual(existing.budget??null,budgetBinding)||existing.mode!==mode||existing.reserved!==reserved||!isDeepStrictEqual(existing.price,snapshot)||!isDeepStrictEqual(existing.attribution,owner))throw fail('Model request identity reused',409);
     return {...existing,replayed:true};
    }
    if(mode==='SYSTEM_MANAGED'&&BigInt((await this.readBalance(client,account)).available)<BigInt(reserved))throw Object.assign(fail('Token balance insufficient; add credits or select your own model',402),{code:'TOKEN_BALANCE_INSUFFICIENT'});
    if(budgetBinding)await this.budgets.admit(client,account,budgetBinding,reserved);
-   return {...(await client.query('INSERT INTO iaic_token_calls(application_id,subject_id,request_id,mode,reserved,price,attribution,budget) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',[...account,requestId,mode,reserved,snapshot,owner,budgetBinding])).rows[0],replayed:false};
+   return {...(await client.query('INSERT INTO iaic_token_calls(application_id,subject_id,request_id,mode,reserved,price,attribution,budget,cost_basis) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',[...account,requestId,mode,reserved,snapshot,owner,budgetBinding,costSnapshot])).rows[0],replayed:false};
   });
  }
  async call(client,account,id,required=true){

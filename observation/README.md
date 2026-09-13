@@ -25,3 +25,6 @@ Task duration is end-to-end created-to-finished time, including queueing and wai
 The release example uses actual Docker execution duration and a deliberately impossible zero-millisecond fixture budget to trigger the guard. It proves stale channel revisions do not stop a candidate, an accepted rollback stops its original code binding, and the fallback executes. It is a deterministic policy-path test, not a production latency recommendation or regression study. The persistent Agent template also reads its finished task through the default source and ledger. PostgreSQL checks cover immutable source IDs, insufficient samples, stale snapshots, mixed currencies and distinct provider-token/platform-unit accounting.
 
 Cloud service deployment adapters, provider telemetry ingestion, full statistical monitoring, automated collection scheduling and end-to-end real-model acceptance remain unfinished. Repository CI and these fixtures do not establish the full Note 30 objective.
+
+
+The Task source now accepts a trusted costForTask port. A configured port returning null defers observation; an absent port preserves the original non-monetary source. Hosts may supply explicitly labelled usage-rate estimates from ProviderCostAccounting and must choose the intended bearer/account and compatible currency units. See costs/README.md.
