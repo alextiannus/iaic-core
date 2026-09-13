@@ -27,6 +27,29 @@ test('IAiC model-loop controls with deterministic model and real persistence',{s
  };
  const reset=async()=>{if(runtime)await runtime.stop();runtime=null;await pool.query('TRUNCATE iaic_tasks CASCADE');};
  try{
+  await t.test('last permitted tool call can be followed by verified completion without more tools',async()=>{
+   let calls=0;
+   const task=await setup({maxCalls:1,maxTurns:2,execute:async()=>{calls++;return {source:'S1'};},actions:[{type:'call',name:'records.read',input:{}},request=>{
+    assert.deepEqual(request.tools,[]);assert.equal(request.delegationSchema,null);assert.match(JSON.stringify(request.messages),/S1/);
+    return {type:'finish',result:{report:'evidenced'}};
+   }]});
+   assert.equal((await runtime.tick()).status,'succeeded');assert.equal(calls,1);
+   const history=await store.history(actor,task.id);assert.equal(history.calls.length,1);
+   assert.equal(history.events.filter(e=>e.kind==='model_requested'&&e.data.completionOnly).length,1);await reset();
+  });
+  await t.test('completion opportunity never executes another call or delegation and never bypasses verification',async()=>{
+   for(const action of [{type:'call',name:'records.read',input:{}},{type:'delegate',input:{}},{type:'finish',result:{report:'unsupported'}}]){
+    let calls=0;
+    const task=await setup({maxCalls:1,maxTurns:8,execute:async()=>{calls++;return {};},actions:[{type:'call',name:'records.read',input:{}},action,()=>{throw Error('Unexpected additional model request');}]});
+    assert.equal((await runtime.tick()).waiting_reason,'limit');assert.equal(calls,1);
+    const history=await store.history(actor,task.id);assert.equal(history.events.filter(e=>e.kind==='model_requested').length,2);await reset();
+   }
+  });
+  await t.test('completion opportunity cannot exceed the model turn budget',async()=>{
+   const task=await setup({maxCalls:1,maxTurns:1,actions:[{type:'call',name:'records.read',input:{}},()=>{throw Error('Budget exceeded');}]});
+   assert.equal((await runtime.tick()).waiting_reason,'limit');
+   assert.equal((await store.history(actor,task.id)).events.filter(e=>e.kind==='model_requested').length,1);await reset();
+  });
   await t.test('explicit task tools narrow discovery and reject out-of-scope model calls without a Mandate',async()=>{
    let calls=0;
    const task=await setup({taskInput:{goal:'Prepare without tools',allowedTools:[]},execute:async()=>{calls++;return {};},actions:[request=>{assert.deepEqual(request.tools,[]);return {type:'call',name:'records.read',input:{}};},request=>{assert.deepEqual(request.tools,[]);return {type:'finish',result:{report:'evidenced'}};}]});

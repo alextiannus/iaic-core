@@ -181,5 +181,16 @@
       "test/iaic-schedule-scope.test.js": "1e5eb130d4e57e521b45c3018a79406168da6466037cfe1fe5b7db859b47a976",
       "test/iaic-assistant-models.test.js": "6bd2569572a41468f265c4f6543833238d57290628bff1643dbe3bd2eecd36ec"
     }
-  }
+  },
+  "postExtractionChanges": [
+    {
+      "baseCoreRevision": "65d023ad62d87dfb746e54e7018fa464de33c4d8",
+      "files": [
+        "agent/runtime.js",
+        "agent/README.md",
+        "test/iaic-runtime.integration.test.js"
+      ],
+      "description": "One completion-only inference at the tool-call boundary within the existing model-turn budget. Original source hashes above remain extraction provenance, not current-file assertions."
+    }
+  ]
 }

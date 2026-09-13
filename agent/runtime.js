@@ -111,20 +111,22 @@ export class AgentRuntime {
         const history=await this.store.history(actor,task.id);
         if(history.calls.some(call=>['running','unknown'].includes(call.status))){await this.executor.finish(task.id,{status:'waiting',reason:'external_result'});break;}
         const turns=history.events.filter(e=>e.kind==='model_requested').length;
-        if(turns>=this.maxTurns||history.calls.length>=this.maxCalls){await this.executor.finish(task.id,{status:'waiting',reason:'limit'});break;}
+        const completionOnly=history.calls.length>=this.maxCalls;
+        if(turns>=this.maxTurns||(completionOnly&&history.events.some(event=>event.kind==='model_requested'&&event.data.completionOnly===true))){await this.executor.finish(task.id,{status:'waiting',reason:'limit'});break;}
         const messages=await this.context.assemble({task,capability,history,actor,dispatcher:this.dispatcher});
-        const allowedTools=this.taskTools(capability,task.input);
+        if(completionOnly)messages.push({role:'system',content:'The tool-call budget is exhausted. No further tools or delegation are available. Use the existing evidence to submit iaic_finish for application verification, or iaic_wait if essential user input is missing. This is the final completion opportunity; do not claim unfinished work is complete.'});
+        const allowedTools=completionOnly?[]:this.taskTools(capability,task.input);
         const tools=allowedTools.map(name=>{
           const target=this.dispatcher.capabilities.get(name);
           return {name,description:target.description,inputSchema:target.input};
         });
         await this.checkExecution(actor,task);
         if(this.handoffs)await this.handoffs.admitModel({actor,task,turn:turns+1});
-        await this.executor.append(task.id,'model_requested',{model:model.name,turn:turns+1});
+        await this.executor.append(task.id,'model_requested',{model:model.name,turn:turns+1,...(completionOnly?{completionOnly:true}:{})});
         const controller=new AbortController();let timer;
         let response;
         try{response=await Promise.race([
-          model.next({messages,tools,delegationSchema:this.delegations.schema(task),outputSchema:capability.output,billingContext:{taskId:task.id,turn:turns+1,capability:task.capability},signal:AbortSignal.any([controller.signal,executionSignal()].filter(Boolean))}),
+          model.next({messages,tools,delegationSchema:completionOnly?null:this.delegations.schema(task),outputSchema:capability.output,billingContext:{taskId:task.id,turn:turns+1,capability:task.capability},signal:AbortSignal.any([controller.signal,executionSignal()].filter(Boolean))}),
           new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Object.assign(new Error('Model response timed out'),{limitReached:true}));},this.modelTimeoutMs);})
         ]);}catch(error){
           clearTimeout(timer);
@@ -158,6 +160,9 @@ export class AgentRuntime {
         const action=normalizeAction(response);
         await this.executor.append(task.id,'model_response',{...action,usage:response.usage??null});
         await this.checkExecution(actor,task);
+        if(completionOnly&&!['finish','wait'].includes(action.type)){
+          await this.executor.finish(task.id,{status:'waiting',reason:'limit'});break;
+        }
         if(action.type==='delegate'){
           let intent;
           try{intent=await this.delegations.prepare(actor,task,action.input);}catch(error){if(![400,403,409].includes(error.statusCode))throw error;await this.executor.append(task.id,'feedback',{error:'Delegation rejected: '+error.message});continue;}
