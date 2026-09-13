@@ -151,3 +151,6 @@ export {RetentionSweep} from './resources/retention.js';
 
 export {PostgresModelRateLimits} from './agent/rate-store.js';
 export {rateLimitedModel} from './agent/rate-model.js';
+
+export {PostgresMonitorCycles} from './observation/cycles-store.js';
+export {PersistentReleaseMonitor,createMonitorCycleCapabilities} from './observation/cycles.js';

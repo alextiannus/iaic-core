@@ -27,13 +27,14 @@ export class ReleaseMonitor {
   return this.observation.protectionResult(actor,{assessmentId,expectedRevision});
  }
 
- async run(actor,{channel}){
+ async run(actor,{channel},{beforeProtection=async()=>{}}={}){
   key(channel);if(await this.authorize(actor,{action:'monitor',channel})!==true)throw fail('Release monitoring denied',403);
   const selected=jsonValue(await this.resolveTarget(actor,{channel}));
   const target={releaseId:selected?.releaseId,manifestDigest:selected?.manifestDigest,expectedRevision:selected?.expectedRevision};
   if(!target||!Number.isInteger(target.expectedRevision)||target.expectedRevision<1||target.expectedRevision>2147483646||!/^[a-f0-9]{64}$/.test(target.manifestDigest||''))throw fail('Trusted current release and channel revision required',409);
   key(target.releaseId);
   const collected=await this.observation.collect(actor,{channel,releaseId:target.releaseId,manifestDigest:target.manifestDigest});
+  await beforeProtection({channel,target,...collected,protection:null,willProtect:Boolean(this.#protect&&collected.assessment?.shouldStop)});
   let protection=null;
   if(this.#protect&&collected.assessment?.shouldStop){
    if(await this.authorize(actor,{action:'protect',channel})!==true)throw fail('Automatic release protection denied',403);

@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {Pool} from 'pg';
-import {EvaluationRunner,FileEvaluationStore,ReleaseManager,PostgresReleaseStore,createReleaseCapabilities,CapabilityDispatcher,FileObjectStore,ObjectStorage,ReleaseResources,DockerSandbox,ReleasedCode,createCodeExecutionCapability,PostgresObservationStore,ReleaseObservation,createObservationCapabilities,ReleaseMonitor,createReleaseMonitorCapability} from '@immedi/iaic-core';
+import {EvaluationRunner,FileEvaluationStore,ReleaseManager,PostgresReleaseStore,createReleaseCapabilities,CapabilityDispatcher,FileObjectStore,ObjectStorage,ReleaseResources,DockerSandbox,ReleasedCode,createCodeExecutionCapability,PostgresObservationStore,ReleaseObservation,createObservationCapabilities,PostgresMonitorCycles,PersistentReleaseMonitor,createMonitorCycleCapabilities,ReleaseMonitor,createReleaseMonitorCapability} from '@immedi/iaic-core';
 const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL||process.env.DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL URL required');
 const schema='releases_example_'+randomUUID().replaceAll('-',''),directory=await fs.mkdtemp(path.join(os.tmpdir(),'iaic-release-example-'));
 const admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});
@@ -35,10 +35,13 @@ try{
  // The zero-millisecond fixture budget intentionally triggers the stop path.
  await assert.rejects(monitor.invoke('observation.protect',{assessmentId:assessment.id,expectedRevision:1},{actor,callId:'stale'}),{statusCode:409});await manager.check(actor,selected);
  const cycle=new ReleaseMonitor({observation,resolveTarget:async(a,{channel})=>({...selected,expectedRevision:(await manager.channel(a,channel)).revision}),authorize:a=>a.subjectId==='platform',autoProtect:true});
- const periodicOperation=new CapabilityDispatcher({capabilities:[createReleaseMonitorCapability({monitor:cycle})]});
- const cycleResult=await periodicOperation.invoke('observation.monitor',{channel:'production'},{actor,callId:'monitor-cycle'});assert.equal(cycleResult.collectionComplete,true);assert.equal(cycleResult.assessment.metrics.samples,1);assert.equal(cycleResult.protection.stableId,'fixture-v1');await assert.rejects(codeDispatcher.invoke('code.run',request,{actor,callId:randomUUID()}));await assert.rejects(manager.check(actor,selected),{statusCode:409});
+ const cycleStore=new PostgresMonitorCycles({pool,namespace:'example'});await cycleStore.initialize();
+ const persistentCycle=new PersistentReleaseMonitor({monitor:cycle,store:cycleStore,resolveOwner:a=>a.subjectId,authorize:a=>a.subjectId==='platform'});
+ const periodicOperation=new CapabilityDispatcher({capabilities:createMonitorCycleCapabilities({cycles:persistentCycle})});
+ const cycleResult=await periodicOperation.invoke('monitor_cycle.run',{channel:'production',requestKey:'monitor-cycle'},{actor,callId:'monitor-cycle'});assert.equal(cycleResult.collectionComplete,true);assert.equal(cycleResult.assessment.metrics.samples,1);assert.equal(cycleResult.protection.stableId,'fixture-v1');await assert.rejects(codeDispatcher.invoke('code.run',request,{actor,callId:randomUUID()}));await assert.rejects(manager.check(actor,selected),{statusCode:409});
+ assert.deepEqual(await periodicOperation.invoke('monitor_cycle.recover',{channel:'production',requestKey:'monitor-cycle'},{actor,callId:'recover-monitor-cycle'}),cycleResult);
  const recovered=await monitor.invoke('observation.protection_result',{assessmentId:cycleResult.assessment.id,expectedRevision:2},{actor});assert.equal(recovered.status,'confirmed');assert.deepEqual(recovered.protection,cycleResult.protection);assert.equal((await store.history()).filter(e=>e.action==='rollback').length,1);
  const fallback=await manager.resolve(actor,'production');const after=await codeDispatcher.invoke('code.run',{release:{releaseId:fallback.releaseId,manifestDigest:fallback.manifestDigest},input:{value:21}},{actor,callId:randomUUID()});assert.equal(after.status,'succeeded');assert.equal(JSON.parse(after.stdout).value,42);
  assert.equal((await manager.resolve(actor,'production')).releaseId,'fixture-v1');
- console.log(JSON.stringify({example:'core-releases',status:'passed',boundEvaluationEvidence:true,canaryStopped:true,rollbackSelection:true,materializedResources:true,containerExecution:true,stoppedCodeDenied:true,observedAtomicRollback:true,trustedCollectionCycle:true,fallbackExecuted:true,originalProtectionReceipt:true,productionDeployed:false}));
+ console.log(JSON.stringify({example:'core-releases',status:'passed',boundEvaluationEvidence:true,canaryStopped:true,rollbackSelection:true,materializedResources:true,containerExecution:true,stoppedCodeDenied:true,observedAtomicRollback:true,trustedCollectionCycle:true,fallbackExecuted:true,originalProtectionReceipt:true,persistentCycle:true,productionDeployed:false}));
 }finally{await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();await fs.rm(directory,{recursive:true,force:true});}
