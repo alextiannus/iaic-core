@@ -1,3 +1,6 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import {execFile} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {evidenceDigest} from '../evaluation/runner.js';
@@ -39,8 +42,13 @@ export class DockerDeployment {
   if(!env||Object.getPrototypeOf(env)!==Object.prototype||Object.keys(env).length>100||Object.entries(env).some(([k,v])=>! /^[A-Za-z_][A-Za-z0-9_]*$/.test(k)||typeof v!=='string'||/[\r\n\0]/.test(v))||Buffer.byteLength(JSON.stringify(env))>65536)throw fail('Deployment environment must be bounded single-line string values');
   const prior=await this.raw(requestKey);
   if(prior){const actual=new Map((prior.Config.Env??[]).map(s=>{const i=s.indexOf('=');return [s.slice(0,i),s.slice(i+1)];}));if(Object.entries(env).some(([k,v])=>actual.get(k)!==v)||prior.Config.Labels['io.iaic.environment-keys']!==JSON.stringify(Object.keys(env).sort()))throw fail('Deployment environment changed; use a new request key');return this.inspect(requestKey);}
-  const args=['create','--name',name,'--pull','never','--label','io.iaic.deployment='+this.digest,'--label','io.iaic.environment-keys='+JSON.stringify(Object.keys(env).sort()),'--read-only','--cap-drop','ALL','--security-opt','no-new-privileges','--pids-limit',String(this.pids),'--memory',this.memoryMiB+'m','--memory-swap',this.memoryMiB+'m','--cpus',String(this.cpus),'--user',this.user,'--tmpfs','/tmp:rw,noexec,nosuid,size=16777216','--publish','127.0.0.1::'+this.containerPort,'--env-file','/dev/stdin','--entrypoint',this.command[0],this.image,...this.command.slice(1)];
-  const created=await this.run(args,{stdin:Object.entries(env).map(([k,v])=>k+'='+v).join('\n')+'\n',signal});
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'iaic-deployment-env-')),envFile=path.join(directory,'environment');
+  let created;
+  try{
+  await fs.writeFile(envFile,Object.entries(env).map(([k,v])=>k+'='+v).join('\n')+'\n',{mode:0o600,flag:'wx'});
+  const args=['create','--name',name,'--pull','never','--label','io.iaic.deployment='+this.digest,'--label','io.iaic.environment-keys='+JSON.stringify(Object.keys(env).sort()),'--read-only','--cap-drop','ALL','--security-opt','no-new-privileges','--pids-limit',String(this.pids),'--memory',this.memoryMiB+'m','--memory-swap',this.memoryMiB+'m','--cpus',String(this.cpus),'--user',this.user,'--tmpfs','/tmp:rw,noexec,nosuid,size=16777216','--publish','127.0.0.1::'+this.containerPort,'--env-file',envFile,'--entrypoint',this.command[0],this.image,...this.command.slice(1)];
+  created=await this.run(args,{signal});
+  }finally{await fs.rm(directory,{recursive:true,force:true});}
   if(!created.ok)throw this.unknown(requestKey);
   const c=await this.raw(requestKey);if(!c||c.State?.Status!=='created')throw this.unknown(requestKey);
   // Only this confirmed create starts the workload. Repeated deploy never restarts it.
