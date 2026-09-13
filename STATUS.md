@@ -272,3 +272,33 @@ original business write with readback. PostgreSQL checks also exercise CAS races
 stale updates, current revocation, scoped Task access and refreshed historical
 plan content. This adds a planning foundation, not a claim that the prior real
 model's repeated mutations or long-task completion failures are resolved.
+
+## Actual planning and once-only memory workflow
+
+The explicit planning variant at source 8e552ae (run
+f1686c5e-dc6e-499f-b121-4c2cffa4add1) passed all 13 frozen checks with the configured
+deepseek-v4-flash model. It enables the public Task Plan module and a one-attempt
+memory-write ceiling for the goal's explicitly once-only update; the goal also
+requests a persisted working plan. The existing 20-turn/30-call, four-call batch,
+60-second inference and five-minute Task limits remain. Other modes are unchanged.
+
+After the original Session/app closed, the separate worker retained identity and
+model, used Skill/Knowledge/Memory/Session resources, updated memory once to
+revision 2, persisted plan revision 4, wrote/read the exact expected artifact and
+formally finished. Usage fully settled: 136,319 input + 13,092 output = 149,411
+Provider Tokens, with no unknown reservation. Equal fixture allowance units use
+the explicit 1:1 test policy; they are not provider pricing or a production-user
+debit. Source CI 34776699068 and 42 independently installed default examples passed;
+the installed deterministic scenario preflight passed its 13 checks as well.
+
+The actual run still used 18 responses and 26 tool attempts, including six plan
+reads and five knowledge searches. Two invalid responses (mixed batch controls and
+an unconfigured name) were rejected before valid completion. Their usage is
+included, not discarded. This is a usable authored composition case, not an
+independent holdout, statistical attribution to either new module, mid-task
+process-kill test or full framework acceptance. Earlier failures and their unknown
+usage remain unchanged. No further paid retry or budget increase was performed.
+Only opt-in evaluation configuration and evidence changed this turn; the latest
+runtime prerelease remains candidate.69. The initial source preflight omitted its
+fixture URL and failed before inference; the corrected configuration and original
+failure were retained separately.
