@@ -20,7 +20,7 @@ The configured-jobs example combines user-plus-organization scopes, an organizat
 
 ```sh
 docker pull node@sha256:8094c002d08262dba12645a3b4a15cd6cd627d30bc782f53229a2ec13ee22a00
-npm test                     # module checks and 26 standalone examples
+npm test                     # module checks and 27 standalone examples
 npm run verify:core-package  # pack, install elsewhere, run examples there
 npm pack                     # create a reusable Core npm archive
 ```
@@ -48,7 +48,7 @@ An application installs the resulting `.tgz` and imports `@immedi/iaic-core` or 
 | Choose a model and account for use | [Assistants](assistants/README.md), [Credentials](credentials/README.md), [Billing](billing/README.md) |
 | Continue conversations and proactive work | [Sessions](sessions/README.md), [Deferred](deferred/README.md), [Events](events/README.md), [Triggers](triggers/README.md), [Recurring](recurring/README.md) |
 | Authorize and cooperate | [Mandates](mandates/README.md), [Handoffs](handoffs/README.md) |
-| Connect an external Agent | [MCP](mcp/README.md), [HTTP API and remote SDK](http/README.md), ordinary ESM interfaces |
+| Connect an external Agent | [A2A](a2a/README.md), [MCP](mcp/README.md), [HTTP API and remote SDK](http/README.md), ordinary ESM interfaces |
 
 Each module owns its state and documents its injected dependencies. [Assistant work composition](assistants/TASKS.md) combines these ports without another Runtime or container framework.
 

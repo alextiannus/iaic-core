@@ -88,3 +88,5 @@ export {ReleaseResources} from './releases/resources.js';
 
 export {DockerSandbox} from './execution/docker.js';
 export {ReleasedCode,createCodeExecutionCapability} from './execution/released-code.js';
+
+export {createCapabilityA2AHandler} from './a2a/server.js';

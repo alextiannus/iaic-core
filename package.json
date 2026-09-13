@@ -36,7 +36,8 @@
     "./evaluation/*": "./evaluation/*",
     "./releases/*": "./releases/*",
     "./storage/*": "./storage/*",
-    "./execution/*": "./execution/*"
+    "./execution/*": "./execution/*",
+    "./a2a/*": "./a2a/*"
   },
   "files": [
     "index.js",
@@ -74,17 +75,22 @@
     "evaluation",
     "releases",
     "storage",
-    "execution"
+    "execution",
+    "a2a"
   ],
   "dependencies": {
     "ajv": "8.20.0",
     "yaml": "2.9.1"
   },
   "peerDependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0"
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@a2a-js/sdk": "^1.1.0"
   },
   "peerDependenciesMeta": {
     "@modelcontextprotocol/sdk": {
+      "optional": true
+    },
+    "@a2a-js/sdk": {
       "optional": true
     }
   },
@@ -95,7 +101,8 @@
     "test:modules": "node scripts/verify-modules.mjs"
   },
   "devDependencies": {
-    "pg": "8.23.0",
-    "@modelcontextprotocol/sdk": "1.30.0"
+    "@a2a-js/sdk": "1.1.0",
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "pg": "8.23.0"
   }
 }
