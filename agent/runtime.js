@@ -9,6 +9,7 @@ const fail=(message,statusCode=409)=>Object.assign(new Error(message),{statusCod
 export class AgentRuntime {
   constructor({store,dispatcher,model,context,version,maxTurns=20,maxCalls=30,modelTimeoutMs=120000,maxOutputBytes=32000,taskTimeoutMs=300000,rateLimitDelayMs=60000,maxBatchCalls=1,resolveModel=null,agentIdentity=null,mandates=null,handoffs=null,authority=null}) {
     if(!Number.isInteger(maxBatchCalls)||maxBatchCalls<1||maxBatchCalls>8)throw new Error('Batch bound must be 1..8');
+    if(maxBatchCalls>1&&typeof context?.revalidateHistory!=='function')throw new Error('Batch execution requires current history revalidation');
     if(!version||!model?.name)throw new Error('Runtime requires a code/Skill version and configured model');
     if(!Number.isFinite(rateLimitDelayMs)||rateLimitDelayMs<0||rateLimitDelayMs>60000)throw new Error('Rate-limit delay must be between zero and 60000 ms');
     Object.assign(this,{store,dispatcher,model,context,version,maxTurns,maxCalls,modelTimeoutMs,maxOutputBytes,taskTimeoutMs,rateLimitDelayMs,maxBatchCalls,resolveModel,agentIdentity,mandates,handoffs,authority});
@@ -16,7 +17,11 @@ export class AgentRuntime {
     this.delegations=new Delegations({store,handoffs,version,authorizeTask:async(actor,task)=>{await this.state(actor,task.id);await this.checkMandate(actor,task);if(task.agent&&!this.agentIdentity)throw fail('Agent resolver unavailable',503);if(this.agentIdentity)await this.agentIdentity.check({actor,task,binding:task.agent});}});
     this.executor=null;this.running=null;this.timer=null;
   }
-  async initialize(){await this.store.initialize();this.executor=await this.store.acquireExecutor();return {ready:Boolean(this.executor)};}
+  async initialize(){
+    await this.store.initialize();const executor=await this.store.acquireExecutor();
+    if(executor&&this.maxBatchCalls>1&&typeof executor.prepareBatchAction!=='function'){await executor.close();throw fail('Task executor does not support durable batch action receipts',503);}
+    this.executor=executor;return {ready:Boolean(executor)};
+  }
   async create({capability,input,actor,idempotencyKey}) {
     if(capability.implementation.kind!=='agent')throw fail('Task requires an Agent capability',400);
     if(await capability.authorize(actor,input)!==true)throw fail('Task access denied',403);
@@ -217,7 +222,12 @@ export class AgentRuntime {
         await this.checkMandate(actor,task,action.name);
         if(this.handoffs)await this.handoffs.checkTool({actor,task,action});
         if(task.authority)await this.authority.checkTool({actor,task,action});
-        const call=await this.executor.prepare(task.id,{capability:action.name,input:action.input,effect:selected.effect,actionRef:batch?.reference??null});
+        const prepare=batch?this.executor.prepareBatchAction.bind(this.executor):this.executor.prepare.bind(this.executor);
+        const call=await prepare(task.id,{capability:action.name,input:action.input,effect:selected.effect,actionRef:batch?.reference??null});
+        if(batch){
+          const persisted=(await this.store.history(actor,task.id)).calls.find(c=>c.id===call.id);
+          if(call.action_ref!==batch.reference||persisted?.action_ref!==batch.reference)throw fail('Batch action receipt was not durably preserved; no dispatch occurred',503);
+        }
         if(task.authority)await this.authority.admitTool({actor,task,action,callId:call.id});
         await this.executor.dispatch(task.id,call.id);
         try{

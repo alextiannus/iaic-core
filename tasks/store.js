@@ -201,6 +201,10 @@ class TaskExecutor {
   });}
   async active(c,id){const row=(await c.query('SELECT * FROM iaic_tasks WHERE id=$1 FOR UPDATE',[id])).rows[0];
     if(!row||row.status!=='running'||row.executor_token!==this.token)throw conflict('Task is no longer active');return row;}
+  prepareBatchAction(taskId,args){
+    if(!args?.actionRef)throw conflict('Batch action reference required');
+    return this.prepare(taskId,args);
+  }
   prepare(taskId,{capability,input,effect,actionRef=null}){return this.transaction(async c=>{
     await this.active(c,taskId);
     if(actionRef!==null&&(typeof actionRef!=='string'||! /^[a-f0-9-]{36}:[0-7]$/.test(actionRef)))throw conflict('Invalid batch action reference');

@@ -46,3 +46,16 @@ test('Interrupted preparation keeps its original receipt and abandons remaining 
 test('Cancellation prevents the unexecuted remainder of an unknown batch',async()=>fixture(async f=>{
  f.unknown();await f.runtime.tick();await f.runtime.transition(f.actor,f.task.id,{action:'cancel'});await f.build();assert.equal(await f.runtime.tick(),null);assert.equal((await f.pool.query('SELECT * FROM effects')).rowCount,1);assert.equal(f.requests(),1);
 }));
+test('Legacy executor is rejected before model work and releases its acquired session',async()=>{
+ let closed=0;const store={initialize:async()=>{},acquireExecutor:async()=>({close:async()=>{closed++;}})};
+ const options={store,model:{name:'fixture'},context:new ContextAssembler({skillRoot:'/tmp'}),version:'fixture'};
+ const runtime=new AgentRuntime({...options,maxBatchCalls:2});await assert.rejects(runtime.initialize(),{statusCode:503});assert.equal(closed,1);assert.equal(runtime.executor,null);
+ const legacy=new AgentRuntime(options);assert.equal((await legacy.initialize()).ready,true);await legacy.stop();assert.equal(closed,2);
+ assert.throws(()=>new AgentRuntime({...options,maxBatchCalls:2,context:{assemble:async()=>[]}}),/history revalidation/);
+});
+test('Adapter dropping batch receipt metadata cannot dispatch an external effect',async()=>fixture(async f=>{
+ const prepare=f.runtime.executor.prepareBatchAction.bind(f.runtime.executor);
+ f.runtime.executor.prepareBatchAction=async(...args)=>{const row=await prepare(...args);return {...row,action_ref:null};};
+ const done=await f.runtime.tick();assert.equal(done.status,'waiting');assert.match(done.error,/not durably preserved/);assert.equal((await f.pool.query('SELECT * FROM effects')).rowCount,0);
+ const h=await f.runtime.store.history(f.actor,f.task.id);assert.equal(h.calls.length,1);assert.equal(h.calls[0].status,'prepared');
+}));
