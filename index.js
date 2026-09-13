@@ -90,3 +90,4 @@ export {DockerSandbox} from './execution/docker.js';
 export {ReleasedCode,createCodeExecutionCapability} from './execution/released-code.js';
 
 export {createCapabilityA2AHandler} from './a2a/server.js';
+export {importA2ACapabilities} from './a2a/import.js';

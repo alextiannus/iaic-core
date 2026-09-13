@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {Pool} from 'pg';
-import {CapabilityDispatcher,defineCapability,TaskStore,createCapabilityA2AHandler,createCapabilityHttpHandler} from '@immedi/iaic-core';
+import {CapabilityDispatcher,defineCapability,TaskStore,createCapabilityA2AHandler,createCapabilityHttpHandler,importA2ACapabilities} from '@immedi/iaic-core';
 import {ClientFactory,JsonRpcTransportFactory} from '@a2a-js/sdk/client';
 import {AgentCard,Message,Role,TaskState} from '@a2a-js/sdk';
 const admin=new Pool({connectionString:process.env.SUBMISSION_TEST_DATABASE_URL||process.env.DATABASE_URL});
@@ -32,9 +32,15 @@ try{
  store=new TaskStore({pool});handler=await make('work.run');
  assert.equal((await client.getTask({id})).id,id);
  assert.equal((await client.listTasks({})).tasks[0].id,id);
+ const imported=await importA2ACapabilities({agentCard:AgentCard.toJSON(card),prefix:'remote',authorize,resolveHeaders:()=>({authorization:'Bearer fixture'}),fetch:(url,init)=>handler(new Request(url,init))});
+ const outer=new CapabilityDispatcher({capabilities:imported});
+ const remote=await outer.invoke('remote.send',{goal:'remote delegated work'},{actor,callId:'remote-stable-message'});assert.equal(remote.kind,'task');
+ assert.equal((await outer.invoke('remote.get',{id:remote.task.id},{actor})).task.id,remote.task.id);
+ assert.equal((await outer.invoke('remote.list',{}, {actor})).tasks.length,2);
+ assert.equal((await outer.invoke('remote.cancel',{id:remote.task.id},{actor,callId:'cancel-remote'})).task.status.state,'TASK_STATE_CANCELED');
  assert.equal((await client.cancelTask({id})).status.state,TaskState.TASK_STATE_CANCELED);
  allowed=false;await assert.rejects(client.getTask({id}));allowed=true;
  const changed=Message.fromJSON({...message,parts:[{data:{goal:'different'}}]});await assert.rejects(client.sendMessage({message:changed,configuration:{returnImmediately:true}}));
  handler=await make('echo.read');const echo=await client.sendMessage({message:Message.fromJSON({...message,messageId:randomUUID(),parts:[{data:{hello:'world'}}]})});assert.deepEqual(echo.parts[0].content.value,{hello:'world'});
- console.log(JSON.stringify({example:'core-a2a',status:'passed',officialSdk:true,persistentTask:true,stableReceipt:true,cancellation:true,currentRevocation:true,sharedDispatcher:true,sameHttpSdkReceipt:true,modelInvoked:false}));
+ console.log(JSON.stringify({example:'core-a2a',status:'passed',officialSdk:true,persistentTask:true,stableReceipt:true,cancellation:true,currentRevocation:true,sharedDispatcher:true,sameHttpSdkReceipt:true,outboundToolLifecycle:true,modelInvoked:false}));
 }finally{await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
