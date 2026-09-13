@@ -65,13 +65,13 @@ export class MemoryStore{
    FROM iaic_memories WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3 AND memory_key=$4`,[...partition(scope),key])).rows[0];
   if(!row)throw error('Memory not found',404);return row;
  }
- async list(scope,{query='',limit=20,kind=null,status='active'}={}){
+ async list(scope,{query='',limit=20,kind=null,status='active',searchIn='key_and_content'}={}){
   const identity=partition(scope);
-  if(!['active','disputed','contradicted'].includes(status)||typeof query!=='string'||query.length>500||!Number.isInteger(limit)||limit<1||limit>50||(kind!==null&&!['fact','preference','note'].includes(kind)))throw error('Invalid memory lookup');
+  if(!['key_and_content','content'].includes(searchIn)||!['active','disputed','contradicted'].includes(status)||typeof query!=='string'||query.length>500||!Number.isInteger(limit)||limit<1||limit>50||(kind!==null&&!['fact','preference','note'].includes(kind)))throw error('Invalid memory lookup');
   const pattern='%'+query.replace(/[\\%_]/g,'\\$&')+'%';
   return (await this.pool.query(`SELECT * FROM iaic_memories WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3
-   AND NOT deleted AND (($7='active' AND dispute IS NULL AND COALESCE(assessment->>'level','')<>'contradicted') OR ($7='disputed' AND dispute IS NOT NULL) OR ($7='contradicted' AND dispute IS NULL AND assessment->>'level'='contradicted')) AND (expires_at IS NULL OR expires_at>now()) AND content ILIKE $4
-   AND ($5::text IS NULL OR kind=$5) ORDER BY updated_at DESC,memory_key ASC LIMIT $6`,[...identity,pattern,kind,limit,status])).rows;
+   AND NOT deleted AND (($7='active' AND dispute IS NULL AND COALESCE(assessment->>'level','')<>'contradicted') OR ($7='disputed' AND dispute IS NOT NULL) OR ($7='contradicted' AND dispute IS NULL AND assessment->>'level'='contradicted')) AND (expires_at IS NULL OR expires_at>now()) AND (content ILIKE $4 OR ($8='key_and_content' AND memory_key ILIKE $4))
+   AND ($5::text IS NULL OR kind=$5) ORDER BY updated_at DESC,memory_key ASC LIMIT $6`,[...identity,pattern,kind,limit,status,searchIn])).rows;
  }
  async export(scope){
   const {rows:[snapshot]}=await this.pool.query(`WITH visible AS (

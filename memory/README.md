@@ -72,3 +72,24 @@ V1 export does not transfer trusted assessments. Imported content receives the o
 Initialize the new assessment column and deploy compatible readers before using contradicted assessments. Older readers do not apply this retrieval exclusion; rolling back those readers requires retaining compatible filtering or stopping the affected retrieval path. Services without reviewer ports can still read and respect stored assessments after upgrading.
 
 Evidence: three PostgreSQL integration checks cover reviewer denial, trusted source injection, current/review retrieval, revision races, correction/dispute/forgetting, optional write classification and derived-source invalidation. The independent core-memory-assessment example reconstructs the service and checks the same basic lifecycle. Complete semantic assessment, automatic extraction, organization sharing, layered retrieval and wider retention remain separate unfinished capabilities.
+
+## Discover memories by name as well as content
+
+`list(actor,{query, searchIn:'key_and_content'})` matches a literal,
+case-insensitive substring in either `memory_key` or `content`. This is now the
+default when searchIn is omitted, including the shared memory Tool/Capability.
+For example, query `presentation` finds a memory named `presentation` whose body
+contains only an ordering preference. `%`, `_` and backslash remain literal, not
+wildcards. A match on both fields still returns one row.
+
+This intentionally broadens the earlier content-only lookup. Applications that
+require exactly the former behavior can specify `searchIn:'content'`. Replacement
+store adapters must implement the same option and default when exposing this
+updated contract; this is not semantic or embedding search. Result shape, bounded
+list size, ordering, kind/status filters and identity partitioning are unchanged.
+Forgotten, expired and disputed/contradicted visibility rules apply to both fields.
+History refresh applies current scope and content, never a saved old search result.
+
+The change addresses an observed discovery gap, not proof that a model will stop
+repeating queries or complete arbitrary tasks. Existing real-model failures remain
+preserved; no paid rerun of those samples is part of this change.
