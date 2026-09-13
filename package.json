@@ -44,7 +44,8 @@
     "./collaboration/*": "./collaboration/*",
     "./budgets/*": "./budgets/*",
     "./provenance/*": "./provenance/*",
-    "./costs/*": "./costs/*"
+    "./costs/*": "./costs/*",
+    "./resources/*": "./resources/*"
   },
   "files": [
     "index.js",
@@ -90,7 +91,8 @@
     "collaboration",
     "budgets",
     "provenance",
-    "costs"
+    "costs",
+    "resources"
   ],
   "dependencies": {
     "ajv": "8.20.0",

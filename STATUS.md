@@ -59,3 +59,8 @@ At release source 73eb47a69e395bc4215808ece75e61477aa949dd (candidate.30), the a
 
 
 Batch adapter compatibility now has an explicit executor interface and a pre-dispatch persisted-receipt check. Enabling batches with a legacy executor fails before model work and releases the acquired session. Dropped receipt metadata pauses before any external action. This verifies compatibility with the default PostgreSQL adapter and rejects accidental legacy reuse; it does not certify arbitrary third-party persistence implementations. No new actual-model evaluation was run for this interface check.
+
+
+## Organization-owned resource composition
+
+DirectoryResourceScopes now supplies an optional current-directory and resource-policy resolver for existing Memory/Workspace modules. Operations pass read/write intent and their operation name to the resolver; same-organization members share original revisions while personal and different-organization partitions stay separate. Current revocation and read-only policy are exercised against real PostgreSQL defaults. The module imports no account or resource storage implementation, preserves legacy one-argument resolvers, and does not migrate private data, add a UI, or imply shared Task ownership or global erasure. See resources/README.md.
