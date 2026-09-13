@@ -100,3 +100,8 @@ Model capacity now recognizes trusted provider-completed validation errors. A re
 ## Default HTTP notification channel
 
 createHttpNotificationChannel now binds approved JSON HTTP providers to existing outbox send/query ports using the shared transport. Stable-key and terminal-receipt checks preserve unknown results after response loss or mismatched evidence. Loopback HTTP/PostgreSQL integration reconciles a lost acknowledgement without another send and checks current credentials/permission. The installed notification example consumes the adapter with a fixture transport. No external messages, vendor registration, recipient UI or notification policy product were created; vendor-specific delivery semantics and full Note 30 acceptance remain incomplete.
+
+
+## Cross-entry Capability parity evidence
+
+The installed core-protocol-parity fixture now exercises one persistent idempotent domain capability through ESM, HTTP SDK, raw HTTP, official MCP and official A2A clients. It verifies one original result/effect, conflicting/invalid input, post-commit uncertainty, recovery through another entry and current permission revocation. HTTP/A2A use loopback servers; MCP uses official in-memory protocol transport. A corrected test decoder reads A2A ErrorInfo metadata from its actual JSON-RPC envelope; no server bug is inferred from that initial fixture assumption. This contributes common-contract evidence, not full UI/transport/Agent-lifecycle or Note 30 acceptance.
