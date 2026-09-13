@@ -24,3 +24,9 @@ Focused regression: `test/iaic-workspace-context-projection.integration.test.js`
 
 
 Optional WorkspaceLineage now binds host-captured source versions, validates derived reads/lists transitively and supports authorized revision-safe purgeInvalid. See provenance/README.md. Existing stores remain independent; unconfigured services do not acquire these guarantees automatically.
+
+## Optional write revision preflight
+
+The default PostgreSQL adapter exposes `canWrite(scope,{path,expectedRevision})`, a read-only head/revision check. `AssistantWorkspace` exposes `preflightWrite` only when the injected store supports that port and resolves the normal current write scope. Workspace tool descriptors and `createAgentTaskCapabilities` pass it to the existing Capability preflight hook.
+
+A known stale revision or deleted head is rejected before invoking the write implementation. Runtime records a failed call and correctable feedback rather than inventing an unknown external result, so the Agent can read the existing document and continue. This is not a lock across preflight and execution: the store still performs its transactional compare-and-write, and a later race or lost write response retains existing uncertainty/reconciliation rules. Alternate stores without this optional port retain previous behavior; adapters must never mutate from a preflight check.

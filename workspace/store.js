@@ -29,6 +29,11 @@ export class PostgresWorkspaceStore{
    const result=await operation(client,key,head);await client.query('COMMIT');return result;
   }catch(cause){await client.query('ROLLBACK').catch(()=>{});throw cause;}finally{client.release();}
  }
+ async canWrite(scope,{path,expectedRevision=0}){
+  revision(expectedRevision);
+  const row=(await this.pool.query('SELECT revision,deleted FROM iaic_workspace_heads WHERE application_id=$1 AND assistant_id=$2 AND subject_id=$3 AND path=$4',[...identity(scope),logicalPath(path)])).rows[0];
+  return !row?.deleted&&(row?.revision??0)===expectedRevision;
+ }
  async write(scope,{path,content,mediaType='text/plain',source,expectedRevision=0}){
   revision(expectedRevision);
   if(typeof content!=='string'||content.includes('\0')||!['text/plain','text/markdown','application/json'].includes(mediaType))throw error('Workspace accepts UTF-8 text documents');

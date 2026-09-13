@@ -1,7 +1,7 @@
 export function workspaceTools(workspace,actor,context={}){
  const path={type:'string',minLength:1,maxLength:300},revision={type:'integer',minimum:1};
  const projectWriteInput=input=>Object.fromEntries(['path','mediaType','expectedRevision'].filter(key=>input&&Object.hasOwn(input,key)).map(key=>[key,input[key]]));
- const tool=(name,description,properties,required,handler)=>({name,description,inputSchema:{type:'object',properties,required,additionalProperties:false},handler,...(name==='my_write_workspace'?{projectHistoryInput:projectWriteInput}:{})});
+ const tool=(name,description,properties,required,handler)=>({name,description,inputSchema:{type:'object',properties,required,additionalProperties:false},handler,...(name==='my_write_workspace'?{projectHistoryInput:projectWriteInput,...(typeof workspace?.preflightWrite==='function'?{preflight:(input,context)=>workspace.preflightWrite(context.actor,input)}:{})}:{})});
  return [
   tool('my_list_workspace','List this Assistant workspace documents without loading their bodies; follow nextCursor.',{after:path,limit:{type:'integer',minimum:1,maximum:50}},[],value=>workspace.list(actor,value)),
   tool('my_read_workspace','Read a workspace document or an exact artifact reference. Working materials are not authoritative business facts.',{path,revision,digest:{type:'string',pattern:'^[a-f0-9]{64}$'}},['path'],value=>workspace.read(actor,value)),

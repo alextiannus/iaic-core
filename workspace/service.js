@@ -1,6 +1,8 @@
 // Trusted scope/source are supplied by the application, never model arguments.
 export class AssistantWorkspace{
- constructor({store,resolveScope,sourceFor,lineage=null}){Object.assign(this,{store,resolveScope,sourceFor,lineage});}
+ constructor({store,resolveScope,sourceFor,lineage=null}){Object.assign(this,{store,resolveScope,sourceFor,lineage});
+  if(typeof store?.canWrite==='function')this.preflightWrite=async(actor,input)=>store.canWrite(await resolveScope(actor,{access:'write',operation:'write'}),input);
+ }
  async list(actor,input={}){
   const page=await this.store.list(await this.resolveScope(actor,{access:'read',operation:'list'}),input);if(!this.lineage)return page;
   const items=[];for(const artifact of page.items)try{await this.lineage.check({actor,artifact});items.push(artifact);}catch(e){if(e.code!=='SOURCE_INVALIDATED')throw e;}

@@ -41,7 +41,7 @@ export function createAgentTaskCapabilities({name='assistant.run',toolNamespace=
     if(!writing)return execute(input,context);
     return result;
    };
-   definitions.push(defineCapability({name,description:descriptor.description,input:descriptor.inputSchema,output:name==='my_list_assistant_memories'?{type:'array',items:object}:object,effect:writing?'write':'read',...(writing?{retry:'never-replay'}:{}),authorize:descriptor.authorize?async(a,i)=>await authorize(a,i)===true&&await descriptor.authorize(a,i)===true:authorize,revalidate,...(descriptor.projectHistoryInput?{projectHistoryInput:descriptor.projectHistoryInput}:{}),implementation:{kind:'function',execute}}));
+   definitions.push(defineCapability({name,description:descriptor.description,input:descriptor.inputSchema,output:name==='my_list_assistant_memories'?{type:'array',items:object}:object,effect:writing?'write':'read',...(writing?{retry:'never-replay'}:{}),...(descriptor.preflight?{preflight:descriptor.preflight}:{}),authorize:descriptor.authorize?async(a,i)=>await authorize(a,i)===true&&await descriptor.authorize(a,i)===true:authorize,revalidate,...(descriptor.projectHistoryInput?{projectHistoryInput:descriptor.projectHistoryInput}:{}),implementation:{kind:'function',execute}}));
   }
  }
  if(events){
