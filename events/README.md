@@ -18,3 +18,5 @@ Tests: `test/iaic-events.integration.test.js`; independent package example: `exa
 
 
 `AssistantEvents` now accepts optional `reservedPrefixes`; public publish rejects those prefixes while exact-key reads retain current scope checks. Configure the exported WEBHOOK_EVENT_PREFIX on every ordinary publisher sharing a signed ingress scope. Existing callers retain their previous behavior when no reserved prefixes are configured.
+
+[EventTaskSubscriptions](TASKS.md) connects cursor consumption to existing durable Agent scheduling. Each source binds one original queue intent before its checkpoint advances; response loss is recovered through the original key. The host supplies the task plan, current authority and polling loop.
