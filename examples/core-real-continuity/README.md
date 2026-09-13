@@ -19,3 +19,17 @@ The first actual run at 8382009 failed: the configured tools omitted Memory list
 Set `IAIC_CONTINUITY_CLARIFY=1` with the existing opt-in variables to run a second, explicitly authored scenario. The initial goal withholds exclusion and ordering choices and asks the Agent to obtain clarification before writing. The frozen data adds a fourth record. After the first worker waits for input, the host submits an explicit exclusion and ascending-order override, injects a lost application acknowledgement, reconstructs the application, queries the original receipt and repeats the same request. A second worker continues the same Task/model/identity after the Session is closed.
 
 The parent freezes the expected artifact before inference and adds checks for an actual input wait, no premature artifact, one clarification and an identical original receipt. Existing checks still require Skill, Memory, Knowledge, artifact readback, Session result linkage and settled usage. The model must use the latest clarification rather than the contrary stored presentation preference. This fixture is synthetic, authored and not an independent held-out evaluation. The result identifies actual versus explicit fixture mode; a provider failure never falls back to the fixture. `before-clarification.json` preserves the initial Task and trace separately, even if the Agent does not ask as expected.
+
+Set `IAIC_CONTINUITY_MEMORY_UPDATE=1` for the separate authored lasting-preference
+scenario; do not combine it with CLARIFY mode. The user explicitly asks to update
+existing `style` memory once to ascending identifier order, then apply it with
+Skills, Knowledge and the closed Session project reference to the verified
+artifact. The tool scope adds only the existing memory remember Capability.
+The frozen grader additionally requires the exact new preference at revision 2
+and one successful remember operation; default mode remains unchanged.
+
+This new scenario preselects Runtime's standard 20-turn/30-call limits with a
+four-call batch ceiling. Those limits are frozen before its first actual run and
+are not a change to previous failed scenarios. The 12/12 budgets of older modes
+remain unchanged. This is an authored capability-composition case, not an
+independent holdout or a claim that all real-model acceptance conditions pass.
