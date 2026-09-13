@@ -33,3 +33,20 @@ four-call batch ceiling. Those limits are frozen before its first actual run and
 are not a change to previous failed scenarios. The 12/12 budgets of older modes
 remain unchanged. This is an authored capability-composition case, not an
 independent holdout or a claim that all real-model acceptance conditions pass.
+
+## Planning and once-only memory configuration
+
+Add `IAIC_CONTINUITY_PLANNING=1` to MEMORY_UPDATE mode to enable the public Task
+Plan module and a host-defined one-attempt ceiling for the explicitly once-only
+memory mutation. The goal also requests a brief persistent working plan. The
+grader adds a nonempty saved-plan check, without treating step statuses as proof
+of completion; all prior artifact, source, once-only memory, continuity and usage
+checks remain. Memory/plan snapshots are retained with the original trace.
+
+This is an explicit configuration/scenario variant, frozen as
+`continuity-memory-plan-v1`, not an untouched re-test or independent holdout.
+Budgets stay at the memory scenario's 20 turns / 30 calls, batch ceiling four,
+60-second inference deadline and five-minute Task deadline. No general Workspace
+write ceiling, automatic plan, fixed execution sequence or paid fallback is added.
+An unsuccessful actual run is retained without increasing its budgets. The
+deterministic preflight exercises the same installed module configuration.
