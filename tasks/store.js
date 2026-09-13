@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import {pageOptions,pagePosition} from './paging.js';
 import {transitionBinding,checkedTransition} from './transition-requests.js';
 import {randomUUID} from 'node:crypto';
 import {isDeepStrictEqual} from 'node:util';
@@ -18,6 +19,7 @@ export class TaskStore {
     await this.pool.query(await fs.readFile(new URL('./migrations/013_iaic_task_authority.sql',import.meta.url),'utf8'));
     await this.pool.query(await fs.readFile(new URL('./migrations/014_iaic_action_batches.sql',import.meta.url),'utf8'));
     await this.pool.query(await fs.readFile(new URL('./migrations/015_iaic_transition_receipts.sql',import.meta.url),'utf8'));
+    await this.pool.query(await fs.readFile(new URL('./migrations/016_iaic_task_pages.sql',import.meta.url),'utf8'));
   }
   async create({actor,capability,input,idempotencyKey,version,model,agent=null,handoff=null,authority=null}) {
     if(!idempotencyKey||!version||!model)throw conflict('Task identity, key, code/Skill version and model are required');
@@ -40,6 +42,13 @@ export class TaskStore {
   async findRequest(actor,capability,requestKey) {
     if(typeof capability!=='string'||!capability||typeof requestKey!=='string'||!requestKey||requestKey.length>500)throw conflict('Valid task lookup key required');
     return (await this.pool.query('SELECT * FROM iaic_tasks WHERE employee_id=$1 AND erp_user=$2 AND capability=$3 AND request_key=$4',[...this.identity(actor),capability,requestKey])).rows[0]||null;
+  }
+  async page(actor,{before=null,...input}={}) {
+    const {limit,capability,status}=pageOptions(input),position=pagePosition(before);
+    const rows=(await this.pool.query(`SELECT id,to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "createdAt" FROM iaic_tasks
+      WHERE employee_id=$1 AND erp_user=$2 AND ($3::text IS NULL OR capability=$3) AND ($4::text IS NULL OR status=$4)
+      AND ($5::timestamptz IS NULL OR (created_at,id)<($5::timestamptz,$6::uuid)) ORDER BY created_at DESC,id DESC LIMIT $7`,[...this.identity(actor),capability,status,position?.createdAt??null,position?.id??null,limit+1])).rows;
+    return {items:rows.slice(0,limit),hasMore:rows.length>limit};
   }
   async list(actor) {
     return (await this.pool.query('SELECT * FROM iaic_tasks WHERE employee_id=$1 AND erp_user=$2 ORDER BY created_at DESC LIMIT 50',[...this.identity(actor)])).rows;

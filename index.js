@@ -169,3 +169,4 @@ export {EventTaskSubscriptions,EVENT_SUBSCRIPTION_TASK_PREFIX} from './events/ta
 
 export {ReleaseBoundAgentIdentity} from './releases/agent.js';
 export {createTaskControlCapabilities} from './tasks/controls.js';
+export {TaskListing,createTaskListCapability} from './tasks/listing.js';

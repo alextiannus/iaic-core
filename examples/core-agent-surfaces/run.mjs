@@ -6,8 +6,8 @@ import {Pool} from 'pg';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {InMemoryTransport} from '@modelcontextprotocol/sdk/inMemory.js';
 import {ClientFactory,JsonRpcTransportFactory} from '@a2a-js/sdk/client';
-import {AgentCard,Message,Role,TaskState} from '@a2a-js/sdk';
-import {AgentRuntime,TaskStore,ContextAssembler,CapabilityDispatcher,defineCapability,createTaskControlCapabilities,createCapabilityHttpHandler,createCapabilityA2AHandler} from '@immedi/iaic-core';
+import {AgentCard,Message,Role,TaskState,ListTasksRequest} from '@a2a-js/sdk';
+import {AgentRuntime,TaskStore,ContextAssembler,CapabilityDispatcher,defineCapability,createTaskControlCapabilities,TaskListing,createTaskListCapability,createCapabilityHttpHandler,createCapabilityA2AHandler} from '@immedi/iaic-core';
 import {createCapabilityMcpServer} from '@immedi/iaic-core/mcp/server.js';
 import {CapabilityHttpClient} from '@immedi/iaic-core/http/client.js';
 const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL||process.env.DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL required');
@@ -20,8 +20,10 @@ try{
  const agent=defineCapability({name:'work.run',description:'Continue a persistent goal after user clarification',input:{type:'object',properties:{goal:{type:'string'}},required:['goal'],additionalProperties:false},output:{type:'object'},effect:'write',retry:'never-replay',authorize,implementation:{kind:'agent',instructions:'Use the clarification and source to complete the goal.',tools:['source.read'],verify:(_input,result,{history})=>result.value===42&&history.calls.some(call=>call.capability==='source.read'&&call.status==='succeeded'&&call.result.value===42)}});
  let loseClarificationAck=true;
  const controls=createTaskControlCapabilities({runtime:{get:(...args)=>runtime.get(...args),state:(...args)=>runtime.state(...args),transition:async(...args)=>{const result=await runtime.transition(...args);if(args[2].requestKey==='clarification'&&loseClarificationAck){loseClarificationAck=false;throw new Error('Fixture lost transition acknowledgement');}return result;},transitionReceipt:(...args)=>runtime.transitionReceipt(...args)},receipts:true,authorize});
- const list=defineCapability({name:'tasks.list',description:'List the current owner latest fixture Tasks; no paging or filtering',input:{type:'object',properties:{},additionalProperties:false},output:{type:'object'},effect:'read',authorize,implementation:{kind:'function',execute:async(_input,{actor})=>({tasks:await Promise.all((await store.list(actor)).map(row=>runtime.state(actor,row.id))),nextPageToken:''})}});
- const dispatcher=new CapabilityDispatcher({capabilities:[source,agent,...controls,list]});
+ const listing=new TaskListing({store,readTask:(actor,id)=>runtime.state(actor,id),resolveOwner:a=>JSON.stringify([a.scopeId,a.subjectId]),cursorKey:Buffer.alloc(32,7)});
+ const pages=createTaskListCapability({listing,authorize,name:'tasks.page'});
+ const list=defineCapability({name:'tasks.list',description:'Page this endpoint Tasks through the shared listing module',input:{type:'object',properties:{tenant:{const:''},contextId:{const:''},status:{const:0},historyLength:false,statusTimestampAfter:false,includeArtifacts:{const:false},pageSize:{type:'integer',minimum:0,maximum:100},pageToken:{type:'string',maxLength:2048}},additionalProperties:false},output:{type:'object'},effect:'read',authorize,implementation:{kind:'function',execute:async(input,{actor})=>{const page=await listing.list(actor,{limit:input.pageSize||20,cursor:input.pageToken||undefined,capability:agent.name});return {tasks:page.items,nextPageToken:page.nextCursor??'',pageSize:page.items.length};}}});
+ const dispatcher=new CapabilityDispatcher({capabilities:[source,agent,...controls,list,pages]});
  const model={name:'surfaces-fixture',next:async({billingContext,messages})=>{
   modelCalls++;const task=await store.get(actor,billingContext.taskId),turn=billingContext.turn;
   if(task.input.goal==='cancel after source read')return turn===1?{type:'call',name:'source.read',input:{}}:{type:'wait',question:'Continue?'};
@@ -30,7 +32,7 @@ try{
   return {type:'finish',result:{value:42}};
  }};
  const rebuild=async()=>{await runtime?.stop();runtime=new AgentRuntime({store:new TaskStore({pool}),dispatcher,model,context:new ContextAssembler({skillRoot:os.tmpdir()}),version:'surfaces-v1'});dispatcher.tasks=runtime;await runtime.initialize();};await rebuild();
- const names=[agent.name,...controls.map(cap=>cap.name),list.name],access=request=>request.headers.get('authorization')==='Bearer fixture'?{actor,capabilities:names}:null;
+ const names=[agent.name,...controls.map(cap=>cap.name),list.name,pages.name],access=request=>request.headers.get('authorization')==='Bearer fixture'?{actor,capabilities:names}:null;
  const http=createCapabilityHttpHandler({dispatcher,resolveAccess:access});let a2a;
  server=createServer(async(req,res)=>{try{const chunks=[];for await(const chunk of req)chunks.push(chunk);const request=new Request(base+req.url,{method:req.method,headers:req.headers,...(chunks.length?{body:Buffer.concat(chunks)}:{})}),response=await (req.url.startsWith('/capabilities')?http:a2a)(request);res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));}catch{res.writeHead(500);res.end();}});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const base=`http://127.0.0.1:${server.address().port}`;
@@ -54,6 +56,8 @@ try{
  const pending=await invoke.sdk(agent.name,{goal:'cancel after source read'},'cancel-task');assert.equal((await runtime.tick()).status,'waiting');sourceAllowed=false;
  await assert.rejects(remote.getTask({id:pending.id}));assert.equal((await remote.cancelTask({id:pending.id})).status.state,TaskState.TASK_STATE_CANCELED);
  assert.equal((await invoke.mcp('tasks.state',{id:pending.id})).status,'cancelled');assert.equal(modelCalls,5);
+ const firstPage=await invoke.sdk('tasks.page',{limit:1,capability:agent.name});assert.equal(firstPage.items.length,1);assert.ok(firstPage.nextCursor);
+ const secondPage=await remote.listTasks(ListTasksRequest.fromJSON({pageSize:1,pageToken:firstPage.nextCursor}));assert.equal(secondPage.tasks.length,1);assert.equal(secondPage.nextPageToken,'');assert.notEqual(firstPage.items[0].id,secondPage.tasks[0].id);
  sourceAllowed=true;enabled=false;for(const call of Object.values(invoke))await assert.rejects(call('tasks.get',{id:original}));await assert.rejects(remote.getTask({id:original}));
- console.log(JSON.stringify({example:'core-agent-surfaces',status:'passed',entrypoints:[...Object.keys(invoke),'a2a'],oneOriginalTask:true,clarificationThroughMcp:true,originalTransitionReceipt:true,lostClarificationAckRecovered:true,reconstructedRuntime:true,verifiedSharedResult:true,cancelAfterSourceRevocation:true,currentAccessRevocation:true,modelCalls,actualModel:false,uiTested:false,processKill:false}));
+ console.log(JSON.stringify({example:'core-agent-surfaces',status:'passed',entrypoints:[...Object.keys(invoke),'a2a'],oneOriginalTask:true,clarificationThroughMcp:true,originalTransitionReceipt:true,lostClarificationAckRecovered:true,reconstructedRuntime:true,verifiedSharedResult:true,cancelAfterSourceRevocation:true,crossEntryTaskPagination:true,currentAccessRevocation:true,modelCalls,actualModel:false,uiTested:false,processKill:false}));
 }finally{await runtime?.stop();await client?.close();await mcp?.close();if(server){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
