@@ -1,4 +1,20 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import {execFile} from 'node:child_process';import {promisify} from 'node:util';import {fileURLToPath} from 'node:url';import {Pool} from 'pg';import {openApplication} from './app.mjs';import {fixtureOptions} from './fixture-model.mjs';import {createTaskObservationSource} from '@immedi/iaic-core';
+test('Generated app optionally restores editable Task plans into the model context',async()=>{
+ const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL required');
+ const schema='plan_starter_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let app;
+ try{
+  const actor={subjectId:'plan-user',scopeId:'plan-org'},job=structuredClone(fixtureOptions.job);job.configuration.tools.push('tasks.plan.read','tasks.plan.update');
+  const options={pool,...fixtureOptions,job,enablePlans:true,modelFactory:()=>({next:async({messages})=>{
+   const data=JSON.parse(messages.find(m=>m.role==='user').content);assert.equal(data.plan.revision,1);assert.equal(data.plan.steps[0].description,'Review proposed work');
+   return {type:'finish',result:{summary:'Plan restored',artifacts:[]},usage:{inputTokens:1,outputTokens:1}};
+  }}),verifyOutcome:async(_i,r)=>r.summary==='Plan restored'};
+  app=await openApplication(options);await app.ledger.grant(await app.scope(actor),{reference:'plan-fixture',amount:1000,evidence:{fixture:true}});
+  const task=await app.dispatcher.invoke('agent.work',{goal:'Read the saved plan',allowedTools:job.configuration.tools},{actor,callId:'planned-task'});
+  await app.dispatcher.invoke('tasks.plan.update',{id:task.id,expectedRevision:0,steps:[{id:'review',description:'Review proposed work',status:'pending'}]},{actor,callId:'plan-update'});
+  await app.close();app=null;app=await openApplication(options);
+  assert.equal((await app.runtime.tick()).status,'succeeded');assert.equal((await app.dispatcher.invoke('tasks.plan.read',{id:task.id},{actor})).revision,1);
+ }finally{await app?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
+});
 test('Queued Agent work survives a separate worker process with scoped resources, Session and pinned model',async()=>{
  const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw new Error('Set SUBMISSION_TEST_DATABASE_URL to an isolated test database');
  const schema='agent_starter_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let app;

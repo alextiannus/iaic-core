@@ -48,3 +48,10 @@ lookup (`tasks.control_result`), plus `tasks.list` when a persistent cursor key 
 configured. The host still authenticates each request; Capability authorization
 and Task ownership remain enforced. Keep a stable request key when supplying
 clarification and query its original receipt after response loss.
+# Optional working plans
+
+Pass `enablePlans: true` to `openApplication` and include `tasks.plan.read` /
+`tasks.plan.update` in the job and Task Tool scopes to allow plan operations.
+Current Workspace-backed plans then enter each inference context automatically.
+They survive app reconstruction but remain editable working claims; a completed
+plan never substitutes for the application outcome verifier. Defaults are unchanged.

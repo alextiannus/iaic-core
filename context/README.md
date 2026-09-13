@@ -61,3 +61,9 @@ This gives Agents information for planning verification and completion before
 spending all available calls. It does not force a model to use its budget well or
 prove successful completion. A PostgreSQL fixture checks the counts through a
 wait, Runtime reconstruction, explicit clarification and final completion.
+# Current Task plans
+
+Optional `planProvider({actor,task})` supplies current-authorized working progress
+on each assembly. `TaskPlans.read` is a Workspace-backed implementation. The plan
+is retained under the ordinary context size limit and is not an authorization or
+completion verdict. See [Task plans](../workspace/PLANS.md).

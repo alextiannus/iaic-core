@@ -8,13 +8,14 @@ import {defineCapability} from '../capabilities/index.js';
 import {createKnowledgeCapabilities} from '../knowledge/tools.js';
 import {memoryTools} from '../memory/tools.js';
 import {workspaceTools} from '../workspace/tools.js';
+import {createTaskPlanCapabilities} from '../workspace/plans.js';
 const object={type:'object'},empty={type:'object',properties:{},additionalProperties:false};
 const reference={type:'object',properties:{path:{type:'string',minLength:1,maxLength:300},revision:{type:'integer',minimum:1},digest:{type:'string',pattern:'^[a-f0-9]{64}$'}},required:['path','revision','digest'],additionalProperties:false};
 const sameReference=(a,b)=>a&&b&&a.path===b.path&&a.revision===b.revision&&a.digest===b.digest;
 
 // Assemble basic Agent work capabilities against explicit module ports.
 // Host-specific business tools can be supplied separately; there is one Runtime.
-export function createAgentTaskCapabilities({name='assistant.run',toolNamespace='',description='Carry out supported personal work and return evidence-backed results and exact artifact references.',memory,workspace,skillCatalog,knowledge=null,sessions=null,events=null,mandates=null,taskReader=null,authorize,verifyOutcome,extraCapabilities=[],delegationTargets=[],deferred=null,toolCallLimits}){
+export function createAgentTaskCapabilities({name='assistant.run',toolNamespace='',description='Carry out supported personal work and return evidence-backed results and exact artifact references.',memory,workspace,skillCatalog,knowledge=null,sessions=null,events=null,mandates=null,taskReader=null,authorize,verifyOutcome,extraCapabilities=[],delegationTargets=[],deferred=null,toolCallLimits,plans=null}){
  if(typeof verifyOutcome!=='function')throw new Error('Assistant requires an application outcome verifier');
  if(typeof toolNamespace!=='string'||(toolNamespace&&!/^[a-z][a-z0-9_.-]*$/.test(toolNamespace)))throw new Error('Invalid Agent tool namespace');
  const expose=canonical=>toolNamespace?toolNamespace+'.'+canonical:canonical;
@@ -58,6 +59,7 @@ export function createAgentTaskCapabilities({name='assistant.run',toolNamespace=
   definitions.push(defineCapability({name:tool.name,description:'Read earlier events in this task session. Supply its sessionId and pinned throughSequence; later messages are outside this task context.',input:{...tool.inputSchema,required:['sessionId','throughSequence']},output:object,effect:'read',authorize,revalidate:(input,_result,context)=>execute(input,context),implementation:{kind:'function',execute}}));
  }
  if(knowledge)definitions.push(...createKnowledgeCapabilities({knowledge,authorize}));
+ if(plans)definitions.push(...createTaskPlanCapabilities({plans,authorize}));
  if(deferred)definitions.push(...createDeferredControlCapabilities({deferred,authorize}));
  // Only resources owned by this composition are renamed. Host tools keep their contracts.
  if(toolNamespace)definitions=definitions.map(definition=>defineCapability({...definition,name:expose(definition.name)}));

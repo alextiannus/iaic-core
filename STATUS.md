@@ -254,3 +254,21 @@ PostgreSQL checks cover returned/unknown/rejected original actions, batch closur
 restart, revocation, independent effect counts and server enforcement despite a
 model ignoring discovery. An initial test assertion assumed every feedback event
 had an error string; it was corrected to permit user-question feedback.
+
+## Workspace-backed persistent Task plans
+
+TaskPlans and shared plan read/update Capabilities now provide bounded, editable
+steps and progress over the existing Workspace port. Current Task access,
+Workspace scope and version checks apply; executing Agent calls are confined to
+their own Task, and terminal Task updates reject. ContextAssembler's optional
+planProvider loads the current plan on each inference. Shared Agent composition
+and the opt-in Agent starter expose the same module. There is no new store,
+executor, fixed workflow or mandatory extra model step.
+
+Plans are claims and working materials, not business facts, permission or outcome
+verification. The independent example deliberately rejects an all-done plan
+without effects, then persists progress, reconstructs Runtime and verifies one
+original business write with readback. PostgreSQL checks also exercise CAS races,
+stale updates, current revocation, scoped Task access and refreshed historical
+plan content. This adds a planning foundation, not a claim that the prior real
+model's repeated mutations or long-task completion failures are resolved.
