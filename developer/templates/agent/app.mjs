@@ -6,7 +6,8 @@ import {
 } from '@immedi/iaic-core';
 
 // This is application-owned composition. Each imported Core module remains independently replaceable.
-export async function openApplication({pool,skillRoot,job,profiles,resolveSecret,modelFactory,userModels=null,routing=null,tokenPolicies,authorize,verifyOutcome,version,runtimeLimits={},taskCursorKey=null,toolCallLimits,enablePlans=false,scheduling=null,eventWork=null,executionPolicy=null,mandates=null}){
+export async function openApplication({pool,skillRoot,job,profiles,resolveSecret,modelFactory,userModels=null,routing=null,tokenPolicies,authorize,verifyOutcome,version,runtimeLimits={},taskCursorKey=null,toolCallLimits,enablePlans=false,scheduling=null,eventWork=null,executionPolicy=null,mandates=null,extraCapabilities=[]}){
+ if(!Array.isArray(extraCapabilities))throw new Error('extraCapabilities must be an array of host-defined Capabilities');
  if(mandates!==null&&(typeof mandates?.authorizeGrant!=='function'||typeof mandates?.sourceFor!=='function'))throw new Error('Mandates require trusted authorizeGrant and sourceFor ports');
  if(eventWork!==null&&(!scheduling||typeof eventWork?.sourceFor!=='function'||typeof eventWork?.buildTask!=='function'))throw new Error('Event work requires scheduling identity restoration, sourceFor and buildTask ports');
  if(scheduling!==null&&(!scheduling||typeof scheduling.restoreActor!=='function'||(scheduling.isEnabled!==undefined&&typeof scheduling.isEnabled!=='function')))throw new Error('Scheduling requires a trusted restoreActor port and optional isEnabled function');
@@ -36,7 +37,7 @@ export async function openApplication({pool,skillRoot,job,profiles,resolveSecret
  const deferredStore=scheduling?new DeferredTaskStore({pool,claimScope:{assistantId:job.id}}):null;if(deferredStore)await deferredStore.initialize();
  const deferred=scheduling?createAgentDeferredTasks({name:'agent.work',store:deferredStore,resolveScope:scope,validateTask:assistantMandates?(actor,input)=>assistantMandates.checkTask(actor,{capability:'agent.work',input}):null,restoreActor:async original=>{const actor=await scheduling.restoreActor(original),current=await scope(actor);if(['applicationId','assistantId','subjectId'].some(key=>current[key]!==original[key]))throw Object.assign(new Error('Restored schedule identity does not match its owner'),{statusCode:403});return actor;},dispatcher:{get capabilities(){return dispatcher.capabilities;},invoke:(...args)=>dispatcher.invoke(...args)},taskStore:tasks,sessions,isEnabled:scheduling.isEnabled,reservedPrefixes:['agent-call:',...(eventWork?[EVENT_SUBSCRIPTION_TASK_PREFIX]:[])]}):null;
  const eventTasks=eventWork?new EventTaskSubscriptions({subscriptions:eventSubscriptions,deferred,buildTask:eventWork.buildTask}):null;
- const capabilities=createAgentTaskCapabilities({name:'agent.work',description:job.purpose,memory,workspace,skillCatalog:skills,knowledge,sessions,events,mandates:assistantMandates,authorize:check,verifyOutcome,toolCallLimits,plans,deferred}).map(cap=>defineCapability({...cap,authorize:async(actor,input)=>{
+ const capabilities=createAgentTaskCapabilities({name:'agent.work',description:job.purpose,memory,workspace,skillCatalog:skills,knowledge,sessions,events,mandates:assistantMandates,extraCapabilities,authorize:check,verifyOutcome,toolCallLimits,plans,deferred}).map(cap=>defineCapability({...cap,authorize:async(actor,input)=>{
   await check(actor);const tools=job.configuration.tools;
   if(cap.implementation.kind==='agent'&&(!input.allowedTools||input.allowedTools.some(name=>!tools.includes(name))))return false;
   if(cap.implementation.kind==='function'&&!tools.includes(cap.name))return false;

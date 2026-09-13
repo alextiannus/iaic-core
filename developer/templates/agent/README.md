@@ -151,3 +151,37 @@ its reference and rechecks it at actual admission: an accepted queue receipt is
 not proof the Mandate will remain valid when work starts. Configure the same
 Mandate option on the worker after restart. Removing the option does not grant
 permission to previously bound work.
+
+# Application-owned business capabilities
+
+Pass `extraCapabilities: [yourCapability, ...]` to `openApplication`, using existing
+`defineCapability` contracts exported from your application's own domain modules.
+Add their names to `job.configuration.tools` and to the individual Task's explicit
+`allowedTools` where appropriate. The starter registers them through the same
+`createAgentTaskCapabilities` composition, Dispatcher and HTTP discovery/execution.
+Current application authorization, job scope and each Capability's own authorizer
+all remain mandatory. A registered business write is not implicitly added to a
+Task's permitted tools. No business schema is copied into Core.
+
+```js
+import {reserveInventory} from './domain/inventory.mjs';
+const app = await openApplication({
+  ...applicationOptions,
+  extraCapabilities: [reserveInventory],
+  verifyOutcome: verifyInventoryOutcome,
+});
+```
+
+The application owns domain transactions, idempotency/reconciliation semantics,
+source access, result verification and pool/service lifecycle. Declare a current
+`revalidate` port when Agent history needs the result again; return independently
+checkable business evidence. Capability schemas alone are not outcome verification.
+Changing domain code requires a new host Runtime version/evaluated release binding:
+include added executable files in the host revision hash. The default config hash
+cannot discover arbitrary imported domain files or external service changes.
+
+The generated test injects an application-owned PostgreSQL operation, checks its
+own rule and identity denial, reconstructs the application after Task admission,
+then verifies one domain effect, two fixture model calls and metering. HTTP exposes
+the same declared Capability and enforces its authorizer. Removing it from job
+scope prevents further calls even while the host registration remains available.

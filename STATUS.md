@@ -465,3 +465,25 @@ previous baseline capability's 23,765 Tokens are not charged/count-added again.
 No paid retry, post-release inference or production deployment occurred. This
 connects actual Agent evaluation to local release selection/resource/current-binding
 checks; existing Runtime-stop and observation/Docker evidence remains separate.
+
+## Business Capability injection in generated Agent applications
+
+The Agent starter now accepts optional `extraCapabilities`, forwarding existing
+host-defined contracts into createAgentTaskCapabilities and the shared Dispatcher.
+Applications can import business operations from their own domain modules without
+editing the template's internal composition. Job and per-Task scopes, current
+application access and each operation's own authorizer remain independent checks.
+The HTTP entry discovers the same declared operations. Core owns no domain tables
+or transaction rules; the host verifier checks authoritative application results.
+
+All 42 independent installed examples pass. The new generated-app check uses an
+application-owned PostgreSQL total, denies an out-of-policy amount and another
+owner, reconstructs after Agent Task admission, and verifies one business write,
+two fixture model calls and settled allowance. The same HTTP contract denies an
+unauthorized amount; removing the operation from the job scope prevents further
+execution. No actual model, new execution engine or production deployment is used.
+
+The host must include added domain executable resources in its Runtime revision
+or evaluated release binding. The starter's existing default hash cannot discover
+arbitrary imported modules/external service changes. This is a basic application
+composition port, not automatic business-code loading or a new plugin lifecycle.

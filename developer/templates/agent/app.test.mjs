@@ -175,3 +175,27 @@ test('Generated Mandates survive reconstruction and stop revoked work before sub
   assert.ok(![...app.dispatcher.capabilities.keys()].some(name=>name.includes('mandate')));
  }finally{await app?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
 });
+
+test('Generated Agent invokes an independently owned domain Capability with shared authorization and outcome checks',async()=>{
+ const {defineCapability}=await import('@immedi/iaic-core');
+ const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL required');
+ const schema='domain_starter_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let app;
+ try{
+  await pool.query('CREATE TABLE application_totals(owner text PRIMARY KEY,value integer NOT NULL)');await pool.query("INSERT INTO application_totals VALUES('domain-owner',15)");
+  const actor={subjectId:'domain-owner',scopeId:'domain-org'},job=structuredClone(fixtureOptions.job);job.configuration.tools.push('domain.add');let executions=0,modelCalls=0;
+  const read=async()=>Number((await pool.query('SELECT value FROM application_totals WHERE owner=$1',[actor.subjectId])).rows[0].value);
+  const domain=defineCapability({name:'domain.add',description:'Add an authorized amount to the application-owned total',input:{type:'object',properties:{amount:{type:'integer',minimum:1,maximum:100}},required:['amount'],additionalProperties:false},output:{type:'object',properties:{value:{type:'integer'}},required:['value'],additionalProperties:false},effect:'write',retry:'never-replay',authorize:(a,i)=>a.subjectId===actor.subjectId&&a.scopeId===actor.scopeId&&i.amount<=30,revalidate:async()=>({value:await read()}),implementation:{kind:'function',execute:async(input,{actor})=>{executions++;return (await pool.query('UPDATE application_totals SET value=value+$1 WHERE owner=$2 RETURNING value',[input.amount,actor.subjectId])).rows[0];}}});
+  const options={pool,...fixtureOptions,job,extraCapabilities:[domain],modelFactory:()=>({next:async({messages})=>{modelCalls++;const c=JSON.parse(messages.find(m=>m.role==='user').content);return {...(c.calls.length?{type:'finish',result:{summary:String(c.calls[0].result.value),artifacts:[]}}:{type:'call',name:'domain.add',input:{amount:27}}),usage:{inputTokens:1,outputTokens:1}};}}),verifyOutcome:async(_i,r,{history})=>r.summary==='42'&&await read()===42&&history.calls.some(c=>c.capability==='domain.add'&&c.status==='succeeded')};
+  app=await openApplication(options);
+  await assert.rejects(app.dispatcher.invoke('domain.add',{amount:31},{actor,callId:'denied-amount'}),{statusCode:403});await assert.rejects(app.dispatcher.invoke('domain.add',{amount:1},{actor:{...actor,subjectId:'other'},callId:'denied-owner'}),{statusCode:403});assert.equal(executions,0);
+  await app.ledger.grant(await app.scope(actor),{reference:'domain-fixture',amount:1000,evidence:{fixture:true}});
+  const task=await app.dispatcher.invoke('agent.work',{goal:'Add 27 to my application total and verify 42',allowedTools:['domain.add']},{actor,callId:'domain-work'});
+  await app.close();app=null;app=await openApplication(options);
+  assert.equal((await app.runtime.tick()).status,'succeeded');assert.equal((await app.runtime.get(actor,task.id)).result.summary,'42');assert.equal(await read(),42);assert.equal(executions,1);assert.equal(modelCalls,2);assert.equal((await app.ledger.balance(await app.scope(actor))).balance,'996');
+  const {createApplicationHttpHandler}=await import('./http.mjs'),{CapabilityHttpClient}=await import('@immedi/iaic-core');
+  const handler=createApplicationHttpHandler({app,job,resolveActor:()=>actor}),client=new CapabilityHttpClient({url:'https://application.test/capabilities',fetch:(url,init)=>handler(new Request(url,init))});
+  assert.ok((await client.list()).some(c=>c.name==='domain.add'));await assert.rejects(client.invoke('domain.add',{amount:31},{requestKey:'http-denied'}),{statusCode:403});assert.equal(executions,1);
+  await app.close();app=null;const without=structuredClone(job);without.configuration.tools=without.configuration.tools.filter(n=>n!=='domain.add');app=await openApplication({...options,job:without});
+  await assert.rejects(app.dispatcher.invoke('domain.add',{amount:1},{actor,callId:'not-in-job'}),{statusCode:403});assert.equal(executions,1);
+ }finally{await app?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
+});
