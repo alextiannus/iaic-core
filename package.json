@@ -35,7 +35,8 @@
     "./notifications/*": "./notifications/*",
     "./evaluation/*": "./evaluation/*",
     "./releases/*": "./releases/*",
-    "./storage/*": "./storage/*"
+    "./storage/*": "./storage/*",
+    "./execution/*": "./execution/*"
   },
   "files": [
     "index.js",
@@ -72,7 +73,8 @@
     "notifications",
     "evaluation",
     "releases",
-    "storage"
+    "storage",
+    "execution"
   ],
   "dependencies": {
     "ajv": "8.20.0",

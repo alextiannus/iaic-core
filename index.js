@@ -85,3 +85,6 @@ export {createReleaseCapabilities} from './releases/capabilities.js';
 export {FileObjectStore,ObjectStorage} from './storage/objects.js';
 export {createObjectCapabilities} from './storage/capabilities.js';
 export {ReleaseResources} from './releases/resources.js';
+
+export {DockerSandbox} from './execution/docker.js';
+export {ReleasedCode,createCodeExecutionCapability} from './execution/released-code.js';

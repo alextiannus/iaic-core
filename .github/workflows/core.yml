@@ -37,6 +37,7 @@ jobs:
           node-version: 20.19.0
           cache: npm
       - run: npm ci --ignore-scripts
+      - run: docker pull node@sha256:8094c002d08262dba12645a3b4a15cd6cd627d30bc782f53229a2ec13ee22a00
       - run: npm run test:modules
       - run: npm exec --yes --package=typescript@5.9.3 -- tsc --noEmit --strict --lib es2022,dom --module nodenext --moduleResolution nodenext examples/core-http/client-types.mts
       - run: npm run verify:core-package

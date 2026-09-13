@@ -1,0 +1,15 @@
+# Released code execution
+
+`DockerSandbox` is a replaceable execution adapter, separate from the Agent loop and application services. The host pins an OCI image digest and entrypoint; the caller supplies an already materialized input directory and JSON/text stdin. The host must have Docker running and pre-pull the pinned image. Images are never pulled implicitly during execution.
+
+The adapter runs as a numeric non-root user with a read-only root and input mount, no external network, dropped capabilities, no-new-privileges, bounded memory/CPU/processes, a small temporary filesystem, a deadline and bounded combined stdout/stderr. Host environment variables and Docker sockets are not mounted into the container. The default UID/GID matches the host owner so private resource files remain readable. Hosts running as root must configure a non-root identity and compatible input permissions.
+
+`execute({directory, stdin, signal})` returns execution status, exit code, bounded output and cleanup evidence. Cancellation, timeout, output limit and nonzero exit are distinct. A separate container removal follows CLI termination. If cleanup cannot be confirmed, status is `unknown`; never automatically replay it. Containers are retained until explicit cleanup, avoiding races with automatic container deletion. A cancelled Docker request with an absent container remains unknown because the daemon may still be processing creation.
+
+`ReleasedCode({resources, sandbox, parentDirectory, authorize})` composes current authorization with `ReleaseResources`: verify the release binding and resource hashes, materialize a fresh directory, execute, and remove inputs after confirmed container cleanup. Unconfirmed cleanup returns `resourceDirectory`; errors expose it for host reconciliation. `createCodeExecutionCapability` exposes this through the shared dispatcher as `code.run`, with write effects and no automatic replay. Exit zero alone is not independent verification of the user's goal.
+
+The host controls image, command, root directories and Docker access. Mount only fresh verified resources; this adapter does not validate arbitrary directory symlinks or protect an already compromised Docker host. It is a Linux container boundary, not a claim of VM isolation or protection against all kernel vulnerabilities.
+
+`onStart({containerName,image,directory})` runs before launch and can persist a receipt. Whole-host/process-crash recovery and orphan reconciliation still need a durable execution-job adapter; this module does not claim that capability. Device control and remote execution providers remain separate extensions.
+
+The real Docker integration checks exercise non-root execution, read-only inputs, environment isolation, network isolation, timeout, output limits, cancellation and failure. The independently installed `core-releases` example executes hash-verified released code through `code.run` and denies subsequent execution after the release is stopped. Its synthetic arithmetic program is integration evidence, not actual-model acceptance.

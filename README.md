@@ -19,10 +19,13 @@ Use your own database connection. The examples create temporary synthetic schema
 The configured-jobs example combines user-plus-organization scopes, an organization-shared job, Memory, Workspace, sourced Knowledge, selected Skills, models and platform allowance, Session continuity, model-directed scheduling and an external MCP client. It includes application policy to illustrate composition; it does not prescribe job types or business flows.
 
 ```sh
+docker pull node@sha256:8094c002d08262dba12645a3b4a15cd6cd627d30bc782f53229a2ec13ee22a00
 npm test                     # module checks and 26 standalone examples
 npm run verify:core-package  # pack, install elsewhere, run examples there
 npm pack                     # create a reusable Core npm archive
 ```
+
+The full test suite and package verification also require a running Docker daemon and the pinned image above for actual sandbox execution.
 
 An application installs the resulting `.tgz` and imports `@immedi/iaic-core` or a module subpath. It does not import a platform server or copy Core into every application. See [GETTING_STARTED.md](GETTING_STARTED.md).
 
@@ -36,6 +39,7 @@ An application installs the resulting `.tgz` and imports `@immedi/iaic-core` or 
 | Evaluate capability changes | [Evaluation](evaluation/README.md): independent grading, complete case coverage, baselines and evidence |
 | Select evaluated releases | [Releases](releases/README.md): immutable version bindings, canary selection, stop and rollback |
 | Store binary resources | [Object storage](storage/README.md) and [release resource loading](releases/README.md): scoped content references and verified files |
+| Execute released code | [Execution](execution/README.md): pinned Docker sandbox, resource loading and shared code capability |
 | Describe executable operations | [Capabilities](capabilities/README.md): schemas, authorization, functions or Agent implementations, result verification |
 | Persistent work and model loop | [Agent](agent/README.md), [Tasks](tasks/README.md), [Context](context/README.md) |
 | Configure jobs and long-lived work identity | [Identities](identities/README.md): `AgentRegistry.register`, host JSON configuration, revision-bound tasks |
