@@ -144,3 +144,5 @@ export {PostgresModelCapacity} from './agent/capacity-store.js';
 export {capacityModel,ModelCapacityReconciliation} from './agent/capacity.js';
 
 export {createHttpNotificationChannel} from './notifications/http-channel.js';
+
+export {AssistantModelRouting} from './assistants/model-routing.js';

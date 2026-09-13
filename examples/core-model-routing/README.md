@@ -1,0 +1,3 @@
+# Persistent model routing
+
+Run `SUBMISSION_TEST_DATABASE_URL=<isolated PostgreSQL> node examples/core-model-routing/run.mjs` from an installed Core consumer with pg installed. The example creates and drops a random schema. It combines AssistantModelRouting, AssistantModels, TokenLedger and AgentRuntime. A Task created while the primary is unavailable keeps its backup model after service reconstruction; a new Task selects the now-available primary. Both use the existing metered gateway. Models and availability are deterministic; no provider is contacted or secret required. See assistants/ROUTING.md for policy and recovery rules.
