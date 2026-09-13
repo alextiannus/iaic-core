@@ -30,7 +30,8 @@
     "./mcp/*": "./mcp/*",
     "./handoffs/*": "./handoffs/*",
     "./http/*": "./http/*",
-    "./accounts/*": "./accounts/*"
+    "./accounts/*": "./accounts/*",
+    "./subscriptions/*": "./subscriptions/*"
   },
   "files": [
     "index.js",
@@ -62,7 +63,8 @@
     "SOURCE.json",
     "http",
     "CORE_REQUIREMENTS.md",
-    "accounts"
+    "accounts",
+    "subscriptions"
   ],
   "dependencies": {
     "ajv": "8.20.0",

@@ -63,3 +63,8 @@ export {CapabilityHttpClient,CapabilityHttpError} from './http/client.js';
 export {PostgresAccountStore} from './accounts/store.js';
 export {AccountDirectory} from './accounts/service.js';
 export {createAccountCapabilities} from './accounts/capabilities.js';
+
+export {PlanCatalog} from './subscriptions/plans.js';
+export {PostgresSubscriptionStore} from './subscriptions/store.js';
+export {Subscriptions} from './subscriptions/service.js';
+export {createSubscriptionCapabilities} from './subscriptions/capabilities.js';
