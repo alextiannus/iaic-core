@@ -16,4 +16,4 @@ Grant revocation denies later shared reads and projections, including ContextAss
 
 Real PostgreSQL tests cover original ownership/version continuity, current policy and grant revocation, source deletion, corrupted content and out-of-grant references. The persistent Task integration uses the actual AgentRuntime, Grant, shared payer budget and Workspace to create an output as the delegate, then lets the issuer read its approved reference. Other isolated tests use a fixture Task port; those do not independently establish Task recovery. All current samples remain deterministic-model evidence.
 
-Parent/child scheduling, cancellation sweeps and automatic failed-child takeover remain separate collaboration work. Existing Artifact retention, correction/deletion propagation outside this sharing interface and full real-model acceptance also remain incomplete.
+DelegatedTasks supplies Runtime-driven cancellation sweeps. Parent/child scheduling and automatic failed-child takeover remain separate collaboration work. Existing Artifact retention, correction/deletion propagation outside this sharing interface and full real-model acceptance also remain incomplete.
