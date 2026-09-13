@@ -1,0 +1,13 @@
+# Actual-model persistent Agent continuity
+
+This opt-in evaluation uses the public Agent application template, not a separate Runtime. A persistent configured job owns scoped Memory, Knowledge, Skills and Workspace. The originating application admits a Task linked to a Session, closes that Session, and stops its Runtime. A separate worker process then loads the original Agent identity/model and executes the Task. The parent reopens the application to inspect the saved JSON, original Task and current result projection in the closed Session.
+
+The authored synthetic goal combines project identity from the Session, a presentation preference from Memory, raw source records from Knowledge and an installed summary Skill. The external grader checks exact persisted content and resource/continuity evidence. The expected result is kept in the parent evidence and is not passed to the worker. A fresh random project identifier prevents a fixed answer from satisfying the Session check; this is still an authored sample, not independent blind holdout coverage.
+
+Set `IAIC_RUN_REAL_ACCEPTANCE=1`, a fresh `IAIC_ACCEPTANCE_OUTPUT`, the committed `IAIC_SOURCE_REVISION`, local isolated `SUBMISSION_TEST_DATABASE_URL`, and `IAIC_MODEL`, `IAIC_PROVIDER`, `IAIC_MODEL_BASE_URL`, `IAIC_MODEL_API_KEY`. Run `node examples/core-real-continuity/run.mjs`. Credentials remain in the environment. Ordinary CI does not run this paid evaluation.
+
+Before inference, frozen.json records source, model, Skill digest, data and execution limits: 12 model turns, 12 tool calls, batches at most four, 60-second model deadline and five-minute Task deadline. Platform units are a synthetic allowance policy and remain distinct from provider Tokens/currency. Failed or waiting outcomes and trace evidence are preserved; no automatic re-run or provider fallback is performed. result.json includes independent checks and fullCoreAcceptance:false.
+
+For an explicit no-provider preflight, also set `IAIC_CONTINUITY_FIXTURE=1` and use fixture model/credential values. That mode imports a deterministic fixture provider and marks result.json realModel:false; it is never selected after a real provider failure. Do not count fixture usage as actual model consumption.
+
+This checks actual-model queued work after Session closure and worker process separation, not SIGKILL during inference, recurring scheduling, autonomous delegation or all Note 30 acceptance criteria. Only synthetic local schemas are created/dropped. Production services and private business data are not used.

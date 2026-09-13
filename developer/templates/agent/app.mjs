@@ -5,7 +5,8 @@ import {
 } from '@immedi/iaic-core';
 
 // This is application-owned composition. Each imported Core module remains independently replaceable.
-export async function openApplication({pool,skillRoot,job,profiles,resolveSecret,modelFactory,userModels=null,routing=null,tokenPolicies,authorize,verifyOutcome,version}){
+export async function openApplication({pool,skillRoot,job,profiles,resolveSecret,modelFactory,userModels=null,routing=null,tokenPolicies,authorize,verifyOutcome,version,runtimeLimits={}}){
+ if(!runtimeLimits||Object.getPrototypeOf(runtimeLimits)!==Object.prototype||Object.entries(runtimeLimits).some(([k,v])=>!['maxTurns','maxCalls','maxBatchCalls','modelTimeoutMs','taskTimeoutMs'].includes(k)||!Number.isSafeInteger(v)||v<1))throw new Error('Supply positive integer Runtime limits only');
  if(typeof authorize!=='function'||typeof verifyOutcome!=='function')throw new Error('Supply current application authorization and independent outcome verification');
  const check=async actor=>{if(await authorize(actor)!==true)throw Object.assign(new Error('Application access denied'),{statusCode:403});return true;};
  const scope=async actor=>{await check(actor);return {applicationId:actor.scopeId,assistantId:job.id,subjectId:JSON.stringify([actor.subjectId,job.id])};};
@@ -30,7 +31,7 @@ export async function openApplication({pool,skillRoot,job,profiles,resolveSecret
  const idSchema={type:'object',properties:{id:{type:'string',minLength:1}},required:['id'],additionalProperties:false};
  for(const action of ['get','cancel','resume'])capabilities.push(defineCapability({name:'tasks.'+action,description:action+' the current owner task',input:idSchema,output:{type:'object'},effect:action==='get'?'read':'write',...(action==='get'?{}:{retry:action==='cancel'?'idempotent':'never-replay'}),authorize:check,implementation:{kind:'function',execute:({id},{actor})=>action==='get'?runtime.get(actor,id):runtime.transition(actor,id,{action})}}));
  const dispatcher=new CapabilityDispatcher({capabilities});
- runtime=new AgentRuntime({store:tasks,dispatcher,model:{name:'host-model-resolver'},resolveModel:request=>(modelRouting||models).resolve(request),context:new ContextAssembler({skillRoot,sessionProvider:({actor,task})=>task.input.session?sessions.context(actor,task.input.session):null}),version,agentIdentity:{bind:({actor,capability})=>registry.bind(actor,job.id,capability.name),check:({actor,task,binding})=>registry.check(actor,binding,task.capability)}});
+ runtime=new AgentRuntime({...runtimeLimits,store:tasks,dispatcher,model:{name:'host-model-resolver'},resolveModel:request=>(modelRouting||models).resolve(request),context:new ContextAssembler({skillRoot,sessionProvider:({actor,task})=>task.input.session?sessions.context(actor,task.input.session):null}),version,agentIdentity:{bind:({actor,capability})=>registry.bind(actor,job.id,capability.name),check:({actor,task,binding})=>registry.check(actor,binding,task.capability)}});
  dispatcher.tasks=runtime;
  try{await runtime.initialize();}catch(error){await runtime.stop();throw error;}
  const entry={capabilities:dispatcher.capabilities,invoke:(name,input,context)=>name==='agent.work'?startSessionTask({sessions,actor:context.actor,input,startTask:()=>dispatcher.invoke(name,input,context)}):dispatcher.invoke(name,input,context)};
