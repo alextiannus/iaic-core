@@ -40,3 +40,11 @@ The second generated test exercises these actual modules with PostgreSQL, confir
 The host can pass `runtimeLimits` to `openApplication` with positive integer `maxTurns`, `maxCalls`, `maxBatchCalls`, `modelTimeoutMs` and `taskTimeoutMs`. Unknown fields are rejected; identity, model resolution, storage and policy cannot be replaced through this limits object. Core validates its supported batch range (1–8). Defaults remain the existing Runtime defaults. Bound batches are persisted and checked by the same Runtime; dependent calls still wait for earlier results. The opt-in `core-real-continuity` example uses this template for a separately executed Task after Session closure.
 
 The default tool scope includes Memory listing as well as exact-key reads. Agents can discover a user's current memory keys without relying on hard-coded keys known only to a fixture. Applications still choose their own allowed tools and resource policy.
+
+The HTTP entry uses `http.mjs` to expose the Task controls actually registered by
+the application alongside `agent.work` and the job's declared tools. This includes
+state reads, clarification (`tasks.provide_input`) and original transition receipt
+lookup (`tasks.control_result`), plus `tasks.list` when a persistent cursor key is
+configured. The host still authenticates each request; Capability authorization
+and Task ownership remain enforced. Keep a stable request key when supplying
+clarification and query its original receipt after response loss.

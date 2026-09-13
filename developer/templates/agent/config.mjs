@@ -4,7 +4,7 @@ import {fileURLToPath} from 'node:url';
 export const job=JSON.parse(await fs.readFile(new URL('./job.json',import.meta.url),'utf8'));
 export const skillRoot=fileURLToPath(new URL('./skills',import.meta.url));
 const sourceHash=createHash('sha256');
-for(const name of ['app.mjs','config.mjs','server.mjs','job.json','vendor/core.tgz',...job.configuration.skills.map(p=>'skills/'+p)]){sourceHash.update(name);sourceHash.update(await fs.readFile(new URL(name,import.meta.url)));}
+for(const name of ['app.mjs','config.mjs','server.mjs','http.mjs','job.json','vendor/core.tgz',...job.configuration.skills.map(p=>'skills/'+p)]){sourceHash.update(name);sourceHash.update(await fs.readFile(new URL(name,import.meta.url)));}
 export const sourceRevision=sourceHash.digest('hex');
 export function optionsFromEnvironment(env=process.env){
  if(!env.IAIC_MODEL||!env.APP_SUBJECT||!env.APP_ORGANIZATION)throw new Error('Set IAIC_MODEL, APP_SUBJECT and APP_ORGANIZATION');

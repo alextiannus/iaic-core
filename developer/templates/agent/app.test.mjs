@@ -52,3 +52,30 @@ test('Generated app composes explicit routing, shared rate/capacity and original
   allowed=false;await assert.rejects(app.dispatcher.invoke('agent.work',input,{actor,callId:'denied-work'}),{statusCode:403});
  }finally{await app?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
 });
+
+test('Generated HTTP entry supports clarification, original receipts and current Task discovery',async()=>{
+ const {createServer}=await import('node:http'),{once}=await import('node:events'),{CapabilityHttpClient}=await import('@immedi/iaic-core/http/client.js'),{createApplicationHttpHandler}=await import('./http.mjs');
+ const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL required');
+ const schema='http_starter_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let app,server;
+ try{
+ const actor={subjectId:'http-owner',scopeId:'http-org'};let allowed=true;
+ app=await openApplication({pool,...fixtureOptions,taskCursorKey:Buffer.alloc(32,8),authorize:a=>allowed&&a.subjectId===actor.subjectId&&a.scopeId===actor.scopeId,
+  modelFactory:()=>({next:async({messages})=>{const data=JSON.parse(messages[1].content);const action=!data.calls.length?{type:'call',name:'my_list_assistant_memories',input:{}}:!data.events.some(e=>e.kind==='input')?{type:'wait',question:'Which format should I use?'}:{type:'finish',result:{summary:'Confirmed format',artifacts:[]}};return {...action,usage:{inputTokens:1,outputTokens:1}};}}),
+  verifyOutcome:async(_input,result,{history})=>result.summary==='Confirmed format'&&history.events.some(e=>e.kind==='input'&&e.data.text==='Plain text')});
+ await app.ledger.grant(await app.scope(actor),{reference:'http-fixture',amount:1000,evidence:{fixture:true}});
+ const handler=createApplicationHttpHandler({app,job:fixtureOptions.job,resolveActor:request=>request.headers.get('authorization')==='Bearer fixture'?actor:null});
+ server=createServer(async(req,res)=>{try{const chunks=[];for await(const chunk of req)chunks.push(chunk);const response=await handler(new Request('http://localhost'+req.url,{method:req.method,headers:req.headers,...(req.method==='POST'?{body:Buffer.concat(chunks)}:{})}));res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));}catch{res.writeHead(500).end();}});server.listen(0,'127.0.0.1');await once(server,'listening');
+ const client=new CapabilityHttpClient({url:'http://127.0.0.1:'+server.address().port+'/capabilities',headers:()=>({authorization:'Bearer fixture'})});
+ const names=(await client.list()).map(c=>c.name);for(const name of ['tasks.state','tasks.provide_input','tasks.control_result','tasks.list'])assert.ok(names.includes(name),name);
+ assert.ok(!names.includes('my_forget_assistant_memory'));
+ const task=(await client.invoke('agent.work',{goal:'Read my preferences and confirm format',allowedTools:['my_list_assistant_memories']},{requestKey:'new-task'})).result;
+ assert.equal((await app.runtime.tick()).waiting_reason,'input');const view=(await client.invoke('tasks.get',{id:task.id})).result;assert.equal(view.inputRequest.question,'Which format should I use?');
+ const input={id:task.id,input:'Plain text'};const original=(await client.invoke('tasks.provide_input',input,{requestKey:'clarification'})).result;
+ const receipt=(await client.invoke('tasks.control_result',{id:task.id,requestKey:'clarification'})).result;assert.equal(receipt.status,'confirmed');assert.deepEqual(receipt.task,original);
+ assert.equal((await app.runtime.tick()).status,'succeeded');assert.deepEqual((await client.invoke('tasks.provide_input',input,{requestKey:'clarification'})).result,original);
+ assert.equal((await client.invoke('tasks.state',{id:task.id})).result.status,'succeeded');assert.equal((await client.invoke('tasks.list',{status:'succeeded'})).result.items[0].id,task.id);
+ assert.equal((await app.tasks.history(actor,task.id)).events.filter(e=>e.kind==='input').length,1);
+ allowed=false;await assert.rejects(client.invoke('tasks.get',{id:task.id}),{statusCode:403});
+ await assert.rejects(new CapabilityHttpClient({url:client.url}).list(),{statusCode:403});
+ }finally{if(server)await new Promise(resolve=>server.close(resolve));await app?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
+});
