@@ -7,10 +7,13 @@ const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionSt
 await fs.mkdir(out,{recursive:true,mode:0o700});
 const datasetPath=process.env.IAIC_ACCEPTANCE_DATASET||path.join(root,'dataset.json');
 const dataset=JSON.parse(await fs.readFile(datasetPath,'utf8'));
+const promptAppend=process.env.IAIC_ACCEPTANCE_PROMPT_FILE?await fs.readFile(process.env.IAIC_ACCEPTANCE_PROMPT_FILE,'utf8'):null;
+if(promptAppend!==null&&(!promptAppend.trim()||Buffer.byteLength(promptAppend)>8000))throw new Error('Candidate prompt appendix must contain 1..8000 UTF-8 bytes');
+const sourceRevision=process.env.IAIC_SOURCE_REVISION,candidateRevision=promptAppend===null?sourceRevision:evidenceDigest({sourceRevision,promptAppend});
 const invocation=process.env.IAIC_MODEL_INVOCATION_JSON===undefined?undefined:JSON.parse(process.env.IAIC_MODEL_INVOCATION_JSON);
 const sourceRecords=[{id:'R-01',region:'North',status:'ready',held:false,units:4},{id:'R-02',region:'South',status:'ready',held:false,units:5},{id:'R-03',region:'North',status:'ready',held:true,units:6},{id:'R-04',region:'South',status:'draft',held:false,units:9},{id:'R-05',region:'North',status:'ready',held:false,units:8},{id:'R-06',region:'South',status:'draft',held:true,units:7},{id:'R-07',region:'North',status:'ready',held:false,units:0}];
 const skillRoot=path.join(root,'skills'),skillEntry='record-selection/SKILL.md',skillDigest=evidenceDigest(await fs.readFile(path.join(skillRoot,skillEntry),'utf8'));
-const frozen={independentHoldout:false,...(invocation===undefined?{}:{invocation}),datasetDigest:evidenceDigest(dataset),skillDigest,sourceDigest:evidenceDigest(sourceRecords),model:process.env.IAIC_MODEL,provider:process.env.IAIC_PROVIDER||'openai',revision:process.env.IAIC_SOURCE_REVISION,maxTurns:10,maxCalls:8,maxBatchCalls:4,taskTimeoutMs:300000,requiredChecks:['task_succeeded','artifact_content','source_read','skill_read','memory_read','scope_preserved','billing_settled']};
+const frozen={independentHoldout:false,...(invocation===undefined?{}:{invocation}),datasetDigest:evidenceDigest(dataset),skillDigest,sourceDigest:evidenceDigest(sourceRecords),model:process.env.IAIC_MODEL,provider:process.env.IAIC_PROVIDER||'openai',revision:candidateRevision,sourceRevision,...(promptAppend===null?{}:{promptAppend,promptDigest:evidenceDigest(promptAppend)}),maxTurns:10,maxCalls:8,maxBatchCalls:4,taskTimeoutMs:300000,requiredChecks:['task_succeeded','artifact_content','source_read','skill_read','memory_read','scope_preserved','billing_settled']};
 await fs.writeFile(path.join(out,'dataset.json'),JSON.stringify(dataset,null,2),{flag:'wx',mode:0o600});
 await fs.writeFile(path.join(out,'frozen.json'),JSON.stringify(frozen,null,2),{flag:'wx',mode:0o600});
 const runner=new EvaluationRunner({
@@ -26,7 +29,7 @@ const runner=new EvaluationRunner({
    const authorize=a=>a.scopeId===actor.scopeId&&a.subjectId===actor.subjectId;
    const records=defineCapability({name:'warehouse.records',description:'Read all current synthetic warehouse source records; interpret selection rules through installed methods.',input:{type:'object',properties:{},additionalProperties:false},output:{type:'array',items:{type:'object'}},effect:'read',authorize,revalidate:async()=>structuredClone(sourceRecords),implementation:{kind:'function',execute:async()=>structuredClone(sourceRecords)}});
    const skillCatalog=new SkillCatalog({root:skillRoot,entries:[skillEntry]});
-   const capabilities=createAgentTaskCapabilities({memory,workspace,skillCatalog,authorize,extraCapabilities:[records],verifyOutcome:async(_input,result)=>result.artifacts.length===1});
+   const capabilities=createAgentTaskCapabilities({memory,workspace,skillCatalog,authorize,extraCapabilities:[records],verifyOutcome:async(_input,result)=>result.artifacts.length===1}).map(capability=>promptAppend===null||capability.implementation.kind!=='agent'?capability:defineCapability({...capability,implementation:{...capability.implementation,instructions:capability.implementation.instructions+'\n'+promptAppend}}));
    const dispatcher=new CapabilityDispatcher({capabilities});
    const provider=createModelProvider({apiKey:process.env.IAIC_MODEL_API_KEY,model:frozen.model,provider:frozen.provider,baseUrl:process.env.IAIC_MODEL_BASE_URL||'',maxOutputTokens:2048,invocation});
    await ledger.grant(scope,{reference:'acceptance-only',amount:1000000,evidence:{fixture:true}});

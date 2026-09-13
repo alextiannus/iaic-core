@@ -45,3 +45,19 @@ optionally selects the explicit provider policy. The policy is frozen in evidenc
 and included in the environment revision; changed-policy runs are not silently
 comparable with the original environment. No model fallback or automatic strategy
 change is added. Runtime turn/call budgets remain the same.
+
+## Explicit candidate prompt evaluation
+
+Optionally set IAIC_ACCEPTANCE_PROMPT_FILE to a host-owned UTF-8 file containing
+1..8000 bytes. Its text is appended to the unchanged Agent instructions, frozen
+before inference and included with the source revision in the candidate revision
+digest. The same source/file produces the same revision across capability and
+regression suites. Without this option, the original source revision and behavior
+remain unchanged. The goal, source records, Skill, tools, original verifier and
+grader are unchanged; a prompt cannot supply authority or bypass verification.
+
+Prompt content is an implementation input, so it changes candidate revision,
+not the fixed test-environment digest. Freeze the prompt and both datasets before
+evaluation and retain all outcomes. This option supports concrete release evidence;
+it does not certify improvements from a single run or permit retuning a failed
+holdout and calling it untouched.
