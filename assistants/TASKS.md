@@ -41,3 +41,27 @@ The host supplies authenticated actor restoration for background work and reserv
 Compose these ports with `createAgentTaskCapabilities({sessions,deferred,...})` and the existing Runtime Session context provider. Closing a Session stops new messages; accepted work remains independent and can append Task receipts/results while closed. A future Task uses the current model selection and platform allowance; its parent retains its own model binding. Read the linked Task to determine completion rather than treating a scheduling receipt as an outcome.
 
 The independently installed `core-configurable-jobs` example now exercises this entire path: model reads Session, schedules future work, conversation closes, services rebuild, future work uses the same job resources and pinned Session, and its current result appears in that Session. ImmediToday's Session and deferred adapters use these same Core helpers, retaining ERP actor mapping and business-source/Mandate policy in the application.
+
+### Application outcome feedback
+
+`verifyOutcome(input, result, context)` may return the existing boolean or a plain
+`{verified: boolean, feedback?: string}` object. Feedback must be a nonblank string
+of at most 2,000 characters. Unknown fields and invalid verdicts fail explicitly;
+a truthy object does not by itself grant success. The same contract applies to a
+Capability's `implementation.verify` when used directly with AgentRuntime.
+
+Runtime records the trusted verdict and optional feedback in the durable
+verification event. Context assembly includes it in the next model turn and after
+reconstruction, so a rejected proposal can be corrected without guessing why it
+failed. Output-schema rejection supplies a generic structure correction message
+and does not call the application verifier. Assistant artifact/evidence checks
+remain prerequisites and can still reject before verifyOutcome is invoked.
+
+Applications should provide actionable, current-authorized feedback suitable for
+the Agent and authorized Task history readers. Do not expose private grader answers
+or inaccessible source content merely to improve a score. Feedback is guidance,
+not a tool grant, new user instruction or permission to weaken the completion rule.
+The verifier must run again on the corrected result; Core never converts feedback
+or an Agent's claim into success. Existing task/turn limits and cancellation still
+apply. This is a basic execution contract, not an application-specific rubric or
+an automatic guarantee that the model will correct its work.

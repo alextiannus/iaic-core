@@ -1,3 +1,4 @@
+import {verificationResult} from './verification.js';
 import {randomUUID} from 'node:crypto';
 import {pendingBatch} from './batches.js';
 import {Delegations} from './delegation.js';
@@ -212,9 +213,10 @@ export class AgentRuntime {
         }
         if(action.type==='finish'){
           // Verifier is application code; model cannot modify it or its required scope.
-          const valid=capability.validateOutput(action.result)&&await capability.implementation.verify(task.input,action.result,{actor,history})===true;
+          const verification=capability.validateOutput(action.result)?verificationResult(await capability.implementation.verify(task.input,action.result,{actor,history})):{verified:false,feedback:'The proposed result does not match the declared output schema. Correct its structure before submitting again.'};
+          const valid=verification.verified;
           executionSignal()?.throwIfAborted();
-          await this.executor.append(task.id,'verification',{verified:valid});
+          await this.executor.append(task.id,'verification',verification);
           if(valid){await this.executor.finish(task.id,{status:'succeeded',result:action.result});break;}
           continue;
         }

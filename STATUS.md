@@ -209,3 +209,7 @@ All three runs are retained; these are small development/configuration compariso
 ## Memory name discovery
 
 Default Memory list queries now match literal case-insensitive substrings in both memory_key and content. This makes named preferences discoverable when their bodies omit the label used in the query; explicit searchIn:'content' preserves the former content-only lookup. Shared Tool schemas/descriptions and history input projections expose the same option. PostgreSQL integration verifies name/content discovery, literal metacharacters, current scope/status/forgetting and historical refresh through the shared Capability. This is a deliberate query-default expansion, with no result-shape/schema migration, semantic search or actual-model completion claim.
+
+## Actionable application outcome feedback
+
+AgentRuntime and Assistant task composition accept a trusted boolean verdict or {verified,feedback} from the application verifier. Bounded feedback is persisted with the verification event and re-enters current context after waiting/reconstruction; invalid result shapes receive a generic schema correction without calling the domain verifier. Invalid verdict objects fail explicitly rather than truthily completing a Task. PostgreSQL evidence exercises schema rejection, domain rejection, user-input wait, Runtime reconstruction, correction and a fresh successful application check. This adds reusable outcome-feedback capability, not a changed acceptance rubric, unlimited retries or actual-model success evidence.

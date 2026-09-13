@@ -87,7 +87,7 @@ export function createAgentTaskCapabilities({name='assistant.run',toolNamespace=
     if(!successful.some(call=>['my_read_workspace','my_write_workspace'].map(expose).includes(call.capability)&&sameReference(call.result?.reference,ref)))return false;
     try{await workspace.read(context.actor,ref);}catch(error){if([404,409].includes(error.statusCode))return false;throw error;}
    }
-   return await verifyOutcome(request,result,context)===true;
+   return await verifyOutcome(request,result,context);
   }
  }});
  return [...definitions,agent];
