@@ -64,3 +64,8 @@ Batch adapter compatibility now has an explicit executor interface and a pre-dis
 ## Organization-owned resource composition
 
 DirectoryResourceScopes now supplies an optional current-directory and resource-policy resolver for existing Memory/Workspace modules. Operations pass read/write intent and their operation name to the resolver; same-organization members share original revisions while personal and different-organization partitions stay separate. Current revocation and read-only policy are exercised against real PostgreSQL defaults. The module imports no account or resource storage implementation, preserves legacy one-argument resolvers, and does not migrate private data, add a UI, or imply shared Task ownership or global erasure. See resources/README.md.
+
+
+## Trusted observation collection
+
+ReleaseObservation now discovers bounded trusted source references and assesses one pinned window only when collection is complete. ReleaseMonitor composes collection and optional host-enabled protection as an ordinary capability, retaining current authorization, manifest/revision checks and the original release evidence. Independent installed Docker release execution exercises the collection-to-rollback operation. It adds no scheduler: production source discovery, recurring monitoring Task wiring and uncertain cycle receipt reconciliation remain incomplete. This is a foundation increment, not completion of Note 30 acceptance.

@@ -130,3 +130,5 @@ export {PostgresDeploymentActivations,RecoverableDockerDeployment} from './devel
 export {DirectoryResourceScopes} from './resources/scopes.js';
 
 export {OpenApiCatalog} from './http/openapi.js';
+
+export {ReleaseMonitor,createReleaseMonitorCapability} from './observation/monitor.js';

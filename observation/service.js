@@ -4,13 +4,14 @@ const integer=v=>typeof v==='string'&&/^(0|[1-9][0-9]{0,29})$/.test(v);
 const instant=v=>{if(typeof v!=='string'||!Number.isFinite(Date.parse(v)))throw fail('Observation timestamp required');return new Date(v).toISOString();};
 export class ReleaseObservation{
  #policies;
- constructor({store,releases,sourceScope,resolveSource,authorize,policies,now=()=>new Date()}){
+ constructor({store,releases,sourceScope,resolveSource,authorize,policies,discoverSources,maxSources=1000,now=()=>new Date()}){
   if(!store||!releases||typeof resolveSource!=='function'||typeof authorize!=='function')throw fail('Observation requires storage, release, trusted source and authorization ports');
   key(sourceScope);this.#policies=jsonValue(policies);for(const p of Object.values(this.#policies)){key(p.revision);key(p.fallbackId);if(!Number.isInteger(p.minSamples)||p.minSamples<1||!Number.isFinite(p.maxErrorRate)||p.maxErrorRate<0||p.maxErrorRate>1||!Number.isFinite(p.maxMeanLatencyMs)||p.maxMeanLatencyMs<0||!Number.isInteger(p.windowMs)||p.windowMs<1||p.windowMs>604800000||!Number.isInteger(p.maxAssessmentAgeMs)||p.maxAssessmentAgeMs<1||p.maxAssessmentAgeMs>p.windowMs)throw fail('Complete bounded observation policy required');if(p.maxCostMinor!==undefined&&(!integer(p.maxCostMinor)||! /^[A-Z]{3}$/.test(p.currency||'')))throw fail('Cost policy requires currency and integer minor units');}
-  Object.assign(this,{store,releases,sourceScope,resolveSource,authorize,now});
+  if((discoverSources!==undefined&&typeof discoverSources!=='function')||!Number.isInteger(maxSources)||maxSources<1||maxSources>10000)throw fail('Bounded trusted observation discovery required');
+  Object.assign(this,{store,releases,sourceScope,resolveSource,authorize,discoverSources,maxSources,now});
  }
  async allowed(actor,action,input){if(await this.authorize(actor,{action,input})!==true)throw fail('Observation access denied',403);}
- policy(channel){const p=this.#policies[key(channel)];if(!p)throw fail('Observation channel policy not configured',404);return p;}
+ policy(channel){const p=this.#policies[key(channel)];if(!p)throw fail('Observation channel policy not configured',404);return jsonValue(p);}
  async record(actor,{sourceId}){
   await this.allowed(actor,'record',{sourceId});const source=await this.resolveSource(key(sourceId),{actor,sourceScope:this.sourceScope});
   if(!source||source.confirmed!==true||source.sourceId!==sourceId||source.sourceScope!==this.sourceScope)throw fail('Observation source is not confirmed for this application',409);
@@ -21,7 +22,28 @@ export class ReleaseObservation{
  }
  async assess(actor,{channel,releaseId,manifestDigest}){
   await this.allowed(actor,'assess',{channel,releaseId});const policy=this.policy(channel);await this.releases.check(actor,{releaseId,manifestDigest});
-  const assessedAt=instant(new Date(this.now()).toISOString()),until=assessedAt,since=new Date(Date.parse(until)-policy.windowMs).toISOString();
+  return this.#evaluate({channel,releaseId,manifestDigest},policy,this.window(policy));
+ }
+ window(policy){const assessedAt=instant(new Date(this.now()).toISOString());return {assessedAt,until:assessedAt,since:new Date(Date.parse(assessedAt)-policy.windowMs).toISOString()};}
+ async collect(actor,{channel,releaseId,manifestDigest}){
+  const input={channel,releaseId,manifestDigest};await this.allowed(actor,'collect',input);
+  if(typeof this.discoverSources!=='function')throw fail('Trusted observation discovery is not configured',503);
+  const policy=this.policy(channel);await this.releases.check(actor,{releaseId,manifestDigest});
+  const window=this.window(policy);
+  const page=jsonValue(await this.discoverSources({actor,sourceScope:this.sourceScope,...input,...window,limit:this.maxSources}));
+  if(!page||typeof page.complete!=='boolean'||!Array.isArray(page.sourceIds)||page.sourceIds.length>this.maxSources||new Set(page.sourceIds).size!==page.sourceIds.length)throw fail('Bounded unique source IDs and explicit collection completeness required',409);
+  page.sourceIds.forEach(key);
+  for(const sourceId of page.sourceIds){
+   const record=await this.record(actor,{sourceId});
+   if(record.releaseId!==releaseId||record.manifestDigest!==manifestDigest||record.observedAt<window.since||record.observedAt>=window.until)throw fail('Discovered observation is outside the pinned release window',409);
+  }
+  // Partial evidence remains reusable, but cannot certify this collection or trigger protection.
+  if(!page.complete)return {collected:page.sourceIds.length,collectionComplete:false,assessment:null};
+  await this.allowed(actor,'assess',{channel,releaseId});await this.releases.check(actor,{releaseId,manifestDigest});
+  const assessment=await this.#evaluate(input,policy,window);
+  return {collected:page.sourceIds.length,collectionComplete:true,assessment};
+ }
+ async #evaluate({channel,releaseId,manifestDigest},policy,{assessedAt,until,since}){
   const {records,truncated}=await this.store.window({releaseId,since,until,limit:10000});
   if(records.some(r=>r.manifestDigest!==manifestDigest))throw fail('Observation manifest bindings differ',409);
   const samples=records.length,errors=records.filter(r=>!r.success).length,toolErrors=records.reduce((n,r)=>n+r.toolErrors,0),meanLatencyMs=samples?records.reduce((n,r)=>n+r.durationMs,0)/samples:null;
