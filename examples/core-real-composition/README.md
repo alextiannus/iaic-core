@@ -32,3 +32,16 @@ The current harness supplies Memory listing. Grader v2 recognizes the requested 
 ## Bounded-plan re-evaluation
 
 Release candidate.30 (source 73eb47a) enabled maxBatchCalls=4 in this example and passed all three cases under grader v2. Seventeen actual model responses produced five durable plans and 24 tool calls. Saved content and all required checks passed; usage was 51,054 input and 13,207 output Tokens, with no pending allowance reservations. See the release notes for the evidence scope. This combines a Runtime capability improvement with the earlier fixture correction; the first failed run is not overwritten or regraded, and the sample is not relabelled an untouched blind benchmark.
+
+A fresh authored transfer set is available as `dataset-transfer.json`. Select it
+with `IAIC_ACCEPTANCE_DATASET=/absolute/path/to/dataset-transfer.json`; omitted
+selection retains the original set. The runner copies the selected dataset into
+the fresh evidence directory before inference. These are authored synthetic
+cases, not externally certified independent holdouts. Expected answers are used
+by the grader and are not passed to the Task executor or model.
+
+`IAIC_MODEL_INVOCATION_JSON='{"toolChoice":"auto","parallelToolCalls":false}'`
+optionally selects the explicit provider policy. The policy is frozen in evidence
+and included in the environment revision; changed-policy runs are not silently
+comparable with the original environment. No model fallback or automatic strategy
+change is added. Runtime turn/call budgets remain the same.
