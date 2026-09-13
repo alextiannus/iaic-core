@@ -166,3 +166,5 @@ export {LocalSimulation,createScriptedModel} from './developer/simulation.js';
 export {PostgresEventSubscriptions,EventSubscriptions,createEventSubscriptionCapabilities} from './events/subscriptions.js';
 
 export {EventTaskSubscriptions,EVENT_SUBSCRIPTION_TASK_PREFIX} from './events/tasks.js';
+
+export {ReleaseBoundAgentIdentity} from './releases/agent.js';

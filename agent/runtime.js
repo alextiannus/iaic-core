@@ -31,7 +31,7 @@ export class AgentRuntime {
     const handoff=this.handoffs?await this.handoffs.bind({actor,capability,input,idempotencyKey,version:this.version}):null;
     if(idempotencyKey?.startsWith('iaic-delegated-task:')&&!this.authority)throw fail('Task authority resolver unavailable',503);
     const authority=this.authority?await this.authority.bind({actor,capability,input,idempotencyKey,version:this.version}):null;
-    const agent=this.agentIdentity?await this.agentIdentity.bind({actor,capability,input}):null;
+    const agent=this.agentIdentity?await this.agentIdentity.bind({actor,capability,input,version:this.version}):null;
     const model=this.resolveModel?await this.resolveModel({actor,agent}):this.model;
     return this.store.create({capability,input,actor,idempotencyKey,version:this.version,model:model.name,agent,handoff,authority});
   }
