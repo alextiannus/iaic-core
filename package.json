@@ -34,7 +34,8 @@
     "./subscriptions/*": "./subscriptions/*",
     "./notifications/*": "./notifications/*",
     "./evaluation/*": "./evaluation/*",
-    "./releases/*": "./releases/*"
+    "./releases/*": "./releases/*",
+    "./storage/*": "./storage/*"
   },
   "files": [
     "index.js",
@@ -70,7 +71,8 @@
     "subscriptions",
     "notifications",
     "evaluation",
-    "releases"
+    "releases",
+    "storage"
   ],
   "dependencies": {
     "ajv": "8.20.0",

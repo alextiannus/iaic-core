@@ -81,3 +81,7 @@ export {FileEvaluationStore} from './evaluation/files.js';
 export {ReleaseManager} from './releases/service.js';
 export {PostgresReleaseStore} from './releases/store.js';
 export {createReleaseCapabilities} from './releases/capabilities.js';
+
+export {FileObjectStore,ObjectStorage} from './storage/objects.js';
+export {createObjectCapabilities} from './storage/capabilities.js';
+export {ReleaseResources} from './releases/resources.js';
