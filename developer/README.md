@@ -112,3 +112,7 @@ Use this adapter consistently for managed keys; the plain Docker adapter or exte
 Integration checks use PostgreSQL and Docker plus actual SIGKILL checkpoints after preparation and after durable admission. They verify concurrent activation, original container identity, stopped/no-restart behavior, missing-original preservation, and an injected lost start acknowledgement. No production workload is touched.
 
 The Agent starter now accepts optional explicit routing policy/availability ports, composing AssistantModelRouting with its existing AssistantModels. Its existing modelFactory supports shared rate/capacity wrappers before original per-profile metering. A generated application test verifies the combination with actual PostgreSQL after service reconstruction, using deterministic model/health fixtures. See the generated README for wiring and limits; no automatic route, quota, retention job or new UI is supplied.
+
+## Local simulation
+
+[LocalSimulation and createScriptedModel](SIMULATION.md) provide reusable scoped in-memory tools, original simulated operation receipts, response-loss injection and turn-indexed model scripts. They plug into the existing Runtime and dispatcher; the installed `core-simulation` example verifies a paused write, original receipt recovery and continuation without replay. Simulated state is process-local and model outputs are authored fixtures, not actual-model acceptance.

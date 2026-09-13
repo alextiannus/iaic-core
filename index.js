@@ -160,3 +160,5 @@ export {PostgresDeviceOperations} from './devices/store.js';
 export {BrowserDevices,createBrowserDeviceCapabilities} from './devices/service.js';
 
 export {DeviceOperationReconciliation,createDeviceReconciliationCapability} from './devices/reconciliation.js';
+
+export {LocalSimulation,createScriptedModel} from './developer/simulation.js';

@@ -33,6 +33,7 @@ An application installs the resulting `.tgz` and imports `@immedi/iaic-core` or 
 
 | Need | Modules and contracts |
 | --- | --- |
+| Simulate local Agent work | [Local simulation](developer/SIMULATION.md): scripted models, scoped tools and original response-loss receipts |
 | Develop and migrate an application | [Developer tools](developer/README.md): CLI, independent starter and versioned PostgreSQL migrations |
 | Manage accounts and organizations | [Accounts](accounts/README.md): replaceable directory, memberships and current identity mapping |
 | Record money and execute payments | [Payments](payments/README.md): confirmed invoice sources, charge/refund intents, provider adapters and reconciliation |
