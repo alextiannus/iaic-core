@@ -79,3 +79,34 @@ Namespace and request key select a durable Docker container name. Nonsecret conf
 A repeated deployment returns the original container without restarting it, including after it stopped. A lost create/start response is unconfirmed: use deployment-status with the same key. If a crash leaves only a prepared container, this adapter does not automatically start it. Stop shuts down a running container and retains its receipt; it does not claim to cancel an in-flight create/start or remove containers. Host reconciliation/cleanup handles abandoned prepared containers explicitly. Distinct release keys create distinct instances; image build, durable desired-state reconciliation, cloud deployment, traffic activation/rollback and automatic retention are not yet included.
 
 The independent core-deployment example uses a real Docker HTTP workload, deployment/status/stop CLI processes, reconstruction, stable instance identity, changed-config rejection and a deliberately lost start acknowledgement. It verifies authenticated workload access and keeps secret values out of returned receipts. Its fixture containers are explicitly removed after verification; no production application or database is changed.
+
+## Recovering prepared deployments
+
+`DockerDeployment.prepare(requestKey)` now creates and validates the same immutable container without starting it. The optional `RecoverableDockerDeployment({deployment, activations})` composes this with `PostgresDeploymentActivations({pool, namespace})`. Initialize the activation schema once and configure every recovery process with the same durable database namespace and Docker daemon. The existing CLI works with this adapter's deploy/inspect/stop ports:
+
+```js
+import {Pool} from 'pg';
+import {DockerDeployment, PostgresDeploymentActivations,
+        RecoverableDockerDeployment} from '@immedi/iaic-core';
+export async function open() {
+  const pool = new Pool({connectionString: process.env.DEPLOYMENT_DATABASE_URL});
+  const activations = new PostgresDeploymentActivations({pool, namespace: 'my-app'});
+  await activations.initialize();
+  const deployment = new DockerDeployment({
+    namespace: 'my-app', image: process.env.APP_IMAGE_DIGEST,
+    command: ['node', '/app/server.mjs'], containerPort: 3000
+  });
+  return {adapter: new RecoverableDockerDeployment({deployment, activations}),
+          close: () => pool.end()};
+}
+```
+
+A recovered prepared container is bound to a durable start admission before Docker receives start. The unique admission intersects concurrent recovery processes: at most one sends start for the original container. Deployment receipts include the original activation reference and a `requiresReconciliation` flag. A start response lost after acceptance can be resolved by inspecting the same container. A stopped original is not restarted. Removing an admitted original yields absent plus reconciliation required, rather than silently creating a replacement under the consumed key.
+
+A process can die after durable admission and before sending start. That interval is intentionally uncertain: even a later prepared status does not establish that a delayed original command cannot still execute. Repeated deploy/activate never clears the admission or sends another start. The host must resolve or retire that original operation; there is no reset/delete-admission API. This is an at-most-one adapter dispatch rule with recoverable observations, not a claim of cross-system exactly-once or automatic recovery of every crash window.
+
+`activate(requestKey)` activates an already prepared, configuration-bound container. It uses the environment frozen into that container; ordinary deploy also validates the supplied environment through prepare. This adapter does not reconfigure or rotate an existing container's environment. Activation storage contains only namespace, hashed request name, nonsecret configuration digest, container ID and admission time. Alternate persistence implementations supply atomic `claim` and scoped `read` ports with the same immutable binding semantics.
+
+Use this adapter consistently for managed keys; the plain Docker adapter or external daemon operations do not consult its journal. Stop retains the original Docker adapter's semantics: it stops a running workload, does not cancel an in-flight create/start, and does not establish a durable desired-stop policy for prepared containers. Desired-state controllers, cloud routing and traffic rollback remain separate unfinished deployment capabilities.
+
+Integration checks use PostgreSQL and Docker plus actual SIGKILL checkpoints after preparation and after durable admission. They verify concurrent activation, original container identity, stopped/no-restart behavior, missing-original preservation, and an injected lost start acknowledgement. No production workload is touched.

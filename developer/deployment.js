@@ -40,7 +40,9 @@ export class DockerDeployment {
   }
   return {requestKey,containerId:c.Id,image:this.image,status:c.State?.Running?(ready?'ready':'starting'):c.State?.Status==='created'?'prepared':c.State?.Status==='exited'?'stopped':'unknown',endpoint,ready,exitCode:c.State?.Status==='exited'?c.State.ExitCode:null};
  }
- async deploy(requestKey,{signal}={}){
+ async prepare(requestKey,options={}){return this.provision(requestKey,{...options,start:false});}
+ async deploy(requestKey,options={}){return this.provision(requestKey,{...options,start:true});}
+ async provision(requestKey,{signal,start=true}={}){
   const name=this.name(requestKey),env=await this.environment();
   if(!env||Object.getPrototypeOf(env)!==Object.prototype||Object.keys(env).length>100||Object.entries(env).some(([k,v])=>! /^[A-Za-z_][A-Za-z0-9_]*$/.test(k)||typeof v!=='string'||/[\r\n\0]/.test(v))||Buffer.byteLength(JSON.stringify(env))>65536)throw fail('Deployment environment must be bounded single-line string values');
   const prior=await this.raw(requestKey);
@@ -54,6 +56,7 @@ export class DockerDeployment {
   }finally{await fs.rm(directory,{recursive:true,force:true});}
   if(!created.ok)throw this.unknown(requestKey);
   const c=await this.raw(requestKey);if(!c||c.State?.Status!=='created')throw this.unknown(requestKey);
+  if(!start)return this.inspect(requestKey);
   // Only this confirmed create starts the workload. Repeated deploy never restarts it.
   const started=await this.run(['start',c.Id],{signal});if(!started.ok)throw this.unknown(requestKey);
   return this.inspect(requestKey);
