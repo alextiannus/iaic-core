@@ -158,3 +158,5 @@ export {PersistentReleaseMonitor,createMonitorCycleCapabilities} from './observa
 export {PuppeteerPageDevice} from './devices/browser.js';
 export {PostgresDeviceOperations} from './devices/store.js';
 export {BrowserDevices,createBrowserDeviceCapabilities} from './devices/service.js';
+
+export {DeviceOperationReconciliation,createDeviceReconciliationCapability} from './devices/reconciliation.js';

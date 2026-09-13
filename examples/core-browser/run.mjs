@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';import fs from 'node:fs/promises';import path from 'node:path';import {createRequire} from 'node:module';import {createServer} from 'node:http';import {randomUUID,createHash} from 'node:crypto';import {Pool} from 'pg';
-import {PuppeteerPageDevice,PostgresDeviceOperations,BrowserDevices,createBrowserDeviceCapabilities,CapabilityDispatcher} from '@immedi/iaic-core';
+import {DeviceOperationReconciliation,PuppeteerPageDevice,PostgresDeviceOperations,BrowserDevices,createBrowserDeviceCapabilities,CapabilityDispatcher} from '@immedi/iaic-core';
 const {IAIC_BROWSER_HOST_PACKAGE:hostPackage,IAIC_BROWSER_EXECUTABLE:executablePath,IAIC_BROWSER_EVIDENCE:directory,SUBMISSION_TEST_DATABASE_URL:connectionString}=process.env;
 if(!hostPackage||!path.isAbsolute(hostPackage)||!executablePath||!directory||!connectionString)throw Error('Explicit browser host package, executable, evidence directory and isolated PostgreSQL required');
 const puppeteer=createRequire(hostPackage)('puppeteer-core');
@@ -18,8 +18,12 @@ try{
  assert.equal((await act('navigate',{type:'navigate',url:origin+'/'},'about:blank')).status,'submitted');await act('type',{type:'type',selector:'#name',text:'IAiC'});
  const click={type:'click',selector:'#save'};await act('save',click);await page.waitForFunction(()=>document.querySelector('#result').textContent==='IAiC saved 1');await act('save',click);assert.equal(effects,1);
  const observed=await dispatcher.invoke('browser.observe',{deviceId:'fixture-browser',screenshot:true},{actor});assert.match(observed.text,/IAiC saved 1/);assert.equal(observed.image.mimeType,'image/png');
- const execute=driver.execute.bind(driver);driver.execute=async input=>{await execute(input);throw Error('Injected response loss after browser command');};
+ const hostReceipts=new Map(),execute=driver.execute.bind(driver);driver.execute=async input=>{await execute(input);const original=await store.get(actor.subjectId,input.requestKey);hostReceipts.set(input.requestKey,{sourceId:'host:'+input.requestKey,sourceScope:'fixture-driver',owner:actor.subjectId,deviceId:input.deviceId,requestKey:input.requestKey,operationDigest:original.digest,confirmed:true,driverTerminal:true,status:'submitted',reference:'fixture-returned-command:'+input.requestKey});throw Error('Injected response loss after browser command');};
  await assert.rejects(act('uncertain',click),e=>e.outcomeUnknown===true);await page.waitForFunction(()=>document.querySelector('#result').textContent==='IAiC saved 2');await assert.rejects(act('uncertain',click),e=>e.outcomeUnknown===true);await assert.rejects(act('bypass',click),/unresolved action/);assert.equal(effects,2);
- assert.equal((await devices.result(actor,{deviceId:'fixture-browser',requestKey:'uncertain'})).status,'unknown');allowed=false;await assert.rejects(devices.observe(actor,{deviceId:'fixture-browser'}),{statusCode:403});
- console.log(JSON.stringify({example:'core-browser',status:'passed',browser:await browser.version(),realBrowser:true,localHttpEffects:effects,screenshotReference:true,originalReceiptNoReplay:true,unknownDeviceBlocked:true,currentRevocation:true,modelInvoked:false,productionAccessed:false}));
+ assert.equal((await devices.result(actor,{deviceId:'fixture-browser',requestKey:'uncertain'})).status,'unknown');
+ const reconcile=new DeviceOperationReconciliation({store,sourceScope:'fixture-driver',resolveOwner:a=>a.subjectId,authorize:a=>allowed&&a.subjectId===actor.subjectId,resolveSource:(_a,{requestKey})=>hostReceipts.get(requestKey)});
+ assert.equal((await reconcile.resolve(actor,{deviceId:'fixture-browser',requestKey:'uncertain',sourceId:'host:uncertain'})).status,'submitted');assert.equal((await act('uncertain',click)).status,'submitted');assert.equal(effects,2);
+ driver.execute=execute;await act('continued-scroll',{type:'scroll',x:0,y:10});assert.equal(effects,2);
+ allowed=false;await assert.rejects(devices.observe(actor,{deviceId:'fixture-browser'}),{statusCode:403});
+ console.log(JSON.stringify({example:'core-browser',status:'passed',browser:await browser.version(),realBrowser:true,localHttpEffects:effects,screenshotReference:true,originalReceiptNoReplay:true,unknownDeviceBlocked:true,trustedDriverReceiptReconciled:true,currentRevocation:true,modelInvoked:false,productionAccessed:false}));
 }finally{await browser?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();await new Promise(resolve=>server.close(resolve));}

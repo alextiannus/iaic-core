@@ -19,3 +19,21 @@ test('unsupported code and known preflight rejection do not become submitted eff
  await assert.rejects(service.act({}, {...input,action:{type:'evaluate',code:'arbitrary()'}}),/Unsupported browser action/);assert.equal(calls,0);
  await assert.rejects(service.act({},input),/URL changed/);assert.equal((await service.act({},input)).status,'not-executed');assert.equal(calls,1);
 }));
+
+test('trusted original source and driver termination reconcile unknown action without replay',()=>fixture(async store=>{
+ const {DeviceOperationReconciliation,createDeviceReconciliationCapability}=await import('@immedi/iaic-core');let calls=0,allowed=true,terminal=false,wrong=false;
+ const service=new BrowserDevices({store,resolveOwner:a=>a.id,resolveDevice:async()=>({execute:async()=>{calls++;if(calls===1)throw Error('lost response');return {status:'submitted'};}}),authorize:()=>true});
+ const actor={id:'owner',subjectId:'owner'};await assert.rejects(service.act(actor,input),e=>e.outcomeUnknown===true);
+ const reconciliation=new DeviceOperationReconciliation({store,sourceScope:'fixture-host',resolveOwner:a=>a.id,authorize:()=>allowed,resolveSource:async(_a,ref)=>({...ref,confirmed:true,driverTerminal:terminal,operationDigest:wrong?'f'.repeat(64):ref.operationDigest,status:'submitted',reference:'trusted-original-receipt'})});
+ const args={...input,sourceId:'source'};await assert.rejects(reconciliation.resolve(actor,args),{statusCode:409});terminal=true;wrong=true;await assert.rejects(reconciliation.resolve(actor,args),{statusCode:409});wrong=false;allowed=false;await assert.rejects(reconciliation.resolve(actor,args),{statusCode:403});allowed=true;
+ const dispatcher=new CapabilityDispatcher({capabilities:[createDeviceReconciliationCapability({reconciliation})]});const request={deviceId:input.deviceId,requestKey:input.requestKey,sourceId:'source'};
+ const recovered=await dispatcher.invoke('browser.reconcile',request,{actor,callId:'reconcile'});assert.equal(recovered.status,'submitted');assert.equal(recovered.evidence.driverTerminal,true);assert.equal(calls,1);
+ assert.equal((await service.act(actor,input)).status,'submitted');assert.equal(calls,1);assert.equal((await service.act(actor,{...input,requestKey:'next'})).status,'submitted');assert.equal(calls,2);
+ assert.deepEqual(await reconciliation.resolve(actor,request),recovered);await assert.rejects(store.complete(actor.id,input.requestKey,{status:'not-executed'}),{statusCode:409});allowed=false;await assert.rejects(reconciliation.resolve(actor,request),{statusCode:403});
+}));
+
+test('revocation during source lookup leaves the original device pending',()=>fixture(async store=>{
+ const {DeviceOperationReconciliation}=await import('@immedi/iaic-core');await store.begin('owner',input);let allowed=true;
+ const reconciliation=new DeviceOperationReconciliation({store,sourceScope:'fixture',resolveOwner:()=> 'owner',authorize:()=>allowed,resolveSource:async(_actor,ref)=>{allowed=false;return {...ref,confirmed:true,driverTerminal:true,status:'not-executed',reference:'confirmed-pre-dispatch'};}});
+ await assert.rejects(reconciliation.resolve({}, {...input,sourceId:'source'}),{statusCode:403});assert.equal((await store.get('owner',input.requestKey)).result,null);
+}));
