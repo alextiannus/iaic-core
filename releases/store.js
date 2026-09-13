@@ -31,5 +31,19 @@ export class PostgresReleaseStore{
   const row=(await db.query('UPDATE iaic_releases SET disabled=true WHERE namespace=$1 AND id=$2 RETURNING *',[this.namespace,id])).rows[0];if(!row)throw fail('Release not found',404);
   await db.query('INSERT INTO iaic_release_events(namespace,actor_ref,action,data) VALUES($1,$2,$3,$4)',[this.namespace,actorRef,'stop',{id}]);return release(row);
  });}
+ async rollback({name,expectedRevision,candidateId,manifestDigest,fallbackId,evidence},actorRef){
+  [name,candidateId,fallbackId,actorRef].forEach(key);evidence=jsonValue(evidence);
+  if(!Number.isInteger(expectedRevision)||expectedRevision<1||expectedRevision>=2147483647||candidateId===fallbackId)throw fail('Invalid rollback binding');
+  return this.transaction(async db=>{
+   const current=channel((await db.query('SELECT * FROM iaic_release_channels WHERE namespace=$1 AND name=$2',[this.namespace,name])).rows[0]);
+   if(!current||current.revision!==expectedRevision||![current.stableId,current.canaryId].includes(candidateId))throw fail('Rollback channel changed or candidate is no longer selected',409);
+   const candidate=release((await db.query('SELECT * FROM iaic_releases WHERE namespace=$1 AND id=$2',[this.namespace,candidateId])).rows[0]);
+   const fallback=release((await db.query('SELECT * FROM iaic_releases WHERE namespace=$1 AND id=$2',[this.namespace,fallbackId])).rows[0]);
+   if(!candidate||candidate.record.manifestDigest!==manifestDigest||!fallback||fallback.disabled)throw fail('Rollback version binding or fallback is unavailable',409);
+   await db.query('UPDATE iaic_releases SET disabled=true WHERE namespace=$1 AND id=$2',[this.namespace,candidateId]);
+   const after=channel((await db.query('UPDATE iaic_release_channels SET revision=revision+1,stable_id=$3,canary_id=NULL,percentage=0 WHERE namespace=$1 AND name=$2 RETURNING *',[this.namespace,name,fallbackId])).rows[0]);
+   await db.query('INSERT INTO iaic_release_events(namespace,actor_ref,action,data) VALUES($1,$2,$3,$4)',[this.namespace,actorRef,'rollback',{before:current,after,stopped:candidateId,manifestDigest,evidence}]);return after;
+  });
+ }
  async history({after=0,limit=50}={}){if(!Number.isSafeInteger(after)||after<0||!Number.isInteger(limit)||limit<1||limit>100)throw fail('Invalid release history page');return (await this.pool.query('SELECT sequence::text,actor_ref,action,data,created_at FROM iaic_release_events WHERE namespace=$1 AND sequence>$2 ORDER BY sequence LIMIT $3',[this.namespace,after,limit])).rows;}
 }

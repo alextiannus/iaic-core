@@ -39,6 +39,7 @@ An application installs the resulting `.tgz` and imports `@immedi/iaic-core` or 
 | Resolve subscription access | [Subscriptions](subscriptions/README.md): versioned plan snapshots, current periods and entitlements |
 | Deliver background results | [Notifications](notifications/README.md): durable queue, channel ports, attempts and reconciliation |
 | Evaluate capability changes | [Evaluation](evaluation/README.md): independent grading, complete case coverage, baselines and evidence |
+| Observe running releases | [Observation](observation/README.md): trusted metrics, fixed policies and atomic protective rollback |
 | Select evaluated releases | [Releases](releases/README.md): immutable version bindings, canary selection, stop and rollback |
 | Store binary resources | [Object storage](storage/README.md) and [release resource loading](releases/README.md): scoped content references and verified files |
 | Execute released code | [Execution](execution/README.md): pinned Docker sandbox, resource loading and shared code capability |

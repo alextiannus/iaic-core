@@ -39,7 +39,8 @@
     "./execution/*": "./execution/*",
     "./a2a/*": "./a2a/*",
     "./payments/*": "./payments/*",
-    "./developer/*": "./developer/*"
+    "./developer/*": "./developer/*",
+    "./observation/*": "./observation/*"
   },
   "files": [
     "index.js",
@@ -80,7 +81,8 @@
     "execution",
     "a2a",
     "payments",
-    "developer"
+    "developer",
+    "observation"
   ],
   "dependencies": {
     "ajv": "8.20.0",

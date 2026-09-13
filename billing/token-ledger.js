@@ -46,6 +46,16 @@ export class TokenLedger {
   if(!text(taskId))throw fail('Task identity required');
   return (await this.pool.query("SELECT 1 FROM iaic_token_calls WHERE application_id=$1 AND subject_id=$2 AND attribution->>'taskId'=$3 AND state IN ('reserved','unknown') LIMIT 1",[...identity(scope),taskId])).rowCount>0;
  }
+ async taskUsage(scope,taskId){
+  if(!text(taskId))throw fail('Task identity required');
+  const row=(await this.pool.query(`SELECT count(*)::text AS requests,
+   count(*) FILTER(WHERE c.state IN('reserved','unknown') OR (c.state='settled' AND e.id IS NULL))::text AS pending,
+   COALESCE(sum(-e.delta),0)::text AS "platformUnits",
+   COALESCE(sum((e.evidence->'usage'->>'input_tokens')::numeric+(e.evidence->'usage'->>'output_tokens')::numeric),0)::text AS "providerTokens"
+   FROM iaic_token_calls c LEFT JOIN iaic_token_entries e ON e.application_id=c.application_id AND e.subject_id=c.subject_id AND e.kind='settlement' AND e.reference=c.request_id
+   WHERE c.application_id=$1 AND c.subject_id=$2 AND c.attribution->>'taskId'=$3`,[...identity(scope),taskId])).rows[0];
+  return {...row,complete:row.pending==='0'};
+ }
  async balance(scope){return this.readBalance(this.pool,identity(scope));}
  async readBalance(client,account){
   const {rows:[row]}=await client.query(`SELECT
