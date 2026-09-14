@@ -94,3 +94,10 @@ Every Platform AI Team member maintains system documentation for its changes and
 reviews its peer's documentation alongside code. Superseded versions have finite
 [version lifetimes and migration instructions](VERSION_LIFECYCLE.md). A User
 Assistant AI Demo is not a Core deliverable or acceptance requirement.
+
+A minimal [Platform Team host](examples/core-platform-team/README.md) assembles the
+existing modules with a system model, separate development allowance, shared work
+and reciprocal reviews. It accepts work requests from either member and retains
+requester/executor provenance. A real system-model/Codex review, correction and
+reciprocal-review loop has also completed; see the host evidence below. Arbitrary
+external takeover of an interrupted native Task remains unfinished.

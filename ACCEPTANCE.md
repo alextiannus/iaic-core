@@ -1,5 +1,10 @@
 # Note 30 acceptance evidence map
 
+Phase one is the minimum runnable Core described in CORE_REQUIREMENTS.md. The full
+Note30 evidence matrix below remains a roadmap and record, not an assertion that
+every advanced case must finish before phase-one release. Three Demo Projects
+and community collaboration are phase two.
+
 2026-09-14 user-approved scope update: User Assistant BYOK remains optional and retained; related feature development and dedicated testing are paused. BYOK switching is not a Core technical-design or completion requirement. The required paths are the platform default model and personal external AI assistants using existing identity/authorization. Historical BYOK implementation/test records below do not reinstate it as a gate. See CORE_REQUIREMENTS.md.
 
 Review date: 2026-09-14. Runtime evidence baseline:
@@ -111,3 +116,12 @@ follow-ups, including a revision whose author changes when a teammate covers the
 edit. This does not prove actual task takeover, real model review quality or a live
 Codex connection. Documentation ownership and finite [version lifetimes](VERSION_LIFECYCLE.md)
 are current team responsibilities. User Assistant AI Demo is not required.
+
+
+[Platform Team host composition](examples/core-platform-team/README.md) now combines
+the system model, isolated platform-development allowance, shared artifacts and
+reciprocal reviews with persistent native Tasks. The deterministic installed check
+retains requester/executor identities, survives reconstruction and proves that
+personal allowance is not borrowed for platform inference. This narrows the
+integration gap; real-model collaboration and external member takeover of a
+persistent team Task are still unverified.
