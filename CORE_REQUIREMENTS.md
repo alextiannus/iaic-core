@@ -1,5 +1,13 @@
 # Core delivery objective
 
+Current user scope update (2026-09-14): a minimal reusable User AI Assistant demo
+is now explicitly requested. It represents the authenticated user in declaration
+submission and related clarification work, adapting AMC-MM companion behavior while
+reusing Core Tasks, Memory, Workspace, Skills and system-model allowance. This
+supersedes earlier no-demo statements below; it does not resume BYOK work or the
+ImmediToday conversion. See examples/core-user-assistant/README.md.
+
+
 2026-09-14 explicit goal correction: remove ImmediToday application conversion,
 application production deployment and business evaluation from this thread goal.
 The active deliverable is the minimum runnable IAiC Core Framework. Old ImmediToday
@@ -73,8 +81,7 @@ This clarifies the existing persistent Platform AI condition, not a requirement
 for more Agent role classes. Team composition is now required work; the previously
 released CLI/evidence interfaces do not by themselves establish its completion.
 
-Provide **User Assistant AI foundations**, without requiring a User Assistant
-Demo or product example: Memory, Knowledge, Skill loading,
+Provide **User Assistant AI foundations and a minimal reusable demo**: Memory, Knowledge, Skill loading,
 models, Workspace, Sessions, authorized capabilities, ongoing/proactive work,
 platform allowance and external Agent access. Applications own specialized jobs
 and UI. Both application-provided and third-party assistants are supported;
@@ -178,9 +185,9 @@ Remove expired compatibility paths deliberately instead of distorting current Co
 concepts to preserve every historical interface. See VERSION_LIFECYCLE.md for the
 current candidate support window and deployment migration limitations.
 
-A User Assistant AI Demo is not required in Core, its technical design or its
-acceptance criteria. Existing module examples can remain as implementation evidence,
-but do not create a new mandatory assistant product/demo workstream.
+The latest user instruction adds a minimal User Assistant AI demo as framework
+composition evidence. It is not a mandatory UI product, and application-specific
+Declaration contracts remain outside Core primitives.
 
 
 ## Automatic additive feedback upgrades — 2026-09-14

@@ -19,7 +19,8 @@ owner and new end date; there is no automatic or unlimited extension.
 | `v0.1.0-candidate.87` | Replaced when candidate.88 is published | 2026-09-28 23:59 UTC | Successor adds optional peer tables/APIs; existing Task and Delegation semantics stay pinned |
 | `v0.1.0-candidate.88` | Replaced when candidate.89 is published | 2026-09-28 23:59 UTC | Upgrade for peer recovery fixes; no schema migration, preserve existing request keys and receipts |
 | `v0.1.0-candidate.89` | Replaced when candidate.90 is published | 2026-09-28 23:59 UTC | Upgrade for equivalent stable Schema ID reuse; no database migration |
-| `v0.1.0-candidate.90` | Schema ID consumer fix prepared by this source; current upon verified publication | On replacement, record an explicit date 14 days later | Keep immutable Schema IDs; changed contracts require a new ID/version; TypeScript root declarations remain pending |
+| `v0.1.0-candidate.90` | Replaced when candidate.91 is published | 2026-09-28 23:59 UTC | Optional successor demo; no Core database migration; TypeScript declarations remain pending |
+| `v0.1.0-candidate.91` | User Assistant demo prepared by this source; current upon verified publication | On replacement, record an explicit date 14 days later | Initialize only the chosen demo adapter; keep existing Tasks on their original host version; no application deployment |
 
 The GitHub release and verified asset determine whether publication occurred.
 A source commit or this preparation record alone is not a published version.
