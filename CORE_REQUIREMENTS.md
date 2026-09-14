@@ -1,5 +1,11 @@
 # Core delivery objective
 
+2026-09-14 explicit goal correction: remove ImmediToday application conversion,
+application production deployment and business evaluation from this thread goal.
+The active deliverable is the minimum runnable IAiC Core Framework. Old ImmediToday
+plans and evidence are historical references, not outstanding obligations here.
+Three Demo Projects and community collaboration remain phase two.
+
 ## Current phase: minimum runnable Core
 
 The latest user instruction makes phase one the delivery of a minimum runnable

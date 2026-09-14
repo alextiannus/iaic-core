@@ -1,5 +1,10 @@
 # Candidate status and practical limits
 
+Current goal correction (2026-09-14): ImmediToday conversion, application deployment
+and business evaluation have been removed from this thread objective. Deliver the
+minimum runnable Core Framework; retain historical application evidence without
+restarting its work. Demo Projects and community collaboration remain phase two.
+
 ## Current phase: minimum runnable Core
 
 The latest user instruction makes phase one the delivery of a minimum runnable
