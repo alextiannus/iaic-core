@@ -1,5 +1,7 @@
 # Candidate status and practical limits
 
+Latest user clarification (2026-09-14): prioritize Platform AI capabilities; provide User Assistant foundations and a generic demo. Both can be application-provided or external third-party Agents. Business AI is application-resident, uses system model configuration and system/server capabilities, and is not a required built-in Core product. Core supplies cross-application Business AI capabilities only where needed. This supersedes older role-delivery assumptions; see CORE_REQUIREMENTS.md.
+
 2026-09-14 user-approved scope update: User Assistant BYOK remains optional and retained; related feature development and dedicated testing are paused. BYOK switching is not a Core technical-design or completion requirement. The required paths are the platform default model and personal external AI assistants using existing identity/authorization. Historical BYOK implementation/test records below do not reinstate it as a gate. See CORE_REQUIREMENTS.md.
 
 Initial extraction revision: `19e80c637e83a16f2197cebacfe729d804ca0e54`.
