@@ -34,6 +34,10 @@ test('Reciprocal reviews retain exact artifacts, authors and follow-up findings 
   assert.equal(followup.previousReviewId,first.id);
   assert.equal((await open().read(external,first.id)).target.revision,1);
   assert.equal((await open().read(external,followup.id)).target.revision,2);
+  const covered=await workspace.write(builtin,{path:'change.md',content:'Teammate adds missing verification evidence',expectedRevision:2});
+  const coveredReview=await reviews.record(external,{id:'cover-review',target:covered.reference,verdict:'no_findings',findings:'Verified the teammate correction.',previousReviewId:followup.id});
+  assert.equal(coveredReview.author,'builtin');assert.equal(coveredReview.reviewer,'external');
+  assert.equal(coveredReview.previousReviewId,followup.id);
   const nativeWork=await workspace.write(builtin,{path:'plan.md',content:'Plan from built-in Platform Agent',expectedRevision:0});
   const reverse=await reviews.record(external,{id:'reverse',target:nativeWork.reference,verdict:'inconclusive',findings:'Needs an actual execution result.'});
   assert.equal(reverse.author,'builtin');assert.equal(reverse.reviewer,'external');
@@ -43,7 +47,7 @@ test('Reciprocal reviews retain exact artifacts, authors and follow-up findings 
   members.delete('builtin');
   await assert.rejects(historyCapability.revalidate(input,first,{actor:builtin}),{statusCode:403});
   members.add('builtin');
-  await workspace.remove(external,{path:'change.md',expectedRevision:2});
+  await workspace.remove(external,{path:'change.md',expectedRevision:3});
   await assert.rejects(reviews.read(builtin,first.id),{statusCode:404});
   assert.equal((await new WorkspaceReviewStore({workspace:evidence,actor:service}).get(first.id)).findings,input.findings);
  }finally{await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}

@@ -61,7 +61,7 @@ export class PeerReviews {
   if(record.previousReviewId!==null){
    if(!id(record.previousReviewId))throw fail('Invalid prior review ID');
    const previous=await this.read(actor,record.previousReviewId);
-   if(previous.id===record.id||previous.author!==record.author||previous.target.path!==record.target.path||previous.target.revision>record.target.revision)throw fail('Follow-up must reference an earlier review of this author and artifact',409);
+   if(previous.id===record.id||previous.target.path!==record.target.path||previous.target.revision>record.target.revision)throw fail('Follow-up must reference an earlier review of this artifact',409);
   }
   await this.check(actor,'record',record);
   // Put must atomically bind the ID to these exact bytes/fields. No inferred pass.

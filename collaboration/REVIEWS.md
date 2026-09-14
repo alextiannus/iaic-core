@@ -32,7 +32,9 @@ Record input is `{id,target,verdict,findings,previousReviewId?}`. Target is a fu
 Workspace-style reference. Verdict is `changes_requested`, `no_findings` or
 `inconclusive`; findings are required. Reviewer and author are supplied by the
 trusted ports. Self-review is rejected. A follow-up links an existing review of
-the same author and logical artifact, at the same or a later revision. Corrections
+the same logical artifact, at the same or a later revision. After a teammate takes
+over an edit, its new revision can have a different author; the next reviewer must
+still differ from that revision's author. Corrections
 and rechecks append new records; they do not rewrite the original criticism.
 Follow-up links record provenance, not a claim that every earlier finding closed.
 
