@@ -4,6 +4,10 @@ Optional, headless `iaic.peer.v1` communication between independently authorized
 principals. This is separate from delegated execution and Platform Team shared work.
 An application Business AI or deterministic controller governs business channels;
 Platform AI maintains this module. A ChannelGrant never transfers domain authority.
+Application-owned connectors run under the System Owner mandate; principal-owned
+connectors run under that principal's Role/Mandate/resource/credential authorization.
+Hosting a channel never grants Platform AI or Business AI the provider's connector
+credentials. Provider-specific mappings stay in its adapter.
 
 ## Compose only the services needed
 
