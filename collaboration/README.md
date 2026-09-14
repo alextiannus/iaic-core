@@ -4,6 +4,10 @@ For reciprocal reviews independent of task delegation, see [REVIEWS.md](REVIEWS.
 It composes exact artifact references, trusted peer identity and Workspace-backed
 immutable review evidence through the existing Capability interfaces.
 
+External team members can invoke function grants and retrieve original operation
+receipts through the [shared tool capabilities](TOOLS.md), without adopting Core
+Runtime. Task-bound grants must use their existing Runtime binding.
+
 `DelegatedCapabilities` composes the existing CapabilityDispatcher with a durable grant. It supplies a first cross-principal authorization building block, not another Agent Runtime or a replacement for same-owner TaskHandoffs.
 
 Required ports: `resolvePrincipal(actor)` returns application/subject identity, `restoreActor(reference)` restores current issuer identity, `authorizeGrant(actor,{action,terms})` enforces issue/read/revoke/execute/continue policy, and `allowInput({issuerActor,delegateActor,terms,capability,input})` enforces domain-specific resource attenuation. They must use current identity and policy data. `PostgresDelegationStore({pool,namespace})` supplies the independent default persistence adapter; initialize its schema before use.

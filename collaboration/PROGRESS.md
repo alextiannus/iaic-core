@@ -1,5 +1,9 @@
 # Delegated operation receipts and takeover
 
+For direct external function-grant calls, use [TOOLS.md](TOOLS.md). Their original
+attempt receipts live in the existing delegation store; the Task projection below
+remains specific to bound Runtime Tasks.
+
 `DelegationProgress({grants, authorizeShare})` reads the original delegated Task's current operation metadata. Its explicit sharing port receives `{action:'progress', ownerActor, recipientActor, grant, revoked}` and must check current policy. Both participants still need current grant read access. Execution revocation does not erase responsibility for previously admitted effects: the host may separately permit progress sharing after revocation. This does not restore artifact, execution or result sharing.
 
 `read(actor, grantId)` returns Task status and at most 1,000 operation receipts, each containing `effectKey`, `capability`, `effect` and `status`. It verifies the original Task's grant digest and exact input. The default TaskStore reads only these columns; no model history, arguments, results, error text or artifact bodies are shared. Alternate stores implement the scoped `operationReceipts(actor, taskId)` port. Oversized or malformed projections fail instead of silently truncating.

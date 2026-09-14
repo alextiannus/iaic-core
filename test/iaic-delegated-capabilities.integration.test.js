@@ -1,5 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import {Pool} from 'pg';
-import {PostgresDelegationStore,DelegatedCapabilities,CapabilityDispatcher,defineCapability} from '@immedi/iaic-core';
+import {PostgresDelegationStore,DelegatedCapabilities,CapabilityDispatcher,defineCapability,createDelegatedToolCapabilities} from '@immedi/iaic-core';
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {InMemoryTransport} from '@modelcontextprotocol/sdk/inMemory.js';
+import {createCapabilityMcpServer} from '@immedi/iaic-core/mcp/server.js';
 async function fixture(fn){
  const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL;if(!connectionString)throw new Error('Isolated PostgreSQL required');
  const schema='delegated_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);const pool=new Pool({connectionString,options:`-c search_path=${schema}`});
@@ -33,4 +36,40 @@ test('Lost delegated effect response survives reconstruction and is never blindl
  const restored=new DelegatedCapabilities({...options,store:new PostgresDelegationStore({pool,namespace:'fixture'})});
  await assert.rejects(restored.invoke(delegate,call),{statusCode:409});assert.equal((await pool.query('SELECT * FROM effects')).rowCount,1);
  assert.equal((await restored.read(issuer,'grant')).calls[0].outcome,'unknown');
+}));
+test('External direct invocation cannot bypass Task-bound grant Runtime checks',async()=>fixture(async({d,issuer,delegate,terms,pool})=>{
+ await d.issue(issuer,{...terms,id:'task-bound',task:{capability:'agent.work'}});
+ await assert.rejects(d.invoke(delegate,{grantId:'task-bound',callId:'direct',capability:'write',input:{resource:'allowed'}}),{statusCode:403});
+ assert.equal((await d.read(issuer,'task-bound')).calls.length,0);
+ assert.equal((await pool.query('SELECT * FROM effects')).rowCount,0);
+}));
+test('Either team participant can recover the other external tool caller original effect through MCP receipts',async()=>fixture(async({d,issuer,delegate,terms,pool,options,lose})=>{
+ await d.issue(delegate,{...terms,id:'reverse',delegate:{applicationId:'app',subjectId:'issuer'},payer:{applicationId:'app',subjectId:'delegate'}});
+ lose();
+ const restored=new DelegatedCapabilities({...options,store:new PostgresDelegationStore({pool,namespace:'fixture'})});
+ const capabilities=createDelegatedToolCapabilities({grants:restored}),dispatcher=new CapabilityDispatcher({capabilities});
+ for(const [grantId,caller,covering] of [['grant',delegate,issuer],['reverse',issuer,delegate]]){
+  const server=createCapabilityMcpServer({dispatcher,resolveAccess:async()=>({actor:caller,capabilities:capabilities.map(c=>c.name)})});
+  const client=new Client({name:'external-platform-fixture',version:'1'});
+  const [ct,st]=InMemoryTransport.createLinkedPair();await server.connect(st);await client.connect(ct);
+  try{
+   const input={grantId,callId:'original',capability:'write',input:{resource:'allowed'}};
+   const failed=await client.callTool({name:'collaboration.tools.invoke',arguments:{input,requestKey:'external-attempt'}});
+   assert.equal(failed.isError,true);
+   const receipt=await dispatcher.invoke('collaboration.tools.read',{grantId},{actor:covering});
+   assert.equal(receipt.calls.length,1);assert.equal(receipt.calls[0].outcome,'unknown');
+   const operation=receipt.calls[0];assert.equal(operation.call_id,input.callId);
+   // Independent domain query uses the original key, not a replay of the write.
+   const effect=(await pool.query('SELECT * FROM effects WHERE id=$1',[operation.effect_key])).rows[0];
+   assert.equal(effect.actor,caller.subjectId);
+   const refreshed=await capabilities[0].revalidate(input,{result:'untrusted cached result'},{actor:covering});
+   assert.equal(refreshed.receipt.effect_key,operation.effect_key);assert.equal(refreshed.unknown,true);assert.equal(refreshed.result,undefined);
+   await assert.rejects(dispatcher.invoke('collaboration.tools.invoke',input,{actor:caller,callId:'repeat'}),{statusCode:409});
+   await dispatcher.invoke('collaboration.tools.revoke',{grantId},{actor:covering,callId:'revoke-'+grantId});
+   assert.equal((await dispatcher.invoke('collaboration.tools.read',{grantId},{actor:covering})).calls[0].effect_key,operation.effect_key);
+   await assert.rejects(dispatcher.invoke('collaboration.tools.invoke',{...input,callId:'another'},{actor:caller,callId:'another-wrapper'}),{statusCode:403});
+  }finally{await client.close();await server.close();}
+ }
+ assert.equal((await pool.query('SELECT * FROM effects')).rowCount,2);
+ await assert.rejects(dispatcher.invoke('collaboration.tools.read',{grantId:'grant'},{actor:{subjectId:'outsider'}}),{statusCode:403});
 }));
