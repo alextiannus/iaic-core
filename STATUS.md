@@ -878,3 +878,19 @@ The fixture advances lease expiry in SQL. No real model or 12Eat transaction is 
 Full Note47 P0 remains pending consuming-application validation and the host policies/
 implementation limitations in collaboration/peer/README.md. Candidate.88 is prepared
 by this source; publication is determined by the verified GitHub asset.
+
+
+## 2026-09-14 — peer recovery review fixes
+
+Candidate.89 fixes three reproduced defects in candidate.88: withdrawn evidence and
+a retired send adapter blocked original receipt reconciliation; human-create replay
+after expiry rejected an existing stable request; and 50 non-exhausted failures could
+starve later Unknown deliveries from human escalation. Receipt-only recovery retains
+current participant/read/operation policy without disclosing bodies; body reads and
+retries still require current evidence. Query-only adapters are supported. Expired
+human replay preserves the original identity/state. Escalation filters eligibility
+before its scan limit and rechecks current delivery state.
+
+All three new regression scenarios failed on candidate.88; all ten peer PostgreSQL
+tests pass after fixes. Existing CI remains required before verified publication.
+No new business capability or application integration is claimed.

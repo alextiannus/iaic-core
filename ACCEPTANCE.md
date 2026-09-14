@@ -146,3 +146,10 @@ Production identity proof, host retry scheduling/backoff, source authority integ
 retention cleanup and actual application/domain adapters require consuming-host work.
 Information cancellation/reference-only structured requests are not implemented.
 No real-model evaluation, full protocol conformance or all crash boundaries are claimed.
+
+
+Peer recovery review (candidate.89): three additional regression scenarios reproduce
+and fix blocked receipt recovery after evidence withdrawal/query-only transport,
+expired human-create replay and starvation behind 50 retryable failures. The peer
+integration file now contains ten tests. These strengthen the bounded recovery
+evidence without changing the remaining Note47 application acceptance scope.

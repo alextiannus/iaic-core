@@ -76,14 +76,20 @@ Revocation blocks new admission; it cannot undo an already admitted external eff
 
 Timeout or worker death is Unknown. Query the original adapter idempotency key;
 never blindly resend. `delivery.reconcile` can retain/query original receipts after
-closure under read policy. Explicit `delivery.retry` requires definitive not_sent,
+closure under read policy, without rereading withdrawn evidence content. Original
+query-only adapters are supported after send access is retired; message body reads
+and retries still require current evidence access. Explicit `delivery.retry` requires definitive not_sent,
 current send authority and remaining attempts. The host schedules retry backoff and
 ticks; Core does not supply a second scheduler. Query adapters must inspect the
 original effect, not infer absence from a missing response.
 
 Optional PeerDeliveryRecovery creates one durable HumanTask per problematic delivery
-through a host escalation policy (stable requestKey and dueAt). Unknown or exhausted
-failures qualify. Humans have an owner, claim, allowed resolutions, evidence and
+through a host escalation policy (stable requestKey and dueAt). Retrying creation
+after the deadline returns the original task with derived expired state; it does not
+reopen the task. Unknown or exhausted
+failures qualify. Eligibility is filtered before the bounded scan, so older
+non-exhausted failures do not block later Unknown deliveries. Current delivery state
+is checked again after scanning. Humans have an owner, claim, allowed resolutions, evidence and
 expiry/cancellation. Resolving a task does not execute a domain command. Subsequent
 attempts after resolution do not automatically reopen that task; the host owns that
 follow-up policy. Pending tasks remain inspectable when new peer work is disabled.
