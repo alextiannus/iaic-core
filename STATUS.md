@@ -1,5 +1,13 @@
 # Candidate status and practical limits
 
+Package identity update (2026-09-15): candidate.93 uses internal npm version
+`0.1.0-candidate.93` and its version-qualified tarball filename. `CORE_RELEASE`
+reports the installed package identity. The release gate includes an ordinary
+candidate.92 → current npm upgrade with the same cache, lockfile and node_modules.
+See releases/IDENTITY.md. This does not complete the separate public TypeScript
+surface request or prove application integration.
+
+
 Current scope addition (2026-09-15): IM is a replaceable User Assistant interface.
 The channels module adds a durable inbox, explicit cross-channel account binding,
 Core task controls and notification projection, with Telegram/Slack text normalizers.

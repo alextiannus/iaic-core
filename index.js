@@ -181,3 +181,5 @@ export {PostgresPeerStore,PeerCollaboration,PeerInformationRequests,PeerHumanTas
 export {AssistantChannel,PostgresChannelInbox,channelMessage} from './channels/assistant.js';
 export {telegramMessage,slackMessage} from './channels/normalizers.js';
 export {LocalDirectoryDevice,LocalFiles,createLocalFileCapabilities} from './devices/files.js';
+
+export {CORE_RELEASE} from './releases/identity.js';
