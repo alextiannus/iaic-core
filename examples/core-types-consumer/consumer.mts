@@ -2,7 +2,7 @@ import {defineCapability,CapabilityDispatcher,type Actor,type TaskReceipt,type E
 import {createCapabilityHttpHandler} from '@immedi/iaic-core/http/server.js';
 import {CapabilityHttpClient,CapabilityHttpError} from '@immedi/iaic-core/http/client.js';
 import {publicErrorFields,type CoreErrorFields} from '@immedi/iaic-core/capabilities/errors.js';
-type User = Actor & {organization: string};
+interface User extends Actor {organization: string}
 type Input = {value: string};
 type Output = {value: string};
 type Contracts = {'records.write': {input: Input; output: Output}; 'agent.work': {input: {goal: string}; output: TaskReceipt}};

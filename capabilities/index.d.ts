@@ -1,5 +1,5 @@
 export type MaybePromise<T> = T | Promise<T>;
-export interface Actor {subjectId: string; scopeId?: string; [field: string]: unknown}
+export interface Actor {subjectId: string; scopeId?: string}
 export type Schema = object | true;
 export interface CapabilityContract<Input = unknown, Output = unknown> {input: Input; output: Output}
 export interface InvocationContext<A extends Actor = Actor> {
