@@ -1,3 +1,4 @@
+import {publicErrorFields} from '../capabilities/errors.js';
 import {randomUUID} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 
@@ -44,7 +45,7 @@ export async function createCapabilityA2AHandler({dispatcher,capability,resolveA
    async listTasks(params){if(!taskBindings)return {tasks:[],nextPageToken:'',pageSize:0,totalSize:0};const result=await invoke(taskBindings.list,params);return {...result,tasks:await Promise.all(result.tasks.map(project))};},
    sendMessageStream:unsupported,resubscribe:unsupported,createTaskPushNotificationConfig:unsupported,getTaskPushNotificationConfig:unsupported,listTaskPushNotificationConfigs:unsupported,deleteTaskPushNotificationConfig:unsupported
   };
-  for(const [key,fn] of Object.entries(handler)){handler[key]=async(...args)=>{try{return await fn(...args);}catch(error){if(error instanceof A2AError)throw error;throw new A2AError({message:error.statusCode&&error.statusCode<500?String(error.message).slice(0,500):'Capability operation failed; reconcile before replay',metadata:{statusCode:String(error.statusCode||500),outcomeUnknown:String(error.outcomeUnknown===true),...(error.taskId?{taskId:error.taskId}:{}),recovery:'Keep the messageId; query or reconcile before replay'}});}};}
+  for(const [key,fn] of Object.entries(handler)){handler[key]=async(...args)=>{try{return await fn(...args);}catch(error){if(error instanceof A2AError)throw error;throw new A2AError({message:error.statusCode&&error.statusCode<500?String(error.message).slice(0,500):'Capability operation failed; reconcile before replay',metadata:{...publicErrorFields(error),statusCode:String(error.statusCode||500),outcomeUnknown:String(error.outcomeUnknown===true),...(error.taskId?{taskId:error.taskId}:{}),recovery:'Keep the messageId; query or reconcile before replay'}});}};}
   const transport=new JsonRpcTransportHandler(handler);
   let body;
   try{

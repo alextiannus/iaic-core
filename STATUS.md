@@ -862,3 +862,19 @@ catalog. Native-authored shared outputs remain explicitly published; injected
 work tools retain reader-side authorization. Sixteen deterministic calls consume
 112 issued units with the user allowance unchanged. This is not a paid model
 quality claim, semantic memory extraction or arbitrary executor takeover.
+
+
+## 2026-09-14 — minimum peer collaboration upgrade
+
+User-approved Note47 feedback now supplies separate endpoint/channel/grant, durable
+message/inbox/outbox, structured information, human task, recovery and explicit formal
+submission services. Current authority/evidence, subject version, per-channel sequence,
+request-key deduplication and distinct delivery/ack receipts are enforced. Existing
+Notifications and CapabilityDispatcher are reused; no second Agent or business engine.
+
+Seven PostgreSQL scenarios and the HTTP/MCP/A2A composition pass locally, including
+actual worker SIGKILL after external acceptance and original-effect reconciliation.
+The fixture advances lease expiry in SQL. No real model or 12Eat transaction is claimed.
+Full Note47 P0 remains pending consuming-application validation and the host policies/
+implementation limitations in collaboration/peer/README.md. Candidate.88 is prepared
+by this source; publication is determined by the verified GitHub asset.
