@@ -102,3 +102,12 @@ deployment is inferred from this exercise.
 Do not add unbounded requirements for every LLM, identity vendor, cloud provider,
 UI framework or protocol extension. Equally, do not reinterpret existing module
 ports, fixture results or authored model samples as complete application delivery.
+
+
+Platform peer-review mechanism evidence: [review contract](collaboration/REVIEWS.md)
+and [installed Runtime/MCP composition](examples/core-peer-reviews/README.md) retain
+reciprocal findings under separate identities, exact artifact revisions and linked
+follow-ups, including a revision whose author changes when a teammate covers the
+edit. This does not prove actual task takeover, real model review quality or a live
+Codex connection. Documentation ownership and finite [version lifetimes](VERSION_LIFECYCLE.md)
+are current team responsibilities. User Assistant AI Demo is not required.
