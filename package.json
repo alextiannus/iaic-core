@@ -1,6 +1,6 @@
 {
   "name": "@immedi/iaic-core",
-  "version": "0.1.0-candidate.93",
+  "version": "0.1.0-candidate.94",
   "private": true,
   "type": "module",
   "description": "Headless modular IAiC capabilities, durable agents, memory, models and platform allowance rules.",
@@ -121,7 +121,8 @@
     "example:jobs": "node examples/core-configurable-jobs/run.mjs",
     "verify:core-package": "node scripts/verify-package.mjs",
     "test:modules": "node scripts/verify-modules.mjs",
-    "verify:release-upgrade": "node scripts/verify-release-upgrade.mjs"
+    "verify:release-upgrade": "node scripts/verify-release-upgrade.mjs",
+    "verify:types-package": "node scripts/verify-types-package.mjs"
   },
   "devDependencies": {
     "@a2a-js/sdk": "1.1.0",

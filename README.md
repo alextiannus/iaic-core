@@ -1,5 +1,12 @@
 # IAiC Core
 
+TypeScript scope update (2026-09-15): candidate.94 adds declarations for the
+Capability/Dispatcher and HTTP server/client module entries, plus structural error
+and Task admission types. A separate tarball consumer compiles under strict
+NodeNext and executes its emitted program. Root and full Agent/Task/Peer module
+coverage remain pending; see capabilities/TYPES.md for the exact supported imports.
+
+
 Package identity update (2026-09-15): candidate.93 uses internal npm version
 `0.1.0-candidate.93` and its version-qualified tarball filename. `CORE_RELEASE`
 reports the installed package identity. The release gate includes an ordinary

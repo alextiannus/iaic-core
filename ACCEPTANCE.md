@@ -1,5 +1,15 @@
 # Note 30 acceptance evidence map
 
+## Typed module consumer
+
+The `verify:types-package` gate independently installs the candidate tarball and
+TypeScript 5.9.3, compiles strict NodeNext without an ambient shim or skipLibCheck,
+and executes the emitted program. It covers Capability/Dispatcher/HTTP module
+imports, function context, Task admission shape, preflight errors and eight negative
+compile cases. Full root, AgentRuntime, TaskStore and Peer types remain pending;
+this is not 12Eat's own shim-removal acceptance. See capabilities/TYPES.md.
+
+
 ## Candidate upgrade contract
 
 The release-upgrade gate installs the SHA-256-pinned published candidate.92 and
