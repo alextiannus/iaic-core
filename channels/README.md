@@ -44,7 +44,8 @@ The host's `resolveDelivery` must recheck the current account/conversation bindi
 | --- | --- | --- |
 | Telegram | Text update normalizer; ignores edited/bot messages | Bot registration, webhook secret verification, durable acknowledgement, account linking, send mapping |
 | Slack | Message event normalizer; team check; ignores subtype/bot events | App installation, raw-body signature/timestamp verification, subscription/challenge handling, durable acknowledgement, send mapping |
-| Lark/Feishu, DingTalk, WeCom | Same envelope/ports; no built-in provider adapter yet | Provider verification/decryption, identity binding, inbound/outbound adapter |
+| Lark/Feishu | Text event normalizer, app/tenant checks, own-bot mention removal, official SDK text create/thread reply | Verified official SDK event ingress, durable acknowledgement, account linking, tenant/app credentials; see [Lark](LARK.md) |
+| DingTalk, WeCom | Same envelope/ports; no built-in provider adapter yet | Provider verification/decryption, identity binding, inbound/outbound adapter |
 | WhatsApp, Teams, Discord, Matrix | Same extension boundary; no built-in provider adapter yet | Official application/bot API integration and receipt semantics |
 | Personal WeChat | No adapter | Evaluate available official access for the application; do not promise arbitrary personal-account automation |
 

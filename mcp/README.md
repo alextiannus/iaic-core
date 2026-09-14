@@ -33,3 +33,7 @@ If the application wraps Agent admission with Session association, readiness che
 ImmediToday's `assistant.run` now uses `createAssistantTask`, matching the ordinary HTTP/personal-tool entrypoint. A shared requestKey returns the same Task and repairs/retains one Session reference. External calls cannot use `deferred:` or `iaic-handoff:` internal Task keys; an `idempotency_key` inside business input remains invalid rather than being silently stripped during envelope translation.
 
 `examples/core-configurable-jobs` shows an external MCP client reading the configured job's Workspace and Skills without invoking a hosted model, and optionally admitting durable work through the shared Session-aware entry. It reads Task status and the resulting artifact through the same capabilities. The example host's actor comes from its trusted scope mapping; an external Agent does not need Core Runtime internally. This demonstrates selected capability parity, not complete protocol feature coverage. The explicit importer is described above.
+
+## Lark integration
+
+The optional [Lark bridge](../channels/LARK.md) selects 89 reviewed official MCP tools across eight domains, including joining groups and managing members. It uses this importer and the same Dispatcher; the provider server remains an application dependency. Import `@immedi/iaic-core/mcp/lark.js`.

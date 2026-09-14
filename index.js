@@ -183,3 +183,4 @@ export {telegramMessage,slackMessage} from './channels/normalizers.js';
 export {LocalDirectoryDevice,LocalFiles,createLocalFileCapabilities} from './devices/files.js';
 
 export {CORE_RELEASE} from './releases/identity.js';
+export {larkMessage,createLarkNotificationDelivery} from './channels/lark.js';
