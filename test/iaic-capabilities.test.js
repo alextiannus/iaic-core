@@ -57,3 +57,17 @@ test('read-only preflight rejects before writes and cancellation still blocks ad
  await assert.rejects(dispatcher.invoke('records.read',{value:'cancel'},{actor,callId:'b',signal:control.signal}),{statusCode:409});assert.equal(writes,0);
  await dispatcher.invoke('records.read',{value:'valid'},{actor,callId:'c'});assert.equal(writes,1);
 });
+
+test('structured preflight feedback is public across entry projections and cannot bypass validation or authorization',async()=>{
+ let writes=0,checks=0,permitted=true,result={valid:false,feedback:'/value must reference the current revision'};
+ const dispatcher=new CapabilityDispatcher({capabilities:[define({effect:'write',retry:'idempotent',authorize:()=>permitted,preflight:()=>{checks++;return result;},implementation:{kind:'function',execute:async value=>{writes++;return value;}}})]});
+ for(const invoke of [()=>dispatcher.invoke('records.read',{value:'old'},{actor,callId:'one'}),()=>dispatcher.toolsFor(actor)['records.read'].handler({value:'old'},{callId:'two'})]){
+  await assert.rejects(invoke,error=>error.statusCode===422&&error.preflightRejected===true&&error.preflightFeedback===result.feedback&&error.message.includes(result.feedback)&&!error.outcomeUnknown);
+ }
+ assert.equal(writes,0);assert.equal(checks,2);
+ permitted=false;await assert.rejects(dispatcher.invoke('records.read',{value:'old'},{actor,callId:'denied'}),error=>error.statusCode===403&&!error.preflightFeedback);assert.equal(checks,2);permitted=true;
+ for(const invalid of [null,1,'yes',{}, {valid:true,extra:'not allowed'},{valid:true,feedback:''},{valid:false,feedback:'x'.repeat(2001)},{valid:true,feedback:undefined}]){
+  result=invalid;await assert.rejects(dispatcher.invoke('records.read',{value:'one'},{actor,callId:'invalid'}),/Invalid capability preflight result/);
+ }
+ assert.equal(writes,0);result={valid:true};assert.deepEqual(await dispatcher.invoke('records.read',{value:'current'},{actor,callId:'valid'}),{value:'current'});assert.equal(writes,1);
+});

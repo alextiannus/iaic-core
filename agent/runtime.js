@@ -272,7 +272,7 @@ export class AgentRuntime {
           if(task.authority)await this.authority.settleTool({task,callId:call.id,outcome:'unknown'}).catch(()=>{});
           await this.executor.settle(task.id,call.id,{error,unknown});
           if(!unknown&&Array.isArray(error.validation))await this.executor.append(task.id,'feedback',{error:'Tool input failed schema validation; correct its JSON types and required fields.',capability:action.name,validation:error.validation.slice(0,10).map(({instancePath,keyword,message})=>({path:String(instancePath).slice(0,200),keyword,message}))});
-          if(!unknown&&error.preflightRejected===true)await this.executor.append(task.id,'feedback',{error:'Tool input failed preflight before execution; no operation was executed. Correct the input using the capability requirements.',capability:action.name});
+          if(!unknown&&error.preflightRejected===true)await this.executor.append(task.id,'feedback',{error:'Tool input failed preflight before execution; no operation was executed. Correct the input using the capability requirements.',capability:action.name,...(typeof error.preflightFeedback==='string'&&error.preflightFeedback.length<=2000?{feedback:error.preflightFeedback}:{})});
           if(unknown){await this.executor.finish(task.id,{status:'waiting',reason:'external_result'});break;}
         }
       }

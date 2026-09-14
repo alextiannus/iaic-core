@@ -638,3 +638,35 @@ Evidence: ImmediToday-evidence/2026-09-14/core-reasoning-policy.
 These checks establish configurable foundation behavior, not improved real-model
 latency, quality or full Note30/40 acceptance. ImmediToday remains on candidate.78
 until it explicitly adopts the new package; production model settings are unchanged.
+
+## 2026-09-14 — Caller-safe business preflight correction feedback
+
+A full inspection corrected the previous application experiment's analysis:
+Schema rejection already included /content, type, must be object, and the Context
+assembler retained it. The summary had extracted only the generic error string.
+Original evidence and a separate correction are retained. This change targets the
+actual missing business-preflight explanation, not that existing Schema path.
+
+Function capability preflight now accepts a boolean or a strict {valid,feedback?}
+result. Feedback is optional public host content bounded to2000 characters. Failed
+checks remain before side effects; invalid result shapes cannot authorize a write.
+Authorized feedback is included in the shared error message and Runtime Task event,
+so it survives context assembly and reconstruction. The host owns safe domain
+wording; arbitrary upstream exception content is not automatically forwarded.
+Permissions, input schemas, execution policy, cancellation, original error receipts
+and output verification remain separate checks. No coercion or retry is added.
+
+All336 module checks and42 independently installed examples passed without skips.
+Tests verify shared entry projections, authorization before preflight, invalid
+structured results, and one eventual write after rejection, waiting and Runtime
+reconstruction. The installed neutral notes example rejects an incorrect preference,
+observes the feedback and persists the corrected original preference once. These
+are deterministic recovery checks, not actual-model quality or process-kill proof.
+The initial reconstruction test incorrectly counted the separate wait-question
+feedback as another preflight error; the retained fixture failure was corrected to
+count the identified capability's rejection. Evidence is in
+ImmediToday-evidence/2026-09-14/core-preflight-feedback.
+
+ImmediToday remains on candidate.79 until explicit package adoption. The previous
+GLM/high four-class development batch completed4/4 but retained material semantic
+errors in two reports. Full Note30/39/40 acceptance is still incomplete.

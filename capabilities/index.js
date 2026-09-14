@@ -1,4 +1,5 @@
 import Ajv from 'ajv';
+import {preflightResult} from './preflight.js';
 import {toolCallLimits} from '../agent/tool-limits.js';
 
 const ajv = new Ajv({ allErrors: true, strict: true, coerceTypes: false, removeAdditional: false, useDefaults: false });
@@ -80,7 +81,11 @@ export class CapabilityDispatcher {
     }
     if (capability.effect === 'write' && !callId) throw failure('Write capability requires a stable call ID');
     // Preflight is read-only application validation, before the side-effect boundary.
-    if (capability.preflight && await capability.preflight(value, context) !== true) throw failure('Capability input failed preflight before execution', 422, { preflightRejected: true });
+    if (capability.preflight) {
+      const checked=preflightResult(await capability.preflight(value,context));
+      if (!checked.valid) throw failure('Capability input failed preflight before execution'+(checked.feedback?': '+checked.feedback:''),422,
+        {preflightRejected:true,...(checked.feedback?{preflightFeedback:checked.feedback}:{})});
+    }
     await this.checkPolicy(capability,value,{...context,phase:'function'});
     if (signal?.aborted) throw failure('Execution cancelled', 409);
     let executed = false;
