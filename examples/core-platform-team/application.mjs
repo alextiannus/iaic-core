@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto';
-import {AgentRegistry,AgentIdentityStore,AgentRuntime,TaskStore,ContextAssembler,CapabilityDispatcher,defineCapability,PostgresWorkspaceStore,AssistantWorkspace,PeerReviews,WorkspaceReviewStore,createPeerReviewCapabilities,AssistantSettings,AssistantModels,ModelProfiles,TokenLedger} from '@immedi/iaic-core';
+import {createTaskControlCapabilities,AgentRegistry,AgentIdentityStore,AgentRuntime,TaskStore,ContextAssembler,CapabilityDispatcher,defineCapability,PostgresWorkspaceStore,AssistantWorkspace,PeerReviews,WorkspaceReviewStore,createPeerReviewCapabilities,AssistantSettings,AssistantModels,ModelProfiles,TokenLedger} from '@immedi/iaic-core';
 import {workspaceTools} from '@immedi/iaic-core/workspace/tools.js';
 
 const denied=()=>Object.assign(new Error('Platform team access denied'),{statusCode:403});
@@ -48,14 +48,26 @@ export async function openPlatformTeam({pool,applicationId,teamId,builtinActor,a
   // Sharing a team result does not confer the native executor's private tool rights.
   await runtime.context.revalidateHistory({history:task,actor,dispatcher});
   if(task.result?.artifacts)for(const reference of task.result.artifacts)await workspace.read(actor,reference);
-  return {id:task.id,status:task.status,requestedBy:task.input.requestedBy,executor:nativeId,result:task.result??null};
+  return {id:task.id,status:task.status,requestedBy:task.input.requestedBy,executor:nativeId,waitingReason:task.waiting_reason??null,inputRequest:task.inputRequest??null,result:task.result??null};
  };
  const requestResult=async(actor,requestId)=>{
   await check(actor);const task=await tasks.findRequest(native,agent.name,key(actor,requestId));
   return task?{status:'recorded',task:await view(actor,task.id)}:{status:'unknown',task:null};
  };
  const requestKey={type:'string',minLength:1,maxLength:200};
- const publicCapabilities=[...tools,
+ // Requesters can continue their own work; the native member retains host ownership.
+ const controlled=async(actor,id)=>{
+  await check(actor);const task=await runtime.state(native,id);
+  if(task.agent?.definitionId!==definitionId||(principal(actor)!==nativeId&&task.input.requestedBy!==principal(actor)))throw denied();
+  return task;
+ };
+ const controls=createTaskControlCapabilities({namespace:'platform.team.tasks',receipts:true,authorize:member,runtime:{
+  get:async(actor,id)=>{await controlled(actor,id);await view(actor,id);return runtime.get(native,id);},
+  state:(actor,id)=>controlled(actor,id),
+  transition:async(actor,id,request)=>{await controlled(actor,id);if(request.action!=='cancel')await view(actor,id);return runtime.transition(native,id,request);},
+  transitionReceipt:async(actor,id,requestKey)=>{await controlled(actor,id);return runtime.transitionReceipt(native,id,requestKey);}
+ }}).filter(capability=>capability.name!=='platform.team.tasks.get');
+ const publicCapabilities=[...tools,...controls,
   defineCapability({name:'platform.team.request',description:'Request native Platform AI work using its system model and platform development allowance. Your identity is retained as requester; execution remains native. Retain requestId after an uncertain acknowledgement.',input:{type:'object',properties:{requestId:requestKey,goal:agent.input.properties.goal},required:['requestId','goal'],additionalProperties:false},output:{type:'object'},effect:'write',retry:'idempotent',authorize:member,revalidate:(input,_result,{actor})=>requestResult(actor,input.requestId),implementation:{kind:'function',execute:async(input,{actor})=>{
    await check(actor);await dispatcher.invoke(agent.name,{goal:input.goal,requestedBy:principal(actor)},{actor:native,callId:key(actor,input.requestId)});return requestResult(actor,input.requestId);
   }}}),

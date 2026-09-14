@@ -14,7 +14,8 @@ owner and new end date; there is no automatic or unlimited extension.
 | Existing candidates through `v0.1.0-candidate.82` | Superseded; one-time migration window established by this policy | 2026-09-28 23:59 UTC | Migrate to the current verified candidate after checking pinned source, package integrity, module contracts and application evidence |
 | `v0.1.0-candidate.83` | Replaced when candidate.84 is published | 2026-09-28 23:59 UTC | Upgrade to candidate.84; Task-bound grants must use Runtime, not direct function invocation |
 | `v0.1.0-candidate.84` | Replaced when candidate.85 is published | 2026-09-28 23:59 UTC | Upgrade to candidate.85 for the minimum Platform Team host; existing module contracts unchanged |
-| `v0.1.0-candidate.85` | Minimum runnable Core candidate prepared by this source; current upon verified publication | On replacement, record an explicit date 14 days later | Install the archive and configure the local Platform Team MCP host; no new migration or automatic application deployment |
+| `v0.1.0-candidate.85` | Replaced when candidate.86 is published | 2026-09-28 23:59 UTC | Use the successor for MCP clarification and continuation; old Tasks retain their original host version binding |
+| `v0.1.0-candidate.86` | Minimum host continuation correction prepared by this source; current upon verified publication | On replacement, record an explicit date 14 days later | No database migration; continue existing Tasks with their original pinned host, then admit new work on this version |
 
 The GitHub release and verified asset determine whether publication occurred.
 A source commit or this preparation record alone is not a published version.

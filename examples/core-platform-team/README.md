@@ -121,7 +121,7 @@ must check the application's actual outcomes and evidence.
 Run `DATABASE_URL=<isolated PostgreSQL> node examples/core-platform-team/run.mjs`.
 The installed example proves shared artifacts and reciprocal reviews, system
 profile binding, requester/executor continuity across reconstruction, stable
-requests and a separate platform budget: five fixture inferences consume 35
+requests and a separate platform budget: six fixture inferences consume 42
 platform units while the funded personal allowance remains unchanged. Both members
 can originate requests. No real model, live Codex connection or paid inference is
 used in this check. Persistent team-task takeover by the external member and
@@ -138,9 +138,32 @@ incorrect initial findings and a retained unknown inference hold. The determinis
 example remains a separate reproducible check, not a simulation presented as that
 real interaction.
 
-For a waiting native Task, a trusted host uses the existing `app.runtime` lifecycle
-API to provide input, resume after funding, or cancel work under the native actor.
-These administrative controls are not exposed by this minimum stdio entry.
+The requester can continue its own Task through the MCP controls below. The native
+member can control native-owned team Tasks. Other members can read shared results
+but cannot cancel or answer work requested by a different member. Current team
+membership is required. These adapters call the original Runtime under its native
+execution identity; they do not transfer ownership or credentials.
+
+- `platform.team.task({id})` returns `waitingReason` and the authorized
+  `inputRequest` question/reference, in addition to the shared result.
+- `platform.team.tasks.state({id})` reads lifecycle status without source history.
+- `platform.team.tasks.provide_input({id,input})` answers a Task waiting for input.
+- `platform.team.tasks.resume({id})` resumes eligible waiting work after the
+  operator has funded the platform allowance or resolved its blocking condition.
+- `platform.team.tasks.cancel({id})` cancels through the existing Runtime, even
+  when historical sources are no longer accessible to the requester.
+- `platform.team.tasks.control_result({id,requestKey})` reads the original resume
+  or input receipt after a lost acknowledgement. Unknown is not permission to
+  invent a new operation key.
+
+For resume/input, supply a stable MCP envelope `requestKey` and retain it. Retrying
+identical input under that key recovers the original receipt; changing input
+conflicts. Reads and cancellations still require current requester authorization.
+Neither these controls nor restarting the host grants extra allowance. Runtime
+continues to enforce original versions, unresolved effects and eligible states.
+A funded Task does not resume automatically; explicitly call resume. To continue
+a Task from a replaced host version, run its original pinned archive/configuration
+within its declared lifetime. A newer host does not reinterpret the old binding.
 Shared work and review do not reassign a persistent native Task to Codex; arbitrary
 interrupted-task takeover is deferred. Integrators explicitly supply authorized
 development tools and outcome verification through the factory ports.

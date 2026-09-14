@@ -821,3 +821,21 @@ phase two. The old ImmediToday report batch was deliberately stopped with SIGTER
 after 29 recorded runs; its runner had no graceful stop hook. Its in-flight Task
 and any unresolved inference/effect receipts remain preserved. It was not graded
 as a completed 30-run evaluation, restarted or used as a Core release gate.
+
+## Minimum host continuation correction (2026-09-14)
+
+Candidate85 exposed work request/result tools but left continuation accessible only
+to trusted host code. This prevented an ordinary MCP client from seeing a native
+clarification or resuming after funding. The minimum entry now projects authorized
+input questions and composes existing createTaskControlCapabilities for state,
+resume, provide_input, cancel and original control receipts. A requester controls
+its own work; the native member retains native ownership. Cancellation needs
+lifecycle authority, not historical source access. No second Task state machine,
+new product flow or allowance grant tool is introduced.
+
+The installed composition now checks empty native allowance, funding and external
+resume, reconstruction, a model input wait, an MCP answer and duplicate receipt
+recovery, successful completion, reciprocal reviews and denial of another
+requester's cancellation. Six deterministic model calls consume 42 issued units;
+user allowance remains unchanged. This is a normal-path wiring correction, not
+another paid model evaluation or arbitrary interrupted-task takeover.
