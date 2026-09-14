@@ -153,3 +153,11 @@ and fix blocked receipt recovery after evidence withdrawal/query-only transport,
 expired human-create replay and starvation behind 50 retryable failures. The peer
 integration file now contains ten tests. These strengthen the bounded recovery
 evidence without changing the remaining Note47 application acceptance scope.
+
+
+Note47 §24 (candidate.90): test/iaic-schema-consumer.test.js and the independently
+installed core-schema-consumer example verify repeated canonical-equivalent $id
+registration, actual calls through both dispatchers, invalid input rejection and
+stable changed-content conflict without replacing the original validator. The package
+gate now runs 46 examples. Note47 §25 declarations and 12Eat's shim removal remain
+unimplemented/unverified; do not infer their completion from runtime tests.
