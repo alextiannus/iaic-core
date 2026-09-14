@@ -730,3 +730,17 @@ application Business Agent.
 Added PeerReviews, WorkspaceReviewStore and shared record/read capabilities under collaboration. Either principal can review the other's exact artifact revision, retain original findings and append a linked follow-up. Reserved evidence uses the existing Workspace store, not another task engine. Current host artifact access, trusted author/reviewer identity and review policy remain explicit ports.
 
 The new core-peer-reviews example runs a native persistent Runtime review and a reciprocal external MCP-client review with separate identities. Models and external client are deterministic fixtures; this does not establish a live Codex team, system-model platform budget, coding-tool parity or bidirectional task takeover. Those remain next integration work.
+
+
+## External Platform team operation receipts
+
+Added shared delegated function invoke/read/revoke capabilities over the existing
+DelegatedCapabilities service, so external Agents keep their own execution
+environment and expose original effect receipts to the other participant.
+PostgreSQL/MCP evidence covers both directions after a committed write loses its
+response; readback confirms original executor and no duplicate effects.
+
+Review also found and closed a direct-function invocation path for Task-bound
+grants. Those grants must execute through DelegatedTasks/Runtime and their existing
+parent/authority/accounting checks. See collaboration/TOOLS.md for migration.
+This is not yet full team Task takeover or a live built-in model/Codex connection.

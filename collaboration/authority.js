@@ -67,6 +67,7 @@ export class DelegatedCapabilities {
  async invoke(actor,{grantId,callId,capability,input},{signal}={}){
   input=jsonValue(input);
   const row=await this.access(actor,grantId,'execute'),terms=row.terms;
+  if(terms.task)throw fail('Task-bound grants must execute through their bound Runtime',403);
   if(!same(await this.principal(actor),terms.delegate)||row.revoked||Date.parse(terms.deadlineAt)<=Date.now()||!terms.tools.includes(capability))throw fail('Delegation does not allow this execution',403);
   const issuerActor=await this.restoreActor(terms.issuer);
   if(!same(await this.principal(issuerActor),terms.issuer)||await this.authorizeGrant(issuerActor,{action:'continue',terms})!==true)throw fail('Issuer authority no longer available',403);

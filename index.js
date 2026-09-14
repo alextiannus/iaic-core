@@ -126,6 +126,7 @@ export {ProviderCostAccounting,providerCostBasis,estimateProviderCost} from './c
 
 export {DelegationProgress,createDelegationProgressCapability} from './collaboration/progress.js';
 export {PeerReviews,WorkspaceReviewStore,createPeerReviewCapabilities} from './collaboration/reviews.js';
+export {createDelegatedToolCapabilities} from './collaboration/tools.js';
 
 export {PostgresDeploymentActivations,RecoverableDockerDeployment} from './developer/activation.js';
 
