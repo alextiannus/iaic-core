@@ -1,6 +1,6 @@
 # Candidate status and practical limits
 
-Latest user clarification (2026-09-14): prioritize Platform AI as a team of a built-in system-model Agent and the current external Codex Agent, sharing tasks, work artifacts and feedback with mutual takeover and reciprocal review. Team integration remains to be completed; CLI/evidence tools alone do not prove it. Provide User Assistant foundations and a generic demo, supporting application-provided or external assistants. Business AI is application-resident, uses system model configuration and system/server capabilities, and is not a required built-in Core product. Core supplies cross-application Business AI capabilities only where needed. This supersedes older role-delivery assumptions; see CORE_REQUIREMENTS.md.
+Latest user clarification (2026-09-14): prioritize Platform AI as a team of a built-in system-model Agent and the current external Codex Agent, sharing tasks, work artifacts and feedback with mutual takeover and reciprocal review. Team integration remains to be completed; CLI/evidence tools alone do not prove it. Provide User Assistant foundations, supporting application-provided or external assistants. Business AI is application-resident, uses system model configuration and system/server capabilities, and is not a required built-in Core product. Core supplies cross-application Business AI capabilities only where needed. Every team member owns system documentation updates and finite old-version lifetimes. No User Assistant AI Demo is required. This supersedes older role-delivery assumptions; see CORE_REQUIREMENTS.md.
 
 2026-09-14 user-approved scope update: User Assistant BYOK remains optional and retained; related feature development and dedicated testing are paused. BYOK switching is not a Core technical-design or completion requirement. The required paths are the platform default model and personal external AI assistants using existing identity/authorization. Historical BYOK implementation/test records below do not reinstate it as a gate. See CORE_REQUIREMENTS.md.
 
@@ -723,3 +723,10 @@ and cleanup. External Platform Agents can run it before using the shared evidenc
 release and observation capabilities. Recording a snapshot does not approve a
 candidate. This adds a developer entrypoint, not another Runtime, scheduler or
 application Business Agent.
+
+
+## Platform peer-review capability
+
+Added PeerReviews, WorkspaceReviewStore and shared record/read capabilities under collaboration. Either principal can review the other's exact artifact revision, retain original findings and append a linked follow-up. Reserved evidence uses the existing Workspace store, not another task engine. Current host artifact access, trusted author/reviewer identity and review policy remain explicit ports.
+
+The new core-peer-reviews example runs a native persistent Runtime review and a reciprocal external MCP-client review with separate identities. Models and external client are deterministic fixtures; this does not establish a live Codex team, system-model platform budget, coding-tool parity or bidirectional task takeover. Those remain next integration work.
