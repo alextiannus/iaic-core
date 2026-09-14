@@ -1,5 +1,7 @@
 # Note 30 acceptance evidence map
 
+2026-09-14 user-approved scope update: User Assistant BYOK remains optional and retained; related feature development and dedicated testing are paused. BYOK switching is not a Core technical-design or completion requirement. The required paths are the platform default model and personal external AI assistants using existing identity/authorization. Historical BYOK implementation/test records below do not reinstate it as a gate. See CORE_REQUIREMENTS.md.
+
 Review date: 2026-09-14. Runtime evidence baseline:
 `f37c9ec302039aaabfa1dbdf820ffdb6371d8302`, exact-source CI
 [34779735270](https://github.com/alextiannus/iaic-core/actions/runs/34779735270).

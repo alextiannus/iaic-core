@@ -1,5 +1,7 @@
 # Candidate status and practical limits
 
+2026-09-14 user-approved scope update: User Assistant BYOK remains optional and retained; related feature development and dedicated testing are paused. BYOK switching is not a Core technical-design or completion requirement. The required paths are the platform default model and personal external AI assistants using existing identity/authorization. Historical BYOK implementation/test records below do not reinstate it as a gate. See CORE_REQUIREMENTS.md.
+
 Initial extraction revision: `19e80c637e83a16f2197cebacfe729d804ca0e54`.
 
 This standalone repository is public. Its reuse license remains undecided and does not block capability development. Public source availability is not a claim of final framework/application acceptance or support for every environment.

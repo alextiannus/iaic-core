@@ -4,6 +4,10 @@ The active objective is to complete IAiC Core's foundational capabilities and sa
 
 Public availability is already achieved. Licensing is undecided and does not block engineering. Usable foundations are milestones; the full objective remains incomplete.
 
+## User-approved scope change — 2026-09-14
+
+User Assistant BYOK switching is retained as an existing optional capability, but further BYOK feature development and dedicated testing are paused. It is no longer required technical design or an acceptance prerequisite for Core. The required User AI Assistant paths are the platform-configured default model and a user's personal external AI assistant accessing application capabilities through existing identity and authorization. External inference is owned by that assistant; explicitly invoked platform inference still follows platform allowance and usage attribution rules. Existing BYOK code and historical evidence remain preserved; this change does not remove credentials or change running model configurations.
+
 ## Required capability domains
 
 | Domain | Required completion scope |
@@ -15,7 +19,7 @@ Public availability is already achieved. Licensing is undecided and does not blo
 | Capability and Tool plane | Shared dispatch, domain interfaces, discovery, MCP/API import/export, usable results, device and code execution |
 | Collaboration | Discovery, delegation/handoff, independent context, artifact references, progress, reduced permissions, budget, cancellation, failure takeover and A2A adaptation |
 | Trust and governance | Identity/tenant ports, Permission, Mandate, Policy, credentials, sandbox, audit, risk, feature flags and kill switch |
-| Model gateway | Multiple providers, per-Agent configuration, routing/capacity/failure policies, system keys/BYOK, attributable usage and costs |
+| Model gateway | Multiple providers, per-Agent configuration, routing/capacity/failure policies, platform-managed credentials, attributable usage and costs |
 | Application foundation | Replaceable defaults/ports for accounts, organizations/membership, subscriptions, allowance/metering/billing, payment/refunds, object storage, events and notifications |
 | Evaluation and evolution | Datasets/environments, outcome and trace scoring, capability/regression evaluation, experiments, release/canary, observation, rollback and Platform Agent integration |
 | Developer platform | SDK/CLI, local sandbox/simulator, contract/evaluation tools, templates, migration and deployment adapters; UI kit optional |
