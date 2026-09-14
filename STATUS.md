@@ -1,5 +1,13 @@
 # Candidate status and practical limits
 
+Current user scope update (2026-09-14): a minimal reusable User AI Assistant demo
+is now explicitly requested. It represents the authenticated user in declaration
+submission and related clarification work, adapting AMC-MM companion behavior while
+reusing Core Tasks, Memory, Workspace, Skills and system-model allowance. This
+supersedes earlier no-demo statements below; it does not resume BYOK work or the
+ImmediToday conversion. See examples/core-user-assistant/README.md.
+
+
 Current goal correction (2026-09-14): ImmediToday conversion, application deployment
 and business evaluation have been removed from this thread objective. Deliver the
 minimum runnable Core Framework; retain historical application evidence without
@@ -909,3 +917,18 @@ The regression reproduces the original Ajv error on candidate.89.
 Note47 §25 root/public TypeScript declarations remain a confirmed consumption gap,
 queued as a separate release-contract change. This fix does not supply declarations
 or prove that 12Eat has removed its Schema workaround/ambient shim.
+
+
+## 2026-09-14 — User AI Assistant declaration demo
+
+The new explicit user request restores this demo scope. The optional composition
+reuses the existing Agent starter and adds AMC-MM-inspired companion profile behavior,
+a declaration Skill, a replaceable application-owned PostgreSQL declaration adapter,
+a system-model server and minimal terminal client. The fixture proves private memory,
+Skill loading, Workspace drafting, clarification across reconstruction, user-bound
+submission, original receipt verification, dedup/conflict, current mandate and
+platform allowance behavior. Role boundaries remain unchanged.
+
+This is a deterministic execution demonstration, not real-model/12Eat integration
+acceptance or a finished companion UI. No schema/API change to the Core engine.
+The separate public TypeScript declarations work remains pending.

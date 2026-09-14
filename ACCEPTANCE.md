@@ -161,3 +161,12 @@ registration, actual calls through both dispatchers, invalid input rejection and
 stable changed-content conflict without replacing the original validator. The package
 gate now runs 46 examples. Note47 §25 declarations and 12Eat's shim removal remain
 unimplemented/unverified; do not infer their completion from runtime tests.
+
+
+User Assistant demo (candidate.91): examples/core-user-assistant/run.mjs is included
+in the independent package gate (47 examples). It verifies a user-role durable Task,
+private Memory/Workspace, Skill read, missing-field wait and reconstruction, current
+Principal/mandate submission, original receipt, duplicate/conflicting requests and
+zero allowance before inference. The model is deterministic; the Fetch HTTP handler
+is exercised in-process. Real-provider server/terminal entrypoints are supplied but
+real-model quality, terminal UX and actual 12Eat integration are not acceptance claims.

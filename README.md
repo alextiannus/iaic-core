@@ -31,6 +31,10 @@ An application installs the resulting `.tgz` and imports `@immedi/iaic-core` or 
 
 Independent-principal communication is available as the optional [Peer collaboration module](collaboration/peer/README.md), with a [runnable composition](examples/core-peer-collaboration/README.md).
 
+The optional [User AI Assistant demo](examples/core-user-assistant/README.md) shows
+private resources, clarification and user-authorized declaration submission, with a
+system-model server and a minimal terminal client.
+
 ## Basic modules
 
 | Need | Modules and contracts |
