@@ -76,9 +76,13 @@ repeating the same selection sample without a new unresolved requirement.
 1. Close the domain-by-domain technical acceptance review and fix actual omissions.
    Preserve separate evidence for runtime recovery, protocol parity and application
    ownership rather than requiring every check to invoke an LLM again.
-2. Perform the required application integration and production verification.
-   Passing Core examples or a local release drill is not evidence that ImmediToday
-   runs the latest Core or that its production business results are accepted.
+2. Verify independent Core consumption and the missing framework conditions using
+   the relevant module/composition evidence. Note 43 makes Core the deliverable;
+   ImmediToday's complete upgrade, report quality and submitter acceptance remain
+   separate application work, not prerequisites for Core foundation delivery.
+   Existing application failures remain failures. Core examples and local release
+   drills do not establish production business acceptance, and application health
+   does not establish all eight framework conditions.
 
 The local evaluation-to-release evidence chain is recorded in
 `2026-09-14/core-real-release`: four actual evaluation snapshots across distinct

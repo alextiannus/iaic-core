@@ -78,6 +78,7 @@
     "SOURCE.json",
     "http",
     "CORE_REQUIREMENTS.md",
+    "ACCEPTANCE.md",
     "accounts",
     "subscriptions",
     "notifications",
