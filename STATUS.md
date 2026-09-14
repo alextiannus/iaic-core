@@ -723,3 +723,10 @@ and cleanup. External Platform Agents can run it before using the shared evidenc
 release and observation capabilities. Recording a snapshot does not approve a
 candidate. This adds a developer entrypoint, not another Runtime, scheduler or
 application Business Agent.
+
+
+## Platform peer-review capability
+
+Added PeerReviews, WorkspaceReviewStore and shared record/read capabilities under collaboration. Either principal can review the other's exact artifact revision, retain original findings and append a linked follow-up. Reserved evidence uses the existing Workspace store, not another task engine. Current host artifact access, trusted author/reviewer identity and review policy remain explicit ports.
+
+The new core-peer-reviews example runs a native persistent Runtime review and a reciprocal external MCP-client review with separate identities. Models and external client are deterministic fixtures; this does not establish a live Codex team, system-model platform budget, coding-tool parity or bidirectional task takeover. Those remain next integration work.

@@ -125,6 +125,7 @@ export {WorkspaceLineage} from './provenance/workspace.js';
 export {ProviderCostAccounting,providerCostBasis,estimateProviderCost} from './costs/provider.js';
 
 export {DelegationProgress,createDelegationProgressCapability} from './collaboration/progress.js';
+export {PeerReviews,WorkspaceReviewStore,createPeerReviewCapabilities} from './collaboration/reviews.js';
 
 export {PostgresDeploymentActivations,RecoverableDockerDeployment} from './developer/activation.js';
 
