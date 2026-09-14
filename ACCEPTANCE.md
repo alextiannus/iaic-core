@@ -1,5 +1,16 @@
 # Note 30 acceptance evidence map
 
+## IM and local file foundation (2026-09-15)
+
+The new deterministic `core-assistant-channels` installed example uses actual Core
+Tasks, PostgreSQL inbox/outbox, two host-linked synthetic IM accounts, clarification,
+a verified Declaration and a real temporary UTF-8 file with readback. Targeted
+checks cover bot/edit filtering, denied group ingress, create-only file behavior,
+traversal/symlink/hard-link rejection, duplicate/conflicting request keys, current
+authorization and lost-response non-replay. This evidence does not establish live
+Telegram/Slack installation, remote desktop access or paid model quality.
+
+
 Phase one is the minimum runnable Core described in CORE_REQUIREMENTS.md. The full
 Note30 evidence matrix below remains a roadmap and record, not an assertion that
 every advanced case must finish before phase-one release. Three Demo Projects
