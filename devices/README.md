@@ -1,5 +1,15 @@
 # Browser device execution
 
+## Local file driver
+
+`LocalDirectoryDevice.open({directory, maxBytes})`, `LocalFiles` and `createLocalFileCapabilities` add `local.files.read/create/result`. The directory is selected by the user/host on the **user's device**. Running this on a cloud server writes cloud files, not the user's computer. The host can resolve a remote authenticated device proxy through the same `resolveDevice` port; a pairing protocol, desktop installer and remote transport are not included.
+
+Use a separate `PostgresDeviceOperations` namespace for local files, a stable owner/device binding and a current `authorize(actor,{operation,deviceId,name,...})` policy. The driver supports bounded UTF-8 files with a single filename, atomic create without overwrite, content hash and original operation receipts. Read rejects symlinks, non-regular files, multiple hard links and oversized content. Path traversal and nested paths are not supported. `created` describes the original file creation, not a promise the file remains unchanged later; use read for current content. A lost effect acknowledgement stays unknown and blocks further writes on that device; browser reconciliation is not a file reconciliation implementation.
+
+The first driver intentionally offers file creation rather than editing/deletion or general OS control. Existing browser `type/click/observe` covers authorized form entry when the host supplies a page on that device. There is no implicit access to the personal browser profile, shell, clipboard, passwords or screen.
+
+The host must keep the selected directory and its ancestors under trusted OS control while an operation runs. Root inode/realpath checks and no-follow reads do not make a general sandbox against hostile concurrent filesystem mutation. Use a dedicated user-approved export directory for this first driver. Request storage retains action digests rather than raw file text, although ordinary Task context and history may contain tool arguments and require the application's retention policy.
+
 BrowserDevices is an independent capability service with current owner/device/action authorization and PostgreSQL operation receipts. PuppeteerPageDevice is its first real driver; inject a host-owned Puppeteer-compatible Page, optional screenshot storage and a bounded command deadline. No browser package, executable, private profile or cookie store is imported implicitly. A host launches/manages an isolated browser and supplies its network, session and device-sharing policy. Native desktop/mobile drivers are not provided by this module.
 
 ```js

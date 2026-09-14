@@ -1,5 +1,14 @@
 # Core delivery objective
 
+Current scope addition (2026-09-15): IM is a replaceable User Assistant interface.
+The channels module adds a durable inbox, explicit cross-channel account binding,
+Core task controls and notification projection, with Telegram/Slack text normalizers.
+The local file module adds authorized UTF-8 read/create and original receipts;
+existing browser tools cover host-bound form entry. See channels/README.md and
+examples/core-assistant-channels. Real IM authentication/delivery installations,
+a remote device transport and general desktop control remain application work.
+
+
 Current user scope update (2026-09-14): a minimal reusable User AI Assistant demo
 is now explicitly requested. It represents the authenticated user in declaration
 submission and related clarification work, adapting AMC-MM companion behavior while

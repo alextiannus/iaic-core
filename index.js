@@ -177,3 +177,7 @@ export {TaskPlans,createTaskPlanCapabilities} from './workspace/plans.js';
 export {ExecutionPolicy} from './capabilities/policy.js';
 
 export {PostgresPeerStore,PeerCollaboration,PeerInformationRequests,PeerHumanTasks,PeerFormalActions,PeerDeliveryRecovery,createPeerCapabilities} from './collaboration/peer/index.js';
+
+export {AssistantChannel,PostgresChannelInbox,channelMessage} from './channels/assistant.js';
+export {telegramMessage,slackMessage} from './channels/normalizers.js';
+export {LocalDirectoryDevice,LocalFiles,createLocalFileCapabilities} from './devices/files.js';

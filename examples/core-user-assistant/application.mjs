@@ -7,12 +7,14 @@ import {createApplicationHttpHandler} from '@immedi/iaic-core/developer/template
 import {createDeclarationAdapter} from './declarations.mjs';
 import {describeCompanion} from './persona.mjs';
 export const tools=['assistant.skills.list','assistant.skills.read','my_list_assistant_memories','my_read_assistant_memory','my_remember_assistant_memory','my_forget_assistant_memory','my_write_workspace','my_read_workspace','tasks.plan.read','tasks.plan.update','declarations.contract','declarations.submit','declarations.get'];
-export async function openUserAssistant({pool,authorize,authorizeSubmission,payloadSchema,profile,resolveSecret,tokenPolicy,modelFactory,persona,resolveActor}){
+export async function openUserAssistant({pool,authorize,authorizeSubmission,payloadSchema,profile,resolveSecret,tokenPolicy,modelFactory,persona,resolveActor,extraCapabilities=[],extensionRevision}){
+ if(extraCapabilities.length&&(!extensionRevision||typeof extensionRevision!=='string'))throw new Error('Host extensionRevision is required when adding capabilities');
  const declarations=await createDeclarationAdapter({pool,authorize,authorizeSubmission,payloadSchema});
  const skillRoot=fileURLToPath(new URL('./skills/',import.meta.url));
- const job={id:'user-assistant-demo',role:'user-assistant',purpose:describeCompanion(persona)+' Help the user prepare and submit their own Declaration with application-defined fields. Discover the declaration Skill, use private memory/workspace, clarify missing fields, and verify original receipts.',capabilities:['agent.work'],configuration:{skills:['declarations/SKILL.md'],knowledge:[],tools}};
+ const job={id:'user-assistant-demo',role:'user-assistant',purpose:describeCompanion(persona)+' Help the user prepare and submit their own Declaration with application-defined fields. Discover the declaration Skill, use private memory/workspace, clarify missing fields, and verify original receipts.',capabilities:['agent.work'],configuration:{skills:['declarations/SKILL.md'],knowledge:[],tools:[...tools,...extraCapabilities.map(c=>c.name)]}};
  const revision=createHash('sha256');for(const file of ['application.mjs','declarations.mjs','persona.mjs','skills/declarations/SKILL.md'])revision.update(await fs.readFile(new URL(file,import.meta.url)));revision.update(JSON.stringify({job,payloadSchema,profile}));
- const app=await openApplication({pool,job,skillRoot,version:'user-assistant-'+revision.digest('hex'),profiles:[profile],resolveSecret,tokenPolicies:{[profile.id]:tokenPolicy},modelFactory,authorize,enablePlans:true,extraCapabilities:declarations.capabilities,runtimeLimits:{maxTurns:20,maxCalls:16},
+ revision.update(JSON.stringify({extensionRevision,extensions:extraCapabilities.map(c=>({name:c.name,input:c.input,output:c.output}))}));
+ const app=await openApplication({pool,job,skillRoot,version:'user-assistant-'+revision.digest('hex'),profiles:[profile],resolveSecret,tokenPolicies:{[profile.id]:tokenPolicy},modelFactory,authorize,enablePlans:true,extraCapabilities:[...declarations.capabilities,...extraCapabilities],runtimeLimits:{maxTurns:20,maxCalls:16},
   verifyOutcome:async(_input,result,{actor,history})=>{
    const receipts=history.calls.filter(c=>c.capability==='declarations.get'&&c.status==='succeeded'&&c.result?.status==='recorded');
    for(const c of receipts){const row=await declarations.lookup(actor,c.input.requestKey);if(row&&isDeepStrictEqual(row.receipt,(({status,...receipt})=>receipt)(c.result)))return true;}

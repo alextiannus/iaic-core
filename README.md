@@ -1,5 +1,14 @@
 # IAiC Core
 
+Current scope addition (2026-09-15): IM is a replaceable User Assistant interface.
+The channels module adds a durable inbox, explicit cross-channel account binding,
+Core task controls and notification projection, with Telegram/Slack text normalizers.
+The local file module adds authorized UTF-8 read/create and original receipts;
+existing browser tools cover host-bound form entry. See channels/README.md and
+examples/core-assistant-channels. Real IM authentication/delivery installations,
+a remote device transport and general desktop control remain application work.
+
+
 A headless JavaScript framework for AI Native Applications: configure an Agent's responsibility and resources, give it a goal, let it use authorized capabilities, and retain work and results beyond a chat connection.
 
 This is the **0.1.0 public source candidate**, published at https://github.com/alextiannus/iaic-core. A reuse license has not yet been selected; public visibility does not imply an MIT or other open-source license grant. See [ACCEPTANCE.md](ACCEPTANCE.md) for the current requirement-to-evidence map and [STATUS.md](STATUS.md) for the chronological implementation record.

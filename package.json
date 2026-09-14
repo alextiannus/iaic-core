@@ -46,7 +46,8 @@
     "./provenance/*": "./provenance/*",
     "./costs/*": "./costs/*",
     "./resources/*": "./resources/*",
-    "./devices/*": "./devices/*"
+    "./devices/*": "./devices/*",
+    "./channels/*": "./channels/*"
   },
   "files": [
     "index.js",
@@ -96,7 +97,8 @@
     "provenance",
     "costs",
     "resources",
-    "devices"
+    "devices",
+    "channels"
   ],
   "dependencies": {
     "ajv": "8.20.0",
