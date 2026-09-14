@@ -172,14 +172,16 @@ export class AgentRuntime {
         if(this.handoffs)await this.handoffs.admitModel({actor,task,turn:turns+1});
         await this.executor.append(task.id,'model_requested',{model:model.name,turn:turns+1,...(completionOnly?{completionOnly:true}:{})});
         const controller=new AbortController();let timer;
+        const modelSignal=AbortSignal.any([controller.signal,executionSignal()].filter(Boolean));
         let response;
         try{response=await Promise.race([
-          model.next({messages,tools,maxBatchCalls:invocationBatchBound,delegationSchema:completionOnly?null:this.delegations.schema(task),outputSchema:capability.output,billingContext:{taskId:task.id,turn:turns+1,capability:task.capability},signal:AbortSignal.any([controller.signal,executionSignal()].filter(Boolean))}),
-          new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Object.assign(new Error('Model response timed out'),{limitReached:true}));},this.modelTimeoutMs);})
+          model.next({messages,tools,maxBatchCalls:invocationBatchBound,delegationSchema:completionOnly?null:this.delegations.schema(task),outputSchema:capability.output,billingContext:{taskId:task.id,turn:turns+1,capability:task.capability},signal:modelSignal}),
+          new Promise((_,reject)=>{timer=setTimeout(()=>{const error=Object.assign(new Error('Model response timed out'),{limitReached:true});controller.abort(error);reject(error);},this.modelTimeoutMs);})
         ]);}catch(error){
           clearTimeout(timer);
           const diagnostic=usageDiagnostic(error.usageDiagnostic);
           await this.executor.append(task.id,'model_usage',{model:model.name,turn:turns+1,usage:error.usage??null,failed:true,...(diagnostic?{diagnostic}:{})});
+          modelSignal.throwIfAborted();
           if(error.providerStatus===429){
             const waitMs=Math.max(this.rateLimitDelayMs,Number.isFinite(error.retryAfterMs)?error.retryAfterMs:0);
             const eligible=waitMs<=60000&&turns+1<this.maxTurns&&!history.events.some(event=>event.kind==='model_retry');
@@ -204,7 +206,7 @@ export class AgentRuntime {
           throw error;
         }finally{clearTimeout(timer);}
         await this.executor.append(task.id,'model_usage',{model:model.name,turn:turns+1,usage:response?.usage??null,failed:false});
-        executionSignal()?.throwIfAborted();
+        modelSignal.throwIfAborted();
         if(Buffer.byteLength(JSON.stringify(response))>this.maxOutputBytes)throw Object.assign(new Error('Model output limit reached'),{limitReached:true});
         action=normalizeAction(response);
         if(action.type==='batch'){

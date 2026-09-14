@@ -670,3 +670,21 @@ ImmediToday-evidence/2026-09-14/core-preflight-feedback.
 ImmediToday remains on candidate.79 until explicit package adoption. The previous
 GLM/high four-class development batch completed4/4 but retained material semantic
 errors in two reports. Full Note30/39/40 acceptance is still incomplete.
+
+## Deadline cancellation classification (candidate.81)
+
+Model invocation cancellation now retains the Runtime deadline reason even when
+an adapter immediately rejects with a replacement transport error. Usage and
+bounded diagnostics are recorded first. Expired requests cannot enter provider
+retry or invalid-action correction, and a response resolving during abort cannot
+submit successful completion. Ordinary failures retain interrupted status; missing
+usage remains unknown. Active Task deadlines and model deadlines share this rule.
+
+339 module checks and 42 independently installed examples passed without skips.
+The same new regression tests against candidate.80 reproduce an expired 429 retry
+and acceptance of completion returned during model cancellation. The initial test
+fixture added an async wrapper that let the timeout promise win before available
+usage; that fixture was corrected to use the adapter's direct promise, and both
+failed fixture logs were retained. ImmediToday's original interrupted-vs-limit
+integration failure is retained separately. No real-model quality pass is inferred,
+no timeout defaults change here, and no historical Task or usage is rewritten.

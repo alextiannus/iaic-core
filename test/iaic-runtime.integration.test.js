@@ -180,6 +180,34 @@ test('IAiC model-loop controls with deterministic model and real persistence',{s
    await setup({actions:[()=>new Promise(()=>{})],modelTimeoutMs:10});
    assert.equal((await runtime.tick()).waiting_reason,'limit');await reset();
   });
+  await t.test('deadline classification survives providers replacing the abort error and preserves usage',async()=>{
+   for(const limits of [{modelTimeoutMs:100,taskTimeoutMs:2000},{modelTimeoutMs:2000,taskTimeoutMs:100}]){
+    let aborted=false;
+    const task=await setup({...limits,actions:[]});
+    runtime.model.next=request=>new Promise((resolve,reject)=>{
+     const abort=()=>{aborted=true;reject(Object.assign(new Error('Provider transport aborted'),{usage:{inputTokens:7},providerStatus:429}));};
+     if(request.signal.aborted)abort();else request.signal.addEventListener('abort',abort,{once:true});
+    });
+    const result=await runtime.tick();assert.equal(result.status,'waiting');assert.equal(result.waiting_reason,'limit');assert.equal(aborted,true);
+    const history=await store.history(actor,task.id);
+    assert.equal(history.events.find(e=>e.kind==='model_usage').data.usage.inputTokens,7);
+    assert.equal(history.events.filter(e=>e.kind==='model_requested').length,1);
+    assert.equal(history.events.some(e=>e.kind==='model_retry'),false);await reset();
+   }
+  });
+  await t.test('ordinary provider failures remain interrupted without inventing known usage',async()=>{
+   const task=await setup({actions:[()=>{throw new Error('Connection closed');}]});
+   assert.equal((await runtime.tick()).waiting_reason,'interrupted');
+   assert.equal((await store.history(actor,task.id)).events.find(e=>e.kind==='model_usage').data.usage,null);await reset();
+  });
+  await t.test('a provider returning completion during abort cannot bypass the model deadline',async()=>{
+   const task=await setup({actions:[],modelTimeoutMs:100,taskTimeoutMs:2000});
+   runtime.model.next=request=>new Promise(resolve=>request.signal.addEventListener('abort',()=>resolve({type:'finish',result:{report:'evidenced'},usage:{inputTokens:7}}),{once:true}));
+   assert.equal((await runtime.tick()).waiting_reason,'limit');
+   const history=await store.history(actor,task.id);
+   assert.equal(history.events.find(e=>e.kind==='model_usage').data.usage.inputTokens,7);
+   assert.equal(history.events.some(e=>e.kind==='verification'),false);await reset();
+  });
   await t.test('one rate-limit retry retains failed usage and never replays a completed write',async()=>{
    let writes=0;
    const task=await setup({write:true,rateLimitDelayMs:5,execute:async()=>{writes++;return {};},actions:[

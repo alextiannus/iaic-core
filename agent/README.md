@@ -130,3 +130,14 @@ This does not raise maxCalls or maxTurns, forgive failed calls, or guarantee suc
 
 
 Optional shared provider concurrency admission is supplied by capacityModel and PostgresModelCapacity; see CAPACITY.md for metering composition, persisted uncertain holds and trusted reconciliation. It does not switch a pinned model or change platform allowance rules.
+
+## Deadline cancellation
+
+The Runtime's model and active Task execution deadlines retain their own abort
+reason even when a provider rejects with a different transport error. Recorded
+provider usage/diagnostics are retained before applying that reason; unknown
+usage is not replaced with zero. An expired invocation cannot trigger a rate-limit
+retry or submit completion, including a provider resolving during cancellation.
+Ordinary provider errors without a Runtime abort remain interrupted. These limits
+bound execution; they do not prove that a remote provider stopped or billed zero.
+`taskTimeoutMs` applies to an active execution interval, not lifetime across waits.
