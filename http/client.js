@@ -29,7 +29,7 @@ export class CapabilityHttpClient {
     }
     if (!response.ok) {
       const error = body?.error;
-      throw new CapabilityHttpError(error?.message || 'Capability request failed', {statusCode: response.status, outcomeUnknown: error?.outcomeUnknown ?? options.method === 'POST', requestKey, validation: error?.validation, recovery: error?.recovery});
+      throw new CapabilityHttpError(error?.message || 'Capability request failed', {...(typeof error?.code==='string'?{code:error.code}:{}),statusCode: response.status, outcomeUnknown: error?.outcomeUnknown ?? options.method === 'POST', requestKey, validation: error?.validation, recovery: error?.recovery});
     }
     if (!body || (options.method === 'GET' ? !Array.isArray(body.capabilities) : !Object.hasOwn(body, 'result') || !['task-receipt', 'capability-result'].includes(body.resultKind))) {
       throw new CapabilityHttpError('Invalid capability response', {outcomeUnknown: options.method === 'POST', requestKey});

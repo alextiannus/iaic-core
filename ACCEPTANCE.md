@@ -125,3 +125,24 @@ retains requester/executor identities, survives reconstruction and proves that
 personal allowance is not borrowed for platform inference. This narrows the
 integration gap; real-model collaboration and external member takeover of a
 persistent team Task are still unverified.
+
+
+## Note47 additive peer slice — 2026-09-14
+
+Evidence: test/iaic-peer-collaboration.integration.test.js (seven PostgreSQL tests)
+and examples/core-peer-collaboration/run.mjs (also installed-package verification).
+
+| Note47 coverage | Current evidence |
+| --- | --- |
+| AC01–04 identities, denial, revocation, expiry | Trusted binding port with synthetic independent identities; current grant and endpoint checks |
+| AC05–08 dedup/order, no implicit facts, explicit formal action | Concurrent stable request, stale subject/sequence rejection, ordinary-message zero writes, dispatcher-only sample write |
+| AC09–12 information, Unknown, human, evidence | Targeted minimal fields, original-effect query after lost response/SIGKILL, owner resolution, source/hash/revocation and reference-only messages |
+| AC13 protocol surfaces | Actual loopback HTTP; in-process MCP and official A2A SDK mapping, shared logical message and stable conflict code |
+| AC14 existing regressions | Existing repository CI module/package gates remain required before release |
+| AC15 consuming 12Eat integration | Not executed; cannot be substituted by Core fixtures |
+
+These are bounded implementation checks, not blanket acceptance of every clause.
+Production identity proof, host retry scheduling/backoff, source authority integration,
+retention cleanup and actual application/domain adapters require consuming-host work.
+Information cancellation/reference-only structured requests are not implemented.
+No real-model evaluation, full protocol conformance or all crash boundaries are claimed.

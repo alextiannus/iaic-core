@@ -29,6 +29,8 @@ The full test suite and package verification also require a running Docker daemo
 
 An application installs the resulting `.tgz` and imports `@immedi/iaic-core` or a module subpath. It does not import a platform server or copy Core into every application. See [GETTING_STARTED.md](GETTING_STARTED.md).
 
+Independent-principal communication is available as the optional [Peer collaboration module](collaboration/peer/README.md), with a [runnable composition](examples/core-peer-collaboration/README.md).
+
 ## Basic modules
 
 | Need | Modules and contracts |

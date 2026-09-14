@@ -16,7 +16,8 @@ owner and new end date; there is no automatic or unlimited extension.
 | `v0.1.0-candidate.84` | Replaced when candidate.85 is published | 2026-09-28 23:59 UTC | Upgrade to candidate.85 for the minimum Platform Team host; existing module contracts unchanged |
 | `v0.1.0-candidate.85` | Replaced when candidate.86 is published | 2026-09-28 23:59 UTC | Use the successor for MCP clarification and continuation; old Tasks retain their original host version binding |
 | `v0.1.0-candidate.86` | Replaced when candidate.87 is published | 2026-09-28 23:59 UTC | Continue old Tasks on their pinned host; successor adds native private resources and installed Skills |
-| `v0.1.0-candidate.87` | Native resource wiring prepared by this source; current upon verified publication | On replacement, record an explicit date 14 days later | Existing Memory tables initialize normally; resource scopes are additive. Start new Tasks on this host; no automatic application deployment |
+| `v0.1.0-candidate.87` | Replaced when candidate.88 is published | 2026-09-28 23:59 UTC | Successor adds optional peer tables/APIs; existing Task and Delegation semantics stay pinned |
+| `v0.1.0-candidate.88` | Minimum peer implementation prepared by this source; current upon verified publication | On replacement, record an explicit date 14 days later | Initialize optional peer store and explicit host policies; retain original receipts on disable/rollback; no automatic application deployment |
 
 The GitHub release and verified asset determine whether publication occurred.
 A source commit or this preparation record alone is not a published version.

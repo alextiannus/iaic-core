@@ -1,3 +1,4 @@
+import {publicErrorFields} from '../capabilities/errors.js';
 // Fetch API adapter. The host owns listening, authentication and request limits.
 const failure = (message, statusCode) => Object.assign(new Error(message), {statusCode});
 const json = (body, status = 200) => Response.json(body, {status, headers: {'cache-control': 'no-store'}});
@@ -44,7 +45,7 @@ export function createCapabilityHttpHandler({dispatcher, resolveAccess, basePath
       const statusCode = Number.isInteger(error.statusCode) && error.statusCode >= 400 && error.statusCode <= 599 ? error.statusCode : 500;
       const outcomeUnknown = error.outcomeUnknown === true || (started && statusCode >= 500 && (cap?.effect === 'write' || cap?.implementation.kind === 'agent'));
       return json({error: {
-        message: statusCode < 500 ? String(error.message).slice(0, 2000) : 'Capability execution failed', statusCode, outcomeUnknown,
+        ...publicErrorFields(error), message: statusCode < 500 ? String(error.message).slice(0, 2000) : 'Capability execution failed', statusCode, outcomeUnknown,
         ...(typeof requestKey === 'string' ? {requestKey} : {}),
         ...(Array.isArray(error.validation) ? {validation: error.validation.slice(0, 20).map(({instancePath, keyword, message}) => ({path: instancePath, keyword, message}))} : {}),
         ...(outcomeUnknown ? {recovery: 'Query or reconcile the existing operation before retrying. Retain the same request key.'} : {})

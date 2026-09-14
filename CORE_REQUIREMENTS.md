@@ -181,3 +181,18 @@ current candidate support window and deployment migration limitations.
 A User Assistant AI Demo is not required in Core, its technical design or its
 acceptance criteria. Existing module examples can remain as implementation evidence,
 but do not create a new mandatory assistant product/demo workstream.
+
+
+## Automatic additive feedback upgrades — 2026-09-14
+
+The user authorizes implementing reusable additive Core improvements from demo feedback
+without another approval round. Inspect the latest active note, preserve frozen concepts
+and module boundaries, implement the minimum usable mechanism, validate it, publish a
+verified candidate and record evidence/limitations in the relevant notes automatically.
+This does not redefine Agent roles, make a whole proposal a release prerequisite,
+authorize arbitrary business effects or resume the removed ImmediToday work.
+
+Note47 now has an optional independent-principal communication module under
+collaboration/peer. Communication grants remain distinct from delegated execution;
+formal submissions reuse CapabilityDispatcher and application-owned domain commands.
+See its README and ACCEPTANCE.md for the implemented slice and remaining app evidence.

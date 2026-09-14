@@ -1,3 +1,4 @@
+import {publicErrorFields} from '../capabilities/errors.js';
 import {Server} from '@modelcontextprotocol/sdk/server/index.js';
 import {CallToolRequestSchema,ListToolsRequestSchema,McpError,ErrorCode} from '@modelcontextprotocol/sdk/types.js';
 const fail=(message,statusCode)=>Object.assign(new Error(message),{statusCode});
@@ -42,7 +43,7 @@ export function createCapabilityMcpServer({dispatcher,resolveAccess,serverInfo={
    if(error instanceof McpError)throw error;
    const statusCode=Number.isInteger(error.statusCode)?error.statusCode:500;
    const outcomeUnknown=error.outcomeUnknown===true||(started&&cap?.implementation.kind==='agent'&&statusCode>=500);
-   const details={message:statusCode<500?String(error.message).slice(0,2000):'Capability execution failed',statusCode,outcomeUnknown,
+   const details={...publicErrorFields(error),message:statusCode<500?String(error.message).slice(0,2000):'Capability execution failed',statusCode,outcomeUnknown,
     ...(typeof error.code==='string'?{code:error.code}:{}),...(Array.isArray(error.validation)?{validation:error.validation.slice(0,20).map(({instancePath,keyword,message})=>({path:instancePath,keyword,message}))}:{}),...(typeof key==='string'?{requestKey:key}:{}),
     ...(outcomeUnknown?{recovery:'Query or reconcile the existing operation before retrying. Do not use a new request key to bypass an unknown result.'}:{})};
    return {isError:true,content:[{type:'text',text:JSON.stringify({error:details})}]};
