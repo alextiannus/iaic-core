@@ -713,3 +713,13 @@ the existing Dispatcher surfaces. This closes a protocol access gap; it does not
 start evaluations, change grading policy or replace the release/observation modules.
 The neutral installed evaluation example exercises external MCP access, direct
 result parity and current revocation. Existing failures remain unchanged.
+
+## Platform AI evaluation execution through the installed CLI
+
+`iaic evaluate --config MODULE` now reuses EvaluationRunner and a host evidence
+store, preserving all failed records and returning an evidence reference. A trusted
+application configuration owns execution, grading, pinned settings, record sink
+and cleanup. External Platform Agents can run it before using the shared evidence,
+release and observation capabilities. Recording a snapshot does not approve a
+candidate. This adds a developer entrypoint, not another Runtime, scheduler or
+application Business Agent.

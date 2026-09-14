@@ -8,6 +8,7 @@ iaic call notes.read --url https://your-host/capabilities --input input.json
 iaic call notes.write --url https://your-host/capabilities --input input.json --request-key stable-request-id
 iaic init ./my-app --core-package /absolute/path/to/immedi-iaic-core-0.1.0.tgz
 iaic init ./my-agent --core-package /absolute/path/to/immedi-iaic-core-0.1.0.tgz --template agent
+iaic evaluate --config ./evaluation.mjs
 iaic migrate --config ./migrations.mjs
 ```
 
@@ -116,3 +117,61 @@ The Agent starter now accepts optional explicit routing policy/availability port
 ## Local simulation
 
 [LocalSimulation and createScriptedModel](SIMULATION.md) provide reusable scoped in-memory tools, original simulated operation receipts, response-loss injection and turn-indexed model scripts. They plug into the existing Runtime and dispatcher; the installed `core-simulation` example verifies a paused write, original receipt recovery and continuation without replay. Simulated state is process-local and model outputs are authored fixtures, not actual-model acceptance.
+
+## Run an application evaluation
+
+`iaic evaluate --config ./evaluation.mjs` executes a trusted local module's
+`open()` configuration using the existing EvaluationRunner. The module returns
+`{execute, grade, settings, store, onRecord?, close?}`. `settings` contains the
+existing runner's dataset, implementation `revision`, `graderRevision`,
+`environmentRevision`, optional repeats and AbortSignal. `store.put(run)` persists
+the completed snapshot, for example through FileEvaluationStore. `close()` is
+called on success or failure; resource ownership remains with the host.
+
+```js
+import {FileEvaluationStore} from '@immedi/iaic-core';
+import {fileURLToPath} from 'node:url';
+export async function open() {
+  return {
+    store: new FileEvaluationStore({
+      directory: fileURLToPath(new URL('./evidence', import.meta.url))
+    }),
+    settings: {
+      dataset: [{id: 'double', category: 'fixture', input: {value: 3}, expected: 6}],
+      revision: 'candidate-v1', graderRevision: 'exact-v1',
+      environmentRevision: 'local-fixture-v1'
+    },
+    execute: ({input}) => ({value: input.value * 2}),
+    grade: ({testCase, observation}) => {
+      const passed = observation.value === testCase.expected;
+      return {passed, score: passed ? 1 : 0, checks: [{name: 'outcome', passed}]};
+    }
+  };
+}
+```
+
+This is a deterministic configuration example. A real host executor can invoke
+its existing Runtime/model adapters and is responsible for authorization, budgets,
+provider timeouts, cancellation and isolation. Configuration modules are trusted
+local code, just like migration/deployment modules; they are not model-supplied
+JSON or a remote code-upload endpoint.
+
+The CLI returns `{status:'recorded', evaluationId, evidence, records}`. A zero exit
+code means the snapshot was recorded, **not** that the candidate passed: failed,
+cancelled and errored case records remain in the snapshot and count in
+`records.failed`. The CLI does not introduce a release gate or accept threshold
+flags. Use existing evaluateGate/ReleaseManager policies to decide acceptance.
+Failure to persist the snapshot exits nonzero and includes the completed
+`evaluationId`; inspect retained evidence before another invocation. The command
+never automatically retries an evaluation or resumes partial model work.
+
+For long/paid executions, configure an awaited durable `onRecord` sink and retain
+host Task/usage records. Process termination can leave partial evidence; this CLI
+is not another durable scheduler. The HTTP list/call 30-second deadline does not
+apply to local evaluation execution; executors must supply their own deadlines.
+
+An external Platform Agent can run this command, then use `evaluations.read` and
+`evaluations.compare` against the same host-owned evidence store and the existing
+release/observation capabilities. Local files are not automatically uploaded or
+made public. Freeze datasets, graders and policy before inference; maintain
+separate development/held-out evidence and capability/regression suites.
