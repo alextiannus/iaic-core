@@ -63,7 +63,17 @@ Each module owns its state and documents its injected dependencies. [Assistant w
 
 Core provides basic capabilities, interfaces and necessary runtime rules. Applications own authenticated identity mapping, business truth and calculations, capability implementations, installed Skill code, configuration storage/distribution, resource-sharing policy, service deployment and UI/UX.
 
-Business AI represents system responsibility; User AI represents a user or organization's work and may run continuously; Platform AI helps develop and improve the application and may be an external tool such as Codex. These describe possible uses. Core does not require three role classes or three internally deployed Agents. Task length, complexity and business-object names do not determine the role. Personal external Agents and external Codex need not adopt Core Runtime. See [design responsibility and composition](CORE_REQUIREMENTS.md#design-responsibility-and-composition--note-43-alignment) for the shared definitions and delivery boundary.
+Core prioritizes **Platform AI capabilities**, then **User Assistant AI foundations
+and a generic demo**. Both may be provided by the application or connected as
+external third-party Agents. External Codex need not adopt Core Runtime, but still
+needs the platform-side capabilities for development, evaluation and release.
+
+Business AI is application-resident, using system model configuration and
+system/server capabilities to fulfill the application's business responsibilities.
+Core only supplies cross-application Business AI capabilities where useful; a
+built-in Business AI product is not required. Task length and complexity do not
+determine responsibility. See [design and delivery requirements](CORE_REQUIREMENTS.md).
+
 
 Default long-lived resource scoping should distinguish user plus organization. Applications can explicitly share company resources or configure a shared job. A shared resource scope does not automatically grant access to every member's Task history. A personal external Agent can call authorized capabilities without adopting Core Runtime.
 
