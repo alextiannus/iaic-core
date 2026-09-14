@@ -757,3 +757,21 @@ The publication preparation changes only documentation after the tested runtime.
 Actual release/asset verification remains the publication evidence. ImmediToday
 has not automatically adopted the package; live Platform AI team integration is
 still incomplete.
+
+
+## Platform Team system-model and budget composition
+
+The application-owned core-platform-team host composes the existing Runtime,
+AgentRegistry, ModelProfiles, allowance ledger, Workspace and PeerReviews. Either
+member can originate native work requests; the original requester and native
+executor remain distinct across durable admission and service reconstruction.
+Platform inference uses a dedicated development-unit scope, not personal allowance.
+External direct artifact/review tools do not invoke the hosted model.
+
+The installed example exercises an empty platform balance despite a funded
+personal balance, funding/resume/reconstruction, five deterministic inferences
+charged 35 platform units, reciprocal MCP review and current membership checks.
+The host uses actual provider resolution unless a modelFactory is explicitly
+injected; this verification injects a fixture. No real Codex connection or external
+persistent-Task takeover is claimed. Work tools and independent outcome validation
+are injected by the host; no new Runtime, UI or User Assistant Demo is introduced.

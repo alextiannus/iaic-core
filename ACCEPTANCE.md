@@ -111,3 +111,12 @@ follow-ups, including a revision whose author changes when a teammate covers the
 edit. This does not prove actual task takeover, real model review quality or a live
 Codex connection. Documentation ownership and finite [version lifetimes](VERSION_LIFECYCLE.md)
 are current team responsibilities. User Assistant AI Demo is not required.
+
+
+[Platform Team host composition](examples/core-platform-team/README.md) now combines
+the system model, isolated platform-development allowance, shared artifacts and
+reciprocal reviews with persistent native Tasks. The deterministic installed check
+retains requester/executor identities, survives reconstruction and proves that
+personal allowance is not borrowed for platform inference. This narrows the
+integration gap; real-model collaboration and external member takeover of a
+persistent team Task are still unverified.
