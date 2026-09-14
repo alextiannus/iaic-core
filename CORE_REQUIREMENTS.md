@@ -52,8 +52,8 @@ This clarifies the existing persistent Platform AI condition, not a requirement
 for more Agent role classes. Team composition is now required work; the previously
 released CLI/evidence interfaces do not by themselves establish its completion.
 
-Provide **User Assistant AI foundations and a generic demo** using the existing
-configured-jobs example and Agent template: Memory, Knowledge, Skill loading,
+Provide **User Assistant AI foundations**, without requiring a User Assistant
+Demo or product example: Memory, Knowledge, Skill loading,
 models, Workspace, Sessions, authorized capabilities, ongoing/proactive work,
 platform allowance and external Agent access. Applications own specialized jobs
 and UI. Both application-provided and third-party assistants are supported;
@@ -130,7 +130,7 @@ business workflow to the framework.
 All eight conditions below must be established before marking the objective complete. Existing deterministic tests, production integrations and small real-model samples are partial evidence; none alone proves this list.
 
 1. An Agent achieves and verifies a new in-scope application goal by composing Skills/Tools, without a goal-specific pre-coded feature. Use held-out goals, actual models, independent outcome grading and preserved failures.
-2. Core Platform AI combines a built-in system-model Agent and external Codex as a team, with bidirectional handoff, mutual takeover, returned evidence and reciprocal review. Platform capabilities support both participants. User Assistant foundations support persistent work and a generic demo, with application-provided or external access. Core need not ship a Business AI implementation; applications that use Business AI host it internally with system model configuration and system/server capabilities. Shared persistent identity/resources and task continuity remain framework capabilities.
+2. Core Platform AI combines a built-in system-model Agent and external Codex as a team, with bidirectional handoff, mutual takeover, returned evidence and reciprocal review. Platform capabilities support both participants. User Assistant foundations support persistent work, with application-provided or external access. Core need not ship a Business AI implementation; applications that use Business AI host it internally with system model configuration and system/server capabilities. Shared persistent identity/resources and task continuity remain framework capabilities.
 3. UI bindings, SDK, HTTP, MCP and A2A preserve the same Capability permissions, effects and result semantics. Exercise the same contract through the implemented surfaces, including denied access and durable receipts.
 4. Crashes, pauses, timeouts and unknown external results recover or reconcile without blind duplicate effects. Verify durable state and external effects across actual interruption boundaries.
 5. Delegation does not widen permissions or exceed budgets; artifact references survive and cancellation propagates. Include failed-child takeover evidence.
@@ -139,3 +139,24 @@ All eight conditions below must be established before marking the objective comp
 8. Autonomous actions are traceable to their authorization, and revocation stops later execution. Preserve evidence of Permission/Mandate/Policy decisions and current checks.
 
 Continue capability construction first, then necessary hardening and the full acceptance checks. Do not lower acceptance criteria, recast missing services as application-only responsibilities, or replace missing abilities with reports and repeated tests of already-proven paths. Current implementation and practical gaps are recorded in STATUS.md.
+
+
+## Team documentation and finite version lifetimes
+
+Every Platform AI Team participant owns complete documentation updates for the
+changes it makes: concepts/architecture, module contracts and configuration,
+operation and recovery instructions, acceptance evidence, known limitations and
+migration guidance. Handoffs include changed document references and unfinished
+documentation work. Peer review covers code and its documentation together. This
+is an execution responsibility of every member, not a separate documentation Agent.
+
+Each superseded version has a finite support lifetime, a successor, migration
+instructions and an explicit end-of-support date. Preserve original evidence and
+resolve in-flight effects; do not silently rewrite old tasks under new semantics.
+Remove expired compatibility paths deliberately instead of distorting current Core
+concepts to preserve every historical interface. See VERSION_LIFECYCLE.md for the
+current candidate support window and deployment migration limitations.
+
+A User Assistant AI Demo is not required in Core, its technical design or its
+acceptance criteria. Existing module examples can remain as implementation evidence,
+but do not create a new mandatory assistant product/demo workstream.

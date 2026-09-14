@@ -79,6 +79,7 @@
     "http",
     "CORE_REQUIREMENTS.md",
     "ACCEPTANCE.md",
+    "VERSION_LIFECYCLE.md",
     "accounts",
     "subscriptions",
     "notifications",

@@ -70,7 +70,7 @@ participants in the same role. Codex need not adopt Core Runtime. The team still
 needs platform-side capabilities for development, evaluation and release; the
 existing CLI and evidence tools alone do not complete this integration.
 
-**User Assistant AI foundations and a generic demo** remain the next priority.
+**User Assistant AI foundations** remain the next priority.
 User Assistants may be application-provided or external third-party Agents.
 
 Business AI is application-resident, using system model configuration and
@@ -89,3 +89,8 @@ Default long-lived resource scoping should distinguish user plus organization. A
 Core-only module checks now live in `test/` and run with `npm run test:modules`; application-coupled integration suites remain in the application repository. Each check imports the Core package directly. The independent CI runs module checks and the standalone examples from a fresh package installation. These checks establish the documented composition contracts; they do not establish universal model quality or completion of every AI Native Application requirement.
 
 The complete delivery target and acceptance conditions are tracked in [CORE_REQUIREMENTS.md](CORE_REQUIREMENTS.md). Current usability does not imply that all conditions are satisfied.
+
+Every Platform AI Team member maintains system documentation for its changes and
+reviews its peer's documentation alongside code. Superseded versions have finite
+[version lifetimes and migration instructions](VERSION_LIFECYCLE.md). A User
+Assistant AI Demo is not a Core deliverable or acceptance requirement.
