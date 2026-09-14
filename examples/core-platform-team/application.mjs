@@ -1,12 +1,13 @@
 import {createHash} from 'node:crypto';
 import {createTaskControlCapabilities,AgentRegistry,AgentIdentityStore,AgentRuntime,TaskStore,ContextAssembler,CapabilityDispatcher,defineCapability,PostgresWorkspaceStore,AssistantWorkspace,PeerReviews,WorkspaceReviewStore,createPeerReviewCapabilities,AssistantSettings,AssistantModels,ModelProfiles,TokenLedger} from '@immedi/iaic-core';
+import {openNativeResources} from './resources.mjs';
 import {workspaceTools} from '@immedi/iaic-core/workspace/tools.js';
 
 const denied=()=>Object.assign(new Error('Platform team access denied'),{statusCode:403});
 const principal=actor=>JSON.stringify([actor.scopeId,actor.subjectId]);
 
 // Application-owned composition; no new Core Runtime, role class or task table.
-export async function openPlatformTeam({pool,applicationId,teamId,builtinActor,authorizeMember,profile,resolveSecret,tokenPolicy,verifyOutcome,version,skillRoot,modelFactory,workCapabilities=[]}){
+export async function openPlatformTeam({pool,applicationId,teamId,builtinActor,authorizeMember,profile,resolveSecret,tokenPolicy,verifyOutcome,version,skillRoot,skillEntries=[],modelFactory,workCapabilities=[]}){
  if(!/^[a-z][a-z0-9-]{0,50}$/.test(teamId)||builtinActor?.scopeId!==applicationId||!builtinActor.subjectId||[authorizeMember,resolveSecret,verifyOutcome].some(p=>typeof p!=='function')||!profile||profile.id!=='system'||!tokenPolicy||!version||!skillRoot)throw new Error('Explicit team, native identity, system model, allowance, verifier and version configuration required');
  const native=Object.freeze({...builtinActor}),nativeId=principal(native),definitionId='platform-'+teamId;
  const member=async actor=>Boolean(actor&&actor.scopeId===applicationId&&await authorizeMember(actor)===true);
@@ -29,24 +30,31 @@ export async function openPlatformTeam({pool,applicationId,teamId,builtinActor,a
   tools.push(defineCapability({...capability,authorize:async(actor,input)=>await member(actor)&&await capability.authorize(actor,input)===true}));
  }
  tools.push(...createPeerReviewCapabilities({reviews}));
- const job={id:definitionId,role:'platform',purpose:'Develop and maintain the platform as a team, preserving concepts, evidence, documentation and finite version lifetimes.',capabilities:['platform.team.work'],configuration:{tools:tools.map(t=>t.name)}};
+ const self=await openNativeResources({pool,documents,applicationId,definitionId,native,authorize:checkNative,skillRoot,skillEntries});
+ const nativeTools=[...tools,...self.capabilities];
+ const privateNames=new Set(self.capabilities.map(capability=>capability.name));
+ const job={id:definitionId,role:'platform',purpose:'Develop and maintain the platform as a team, preserving concepts, evidence, documentation and finite version lifetimes.',capabilities:['platform.team.work'],configuration:{tools:nativeTools.map(t=>t.name),skills:skillEntries}};
  const registry=new AgentRegistry({store:identities,definitions:[job],resolveScope:async actor=>{await checkNative(actor);return {applicationId,subjectId:native.subjectId};},authorizeStateChange:checkNative});
  const models=new AssistantModels({settings,profiles:new ModelProfiles({profiles:[profile],resolveSecret,...(modelFactory?{factory:modelFactory}:{})}),ledger,resolveScope:resolveBudget,tokenPolicies:{system:tokenPolicy}});
  const ref={type:'object',properties:{path:{type:'string'},revision:{type:'integer',minimum:1},digest:{type:'string',pattern:'^[a-f0-9]{64}$'}},required:['path','revision','digest'],additionalProperties:false};
- const agent=defineCapability({name:job.capabilities[0],description:job.purpose,input:{type:'object',properties:{goal:{type:'string',minLength:1,maxLength:16000},requestedBy:{type:'string',minLength:1}},required:['goal','requestedBy'],additionalProperties:false},output:{type:'object',properties:{summary:{type:'string',minLength:1,maxLength:8000},artifacts:{type:'array',items:ref,maxItems:20}},required:['summary','artifacts'],additionalProperties:false},effect:'write',retry:'never-replay',authorize:checkNative,implementation:{kind:'agent',
-  instructions:'Work with your Platform AI teammates toward the requested goal. Discover and read shared artifacts before using them. Either member can execute work and review the other; do not assume a permanent observer/coder split. Use permitted tools and original effect receipts; do not repeat unknown effects. Update affected system documentation with code, evidence, limitations and migration instructions. Give replaced versions a finite lifetime without changing current concepts for indefinite compatibility. Treat peer reviews as opinions, not release approvals. Finish with {summary,artifacts}; cite exact shared artifact references. Ask for missing capabilities or information instead of inventing results.',tools:tools.map(t=>t.name),verify:async(input,result,context)=>{
+ const agent=defineCapability({name:job.capabilities[0],description:job.purpose,input:{type:'object',properties:{goal:{type:'string',minLength:1,maxLength:16000},requestedBy:{type:'string',minLength:1}},required:['goal','requestedBy'],additionalProperties:false},output:{type:'object',properties:{summary:{type:'string',minLength:1,maxLength:8000},artifacts:{type:'array',items:ref,maxItems:20}},required:['summary','artifacts'],additionalProperties:false},effect:'write',retry:'never-replay',authorize:checkNative,implementation:{kind:'agent',skillMode:'progressive',skills:skillEntries,
+  instructions:'Work with your Platform AI teammates toward the requested goal. Use platform.self tools for your own persistent notes, private Workspace and installed Skills. Discover relevant notes and load relevant Skill methods before acting; save reusable lessons with source uncertainty. Private storage is separate from team Workspace. Only deliberately publish intended material through shared tools, finish results or clarification questions; these outputs are visible to the team. Discover and read shared artifacts before using them. Either member can execute work and review the other; do not assume a permanent observer/coder split. Use permitted tools and original effect receipts; do not repeat unknown effects. Update affected system documentation with code, evidence, limitations and migration instructions. Give replaced versions a finite lifetime without changing current concepts for indefinite compatibility. Treat peer reviews as opinions, not release approvals. Finish with {summary,artifacts}; cite exact shared artifact references. Ask for missing capabilities or information instead of inventing results.',tools:nativeTools.map(t=>t.name),verify:async(input,result,context)=>{
    for(const reference of result.artifacts)await workspace.read(native,reference);
    return await verifyOutcome(input,result,context)===true;
   }}});
- const dispatcher=new CapabilityDispatcher({capabilities:[...tools,agent]});
- const runtime=new AgentRuntime({maxBatchCalls:4,store:tasks,dispatcher,model:{name:'system-profile-resolver'},resolveModel:request=>models.resolve(request),context:new ContextAssembler({skillRoot}),version,agentIdentity:{bind:({actor,capability})=>registry.bind(actor,definitionId,capability.name),check:({actor,task,binding})=>registry.check(actor,binding,task.capability)}});
+ const dispatcher=new CapabilityDispatcher({capabilities:[...nativeTools,agent]});
+ const runtime=new AgentRuntime({maxBatchCalls:4,store:tasks,dispatcher,model:{name:'system-profile-resolver'},resolveModel:request=>models.resolve(request),context:new ContextAssembler({skillRoot,skillCatalog:self.skills,overflow:'omit-old-results'}),version,agentIdentity:{bind:({actor,capability})=>registry.bind(actor,definitionId,capability.name),check:({actor,task,binding})=>registry.check(actor,binding,task.capability)}});
  dispatcher.tasks=runtime;
  const key=(actor,requestId)=>'platform-team:'+createHash('sha256').update(JSON.stringify([applicationId,teamId,principal(actor),requestId])).digest('hex');
  const view=async(actor,id)=>{
   await check(actor);const task=await runtime.get(native,id,{history:true});
   if(task.agent?.definitionId!==definitionId)throw denied();
   // Sharing a team result does not confer the native executor's private tool rights.
-  await runtime.context.revalidateHistory({history:task,actor,dispatcher});
+  // Native private calls are never projected to teammates. The native author
+  // explicitly shares finish output and artifacts; injected work tools still
+  // require reader-side revalidation and do not gain this publication policy.
+  const sharedHistory={...task,calls:task.calls.filter(call=>!privateNames.has(call.capability))};
+  await runtime.context.revalidateHistory({history:sharedHistory,actor,dispatcher});
   if(task.result?.artifacts)for(const reference of task.result.artifacts)await workspace.read(actor,reference);
   return {id:task.id,status:task.status,requestedBy:task.input.requestedBy,executor:nativeId,waitingReason:task.waiting_reason??null,inputRequest:task.inputRequest??null,result:task.result??null};
  };
@@ -76,5 +84,5 @@ export async function openPlatformTeam({pool,applicationId,teamId,builtinActor,a
  ];
  const publicDispatcher=new CapabilityDispatcher({capabilities:publicCapabilities});
  try{await runtime.initialize();}catch(error){await runtime.stop();throw error;}
- return {dispatcher:publicDispatcher,runtime,workspace,reviews,ledger,budgetScope,registry,models,start:()=>runtime.start(),close:()=>runtime.stop()};
+ return {dispatcher:publicDispatcher,runtime,self,workspace,reviews,ledger,budgetScope,registry,models,start:()=>runtime.start(),close:()=>runtime.stop()};
 }

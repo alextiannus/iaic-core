@@ -844,3 +844,21 @@ recovery, successful completion, reciprocal reviews and denial of another
 requester's cancellation. Six deterministic model calls consume 42 issued units;
 user allowance remains unchanged. This is a normal-path wiring correction, not
 another paid model evaluation or arbitrary interrupted-task takeover.
+
+## Native Memory, private Workspace and Skill wiring (2026-09-14)
+
+The prior minimum Platform Team host had a Harness and shared artifacts but no own
+Memory service, private Workspace or installed Skill tools. resources.mjs now
+composes these existing modules for the native identity. Default stdio config
+registers the bundled maintenance Skill; progressive discovery and explicit
+read/write tools make resources usable by the Agent, rather than merely present
+as library exports. Model configuration and issued platform allowance stay in
+their existing modules.
+
+The composition verifies model-driven Skill reading, memory/private-draft writes,
+reconstruction and continuation, and note recall in a subsequent Task. Private
+resource access is denied to the external actor and excluded from the public tool
+catalog. Native-authored shared outputs remain explicitly published; injected
+work tools retain reader-side authorization. Sixteen deterministic calls consume
+112 issued units with the user allowance unchanged. This is not a paid model
+quality claim, semantic memory extraction or arbitrary executor takeover.

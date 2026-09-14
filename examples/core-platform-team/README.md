@@ -121,7 +121,7 @@ must check the application's actual outcomes and evidence.
 Run `DATABASE_URL=<isolated PostgreSQL> node examples/core-platform-team/run.mjs`.
 The installed example proves shared artifacts and reciprocal reviews, system
 profile binding, requester/executor continuity across reconstruction, stable
-requests and a separate platform budget: six fixture inferences consume 42
+requests and a separate platform budget: sixteen fixture inferences consume 112
 platform units while the funded personal allowance remains unchanged. Both members
 can originate requests. No real model, live Codex connection or paid inference is
 used in this check. Persistent team-task takeover by the external member and
@@ -167,3 +167,52 @@ within its declared lifetime. A newer host does not reinterpret the old binding.
 Shared work and review do not reassign a persistent native Task to Codex; arbitrary
 interrupted-task takeover is deferred. Integrators explicitly supply authorized
 development tools and outcome verification through the factory ports.
+
+## Native Agent resources
+
+The default stdio entry now gives the built-in Agent its own persistent Memory and
+private Workspace, plus the bundled `platform-maintenance` Skill. This is resource
+wiring on the existing Harness, not another Runtime or a User Assistant Demo.
+`resources.mjs` owns the composition; the host reuses MemoryStore/AssistantMemory,
+AssistantWorkspace and the existing resource Capability factory.
+
+Native tools use `platform.self.` names. They include memory discovery/read/write,
+revision-based correction/forgetting and import/export, private Workspace
+list/read/write/delete, and `platform.self.assistant.skills.list/read`. The native
+worker receives these tools by default, including memory writes. Memory is scoped
+to application, team definition and native identity. Private Workspace uses the
+same private scope; team Workspace and reserved review evidence remain separate.
+Changing the model does not change resource ownership. Changing the native identity
+selects different private storage, not a migration of the old identity's data.
+
+The host factory accepts `skillEntries` relative to `skillRoot`. Its default empty
+list means no installed Skills; the supplied stdio entry explicitly registers
+`skills/platform-maintenance/SKILL.md`. Discovery puts selected Skill metadata in
+the model context, and the Agent loads bodies/resources on demand through existing
+Skill tools. Registered entries are checked at startup. The stdio version hashes
+the resource composition and bundled Skill as well as host code. Custom hosts
+must pin their selected Skill resources in their own version, as before. There is
+no package auto-installation or inference of permissions from Skill metadata.
+
+Memories are retrieved on demand, not copied wholesale into every model request.
+The Agent is instructed to discover relevant notes, read exact keys, and save
+reusable lessons as attributed, fallible notes. There is no automatic extraction,
+semantic ranking or guarantee that every model chooses the best note. Context
+limits use existing omission of old result bodies while retaining call receipts;
+this is not semantic summarization or forgetting persistent memories.
+
+Private tools are not exported to external MCP clients and reject external actors.
+Task history and private storage are not returned by the shared Task view. Native
+finish summaries, clarification questions and explicitly written shared artifacts
+are deliberate team publications. The reader-side history check excludes these
+known native-private tool calls, after native revalidation, while retaining current
+reader checks on other injected work tools. This policy permits the native Agent
+to use its own notes while producing team deliverables; it is not an automatic
+information-flow classifier preventing an Agent from intentionally publishing
+private content. Do not store system secrets in memories or publish them to peers.
+
+Verification extends the existing composition: the model loads a Skill, writes its
+own memory and private draft, waits, then reads both after host reconstruction.
+A later Task reads the same note. External direct access is denied, the private
+path is absent from team Workspace, and the intentionally shared result remains
+readable without private tool history. This test uses a deterministic model.

@@ -13,11 +13,11 @@ const native={scopeId:applicationId,subjectId:env.PLATFORM_NATIVE_ID||'native-pl
 const external={scopeId:applicationId,subjectId:env.PLATFORM_EXTERNAL_ID||'external-platform'};
 if(native.subjectId===external.subjectId)throw new Error('Native and external identities must differ');
 const revision=createHash('sha256');
-for(const name of ['application.mjs','stdio.mjs'])revision.update(await fs.readFile(new URL(name,import.meta.url)));
+for(const name of ['application.mjs','resources.mjs','stdio.mjs','skills/platform-maintenance/SKILL.md'])revision.update(await fs.readFile(new URL(name,import.meta.url)));
 const pool=new Pool({connectionString:env.DATABASE_URL});let app,server,closing=false;
 async function close(){if(closing)return;closing=true;await server?.close();await app?.close();await pool.end();}
 try{
- app=await openPlatformTeam({pool,applicationId,teamId,builtinActor:native,authorizeMember:actor=>actor.scopeId===applicationId&&[native.subjectId,external.subjectId].includes(actor.subjectId),profile:{id:'system',provider:env.IAIC_PROVIDER||(env.IAIC_MODEL_BASE_URL?'chat-completions':'openai'),model:env.IAIC_MODEL,baseUrl:env.IAIC_MODEL_BASE_URL||'',credentialRef:'system',invocation:{maxCompletionTokens:8192,parallelToolCalls:true}},resolveSecret:()=>env.IAIC_MODEL_API_KEY,tokenPolicy:{maximum:100000,price:{revision:'platform-host-units-v1',input:1,cachedInput:1,output:1}},version:revision.digest('hex'),skillRoot:fileURLToPath(new URL('./',import.meta.url)),
+ app=await openPlatformTeam({pool,applicationId,teamId,builtinActor:native,authorizeMember:actor=>actor.scopeId===applicationId&&[native.subjectId,external.subjectId].includes(actor.subjectId),profile:{id:'system',provider:env.IAIC_PROVIDER||(env.IAIC_MODEL_BASE_URL?'chat-completions':'openai'),model:env.IAIC_MODEL,baseUrl:env.IAIC_MODEL_BASE_URL||'',credentialRef:'system',invocation:{maxCompletionTokens:8192,parallelToolCalls:true}},resolveSecret:()=>env.IAIC_MODEL_API_KEY,tokenPolicy:{maximum:100000,price:{revision:'platform-host-units-v1',input:1,cachedInput:1,output:1}},version:revision.digest('hex'),skillRoot:fileURLToPath(new URL('./',import.meta.url)),skillEntries:['skills/platform-maintenance/SKILL.md'],
   // Minimal output/work checks only. Domain-specific outcomes use the factory's verifier port.
   verifyOutcome:async(_input,_result,{history})=>history.calls.some(call=>call.status==='succeeded')
  });

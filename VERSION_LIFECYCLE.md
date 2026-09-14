@@ -15,7 +15,8 @@ owner and new end date; there is no automatic or unlimited extension.
 | `v0.1.0-candidate.83` | Replaced when candidate.84 is published | 2026-09-28 23:59 UTC | Upgrade to candidate.84; Task-bound grants must use Runtime, not direct function invocation |
 | `v0.1.0-candidate.84` | Replaced when candidate.85 is published | 2026-09-28 23:59 UTC | Upgrade to candidate.85 for the minimum Platform Team host; existing module contracts unchanged |
 | `v0.1.0-candidate.85` | Replaced when candidate.86 is published | 2026-09-28 23:59 UTC | Use the successor for MCP clarification and continuation; old Tasks retain their original host version binding |
-| `v0.1.0-candidate.86` | Minimum host continuation correction prepared by this source; current upon verified publication | On replacement, record an explicit date 14 days later | No database migration; continue existing Tasks with their original pinned host, then admit new work on this version |
+| `v0.1.0-candidate.86` | Replaced when candidate.87 is published | 2026-09-28 23:59 UTC | Continue old Tasks on their pinned host; successor adds native private resources and installed Skills |
+| `v0.1.0-candidate.87` | Native resource wiring prepared by this source; current upon verified publication | On replacement, record an explicit date 14 days later | Existing Memory tables initialize normally; resource scopes are additive. Start new Tasks on this host; no automatic application deployment |
 
 The GitHub release and verified asset determine whether publication occurred.
 A source commit or this preparation record alone is not a published version.
