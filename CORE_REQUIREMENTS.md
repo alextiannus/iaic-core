@@ -1,6 +1,6 @@
 # Core delivery objective
 
-The active objective is to complete IAiC Core's foundational capabilities and satisfy the technical scope and acceptance criteria of the user-approved Note 30, "IAiC Current Design and Core Principles". ImmediToday is an integration example, not the release objective or a substitute for framework acceptance. Later user clarification keeps the framework headless and modular: business rules and UI belong to applications; roles describe responsibility rather than mandatory classes. Platform AI and User Assistant AI can be application-provided or external third-party Agents. Business AI is application-resident and uses system model configuration and system/server capabilities. Internal Agents can share Core Runtime; external Platform/User Agents need not adopt it.
+The active objective is to complete IAiC Core's foundational capabilities and satisfy the technical scope and acceptance criteria of the user-approved Note 30, "IAiC Current Design and Core Principles". ImmediToday is an integration example, not the release objective or a substitute for framework acceptance. Later user clarification keeps the framework headless and modular: business rules and UI belong to applications; roles describe responsibility rather than mandatory classes. Core Platform AI is a team comprising a built-in Agent driven by a system-configured model and the current external Codex Agent. User Assistant AI can be application-provided or an external third-party Agent. Business AI is application-resident and uses system model configuration and system/server capabilities. Internal Agents can share Core Runtime; external Platform/User Agents need not adopt it.
 
 Public availability is already achieved. Licensing is undecided and does not block engineering. Usable foundations are milestones; the full objective remains incomplete.
 
@@ -12,9 +12,32 @@ User Assistant BYOK switching is retained as an existing optional capability, bu
 
 Build **Platform AI capabilities first**: shared capability/Skill/code discovery
 and maintenance, execution resources, runtime feedback, candidate evaluation,
-release, observation and rollback. Applications may supply Platform AI themselves
-or connect external third-party Agents such as Codex. External coding/inference
-capability does not replace the platform-side capabilities Core must provide.
+release, observation and rollback. For Core, implement Platform AI as a **team**:
+a built-in Platform Agent driven by a system-configured model collaborates with
+the current external Codex Agent. These are complementary participants in the
+same Platform AI role, not alternative deployment choices. External coding
+capability does not replace either the built-in participant or Core's platform-side
+capabilities.
+
+The built-in participant can continuously inspect authorized system context,
+identify capability gaps, prepare improvement tasks and check returned outcomes.
+Codex can handle architecture, complex implementation, code review, repository
+work and release operations. These are useful defaults, not fixed job classes;
+assign work according to capability, context and current authority.
+
+Use shared goals, durable Tasks, Workspace/artifact references and retained
+feedback for handoff, returned evidence and continued work. Reuse existing
+Runtime, model, collaboration and protocol modules; do not create a second
+scheduler or require Codex to adopt Core Runtime. Preserve distinct participant
+identity, permission and usage attribution. The built-in Platform Agent uses its
+system model profile and platform development budget, not a user's Assistant
+allowance. External Codex retains its own provider/platform execution context.
+
+The presence of both participants alone does not establish teamwork: demonstrate
+an actual task handoff, result return and continued work under the same goal.
+This clarifies the existing persistent Platform AI condition, not a requirement
+for more Agent role classes. Team composition is now required work; the previously
+released CLI/evidence interfaces do not by themselves establish its completion.
 
 Provide **User Assistant AI foundations and a generic demo** using the existing
 configured-jobs example and Agent template: Memory, Knowledge, Skill loading,
@@ -94,7 +117,7 @@ business workflow to the framework.
 All eight conditions below must be established before marking the objective complete. Existing deterministic tests, production integrations and small real-model samples are partial evidence; none alone proves this list.
 
 1. An Agent achieves and verifies a new in-scope application goal by composing Skills/Tools, without a goal-specific pre-coded feature. Use held-out goals, actual models, independent outcome grading and preserved failures.
-2. Platform AI capabilities support application-provided or external third-party development/evolution Agents. User Assistant foundations support persistent work and a generic demo, with application-provided or external access. Core need not ship a Business AI implementation; applications that use Business AI host it internally with system model configuration and system/server capabilities. Shared persistent identity/resources and task continuity remain framework capabilities.
+2. Core Platform AI combines a built-in system-model Agent and external Codex as a team, with shared task handoff, returned evidence and continued work. Platform capabilities support both participants. User Assistant foundations support persistent work and a generic demo, with application-provided or external access. Core need not ship a Business AI implementation; applications that use Business AI host it internally with system model configuration and system/server capabilities. Shared persistent identity/resources and task continuity remain framework capabilities.
 3. UI bindings, SDK, HTTP, MCP and A2A preserve the same Capability permissions, effects and result semantics. Exercise the same contract through the implemented surfaces, including denied access and durable receipts.
 4. Crashes, pauses, timeouts and unknown external results recover or reconcile without blind duplicate effects. Verify durable state and external effects across actual interruption boundaries.
 5. Delegation does not widen permissions or exceed budgets; artifact references survive and cancellation propagates. Include failed-child takeover evidence.
