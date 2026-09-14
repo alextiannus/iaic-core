@@ -39,7 +39,7 @@ export async function openPlatformTeam({pool,applicationId,teamId,builtinActor,a
    return await verifyOutcome(input,result,context)===true;
   }}});
  const dispatcher=new CapabilityDispatcher({capabilities:[...tools,agent]});
- const runtime=new AgentRuntime({store:tasks,dispatcher,model:{name:'system-profile-resolver'},resolveModel:request=>models.resolve(request),context:new ContextAssembler({skillRoot}),version,agentIdentity:{bind:({actor,capability})=>registry.bind(actor,definitionId,capability.name),check:({actor,task,binding})=>registry.check(actor,binding,task.capability)}});
+ const runtime=new AgentRuntime({maxBatchCalls:4,store:tasks,dispatcher,model:{name:'system-profile-resolver'},resolveModel:request=>models.resolve(request),context:new ContextAssembler({skillRoot}),version,agentIdentity:{bind:({actor,capability})=>registry.bind(actor,definitionId,capability.name),check:({actor,task,binding})=>registry.check(actor,binding,task.capability)}});
  dispatcher.tasks=runtime;
  const key=(actor,requestId)=>'platform-team:'+createHash('sha256').update(JSON.stringify([applicationId,teamId,principal(actor),requestId])).digest('hex');
  const view=async(actor,id)=>{

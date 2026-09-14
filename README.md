@@ -98,5 +98,6 @@ Assistant AI Demo is not a Core deliverable or acceptance requirement.
 A minimal [Platform Team host](examples/core-platform-team/README.md) assembles the
 existing modules with a system model, separate development allowance, shared work
 and reciprocal reviews. It accepts work requests from either member and retains
-requester/executor provenance. Its deterministic integration evidence does not
-yet establish live Codex cooperation or external persistent-task takeover.
+requester/executor provenance. A real system-model/Codex review, correction and
+reciprocal-review loop has also completed; see the host evidence below. Arbitrary
+external takeover of an interrupted native Task remains unfinished.

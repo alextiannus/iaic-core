@@ -1,6 +1,21 @@
 # Core delivery objective
 
-The active objective is to complete IAiC Core's foundational capabilities and satisfy the technical scope and acceptance criteria of the user-approved Note 30, "IAiC Current Design and Core Principles". ImmediToday is an integration example, not the release objective or a substitute for framework acceptance. Later user clarification keeps the framework headless and modular: business rules and UI belong to applications; roles describe responsibility rather than mandatory classes. Core Platform AI is a team comprising a built-in Agent driven by a system-configured model and the current external Codex Agent. User Assistant AI can be application-provided or an external third-party Agent. Business AI is application-resident and uses system model configuration and system/server capabilities. Internal Agents can share Core Runtime; external Platform/User Agents need not adopt it.
+## Current phase: minimum runnable Core
+
+The latest user instruction makes phase one the delivery of a minimum runnable
+Core Framework. Three Demo Projects and community collaboration are phase two,
+not phase-one prerequisites. Stop report-draft, field-reference, publication-error
+and model-feedback polishing; retain those as later application/community work.
+Note30 remains the architectural reference, not a demand to finish every advanced
+reliability case before this minimum release.
+
+Phase one needs an independently installable modular Core, runnable native system
+model and separate platform-development allowance, a basic real native/Codex work
+and reciprocal-review loop with durable shared evidence, and usable setup/module
+documentation including version lifetime and honest limitations. No User Assistant
+Demo, three-project buildout or community-program work is required in this phase.
+
+The longer-term objective is to complete IAiC Core's foundational capabilities and satisfy the technical scope and acceptance criteria of the user-approved Note 30, "IAiC Current Design and Core Principles". ImmediToday is an integration example, not the release objective or a substitute for framework acceptance. Later user clarification keeps the framework headless and modular: business rules and UI belong to applications; roles describe responsibility rather than mandatory classes. Core Platform AI is a team comprising a built-in Agent driven by a system-configured model and the current external Codex Agent. User Assistant AI can be application-provided or an external third-party Agent. Business AI is application-resident and uses system model configuration and system/server capabilities. Internal Agents can share Core Runtime; external Platform/User Agents need not adopt it.
 
 Public availability is already achieved. Licensing is undecided and does not block engineering. Usable foundations are milestones; the full objective remains incomplete.
 

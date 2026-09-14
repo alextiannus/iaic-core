@@ -1,6 +1,22 @@
 # Candidate status and practical limits
 
-Latest user clarification (2026-09-14): prioritize Platform AI as a team of a built-in system-model Agent and the current external Codex Agent, sharing tasks, work artifacts and feedback with mutual takeover and reciprocal review. Team integration remains to be completed; CLI/evidence tools alone do not prove it. Provide User Assistant foundations, supporting application-provided or external assistants. Business AI is application-resident, uses system model configuration and system/server capabilities, and is not a required built-in Core product. Core supplies cross-application Business AI capabilities only where needed. Every team member owns system documentation updates and finite old-version lifetimes. No User Assistant AI Demo is required. This supersedes older role-delivery assumptions; see CORE_REQUIREMENTS.md.
+## Current phase: minimum runnable Core
+
+The latest user instruction makes phase one the delivery of a minimum runnable
+Core Framework. Three Demo Projects and community collaboration are phase two,
+not phase-one prerequisites. Stop report-draft, field-reference, publication-error
+and model-feedback polishing; retain those as later application/community work.
+Note30 remains the architectural reference, not a demand to finish every advanced
+reliability case before this minimum release.
+
+Phase one needs an independently installable modular Core, runnable native system
+model and separate platform-development allowance, a basic real native/Codex work
+and reciprocal-review loop with durable shared evidence, and usable setup/module
+documentation including version lifetime and honest limitations. No User Assistant
+Demo, three-project buildout or community-program work is required in this phase.
+
+
+Latest user clarification (2026-09-14): prioritize Platform AI as a team of a built-in system-model Agent and the current external Codex Agent, sharing tasks, work artifacts and feedback with mutual takeover and reciprocal review. The minimum shared-work and reciprocal-review loop is now verified with a real system model and current Codex; arbitrary interrupted Task takeover remains unfinished. Provide User Assistant foundations, supporting application-provided or external assistants. Business AI is application-resident, uses system model configuration and system/server capabilities, and is not a required built-in Core product. Core supplies cross-application Business AI capabilities only where needed. Every team member owns system documentation updates and finite old-version lifetimes. No User Assistant AI Demo is required. This supersedes older role-delivery assumptions; see CORE_REQUIREMENTS.md.
 
 2026-09-14 user-approved scope update: User Assistant BYOK remains optional and retained; related feature development and dedicated testing are paused. BYOK switching is not a Core technical-design or completion requirement. The required paths are the platform default model and personal external AI assistants using existing identity/authorization. Historical BYOK implementation/test records below do not reinstate it as a gate. See CORE_REQUIREMENTS.md.
 
@@ -775,3 +791,33 @@ The host uses actual provider resolution unless a modelFactory is explicitly
 injected; this verification injects a fixture. No real Codex connection or external
 persistent-Task takeover is claimed. Work tools and independent outcome validation
 are injected by the host; no new Runtime, UI or User Assistant Demo is introduced.
+
+## Phase-one Platform Team delivery (2026-09-14)
+
+The minimum host reuses Runtime, Workspace, PeerReviews, system ModelProfiles and
+a separate platform-development ledger. A local MCP stdio entry supplies native
+work admission and authorized shared artifacts without another Agent class.
+Independent archive installation and the deterministic composition passed.
+The real built-in deepseek-v4-flash model reviewed the actual host source; current
+external Codex reviewed its findings and corrected the stdio batch configuration.
+Native follow-up Task `bb1e33e9-e81b-4a09-8d4b-cb8cdb17b287` succeeded with eight
+work calls, withdrew two source-unsupported blocker claims, wrote its own artifact
+and recorded a linked review. Codex reviewed that artifact through PeerReviews;
+both author identities and the reciprocal record were read back successfully.
+
+The source reviewed was application.mjs SHA256
+`b8de9c198ef83a2fd4e0e4786aa27c915ef8277d2d9521ace5adab028b16b3ec`.
+The native follow-up artifact digest was
+`2a04ae9a39d87d29a9366677b6a77c446c91bdd259945d2de1fe8c54589c5880`.
+The first real attempt hit the one-action model bound; a subsequent profile and
+Runtime configuration enabled bounded batches consistently. Its original unknown
+inference hold of 500,000 issued units is retained, not refunded or called settled.
+This is evidence for the minimum collaboration loop, not universal model quality,
+independent acceptance of every module, or arbitrary interrupted-task takeover.
+The external Codex member performs repository edits in its own authorized environment.
+
+Three Demo Projects, community collaboration and application report polishing are
+phase two. The old ImmediToday report batch was deliberately stopped with SIGTERM
+after 29 recorded runs; its runner had no graceful stop hook. Its in-flight Task
+and any unresolved inference/effect receipts remain preserved. It was not graded
+as a completed 30-run evaluation, restarted or used as a Core release gate.

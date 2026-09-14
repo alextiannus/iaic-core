@@ -1,5 +1,52 @@
 # Platform Team host composition
 
+## Start the minimum local host
+
+Use Node 20 and a dedicated PostgreSQL database. Install the supplied Core archive
+with `pg@8.23.0` and `@modelcontextprotocol/sdk@1.30.0`. Configure these environment
+values in the local MCP client's process environment:
+
+```sh
+DATABASE_URL=postgresql://.../your_core_database
+IAIC_PROVIDER=chat-completions
+IAIC_MODEL=your-system-model
+IAIC_MODEL_BASE_URL=https://your-model-gateway.example/v1
+IAIC_MODEL_API_KEY=your-system-secret
+PLATFORM_GRANT_ID=initial-platform-development
+PLATFORM_GRANT_UNITS=1000000
+```
+
+Have the client launch:
+
+```sh
+node node_modules/@immedi/iaic-core/examples/core-platform-team/stdio.mjs
+```
+
+The process uses the existing MCP stdio transport; it opens no public HTTP port.
+The launching operator controls its environment and credential access. The local
+client is the configured external member, while the native worker uses a distinct
+identity. Optional `PLATFORM_APPLICATION_ID`, `PLATFORM_TEAM_ID`,
+`PLATFORM_NATIVE_ID` and `PLATFORM_EXTERNAL_ID` identify the host and participants.
+This single-client entry is not a multi-user authentication product.
+
+The deliberate grant ID is idempotent across restarts; changing the amount under
+the same ID conflicts. A later top-up needs a new deliberate grant ID. Omit both
+grant variables to start without funding. The default entry issues platform units
+at one unit per metered input/output token, with a 100,000-unit inference hold;
+these are allowance rules, not provider pricing. Customize policy through the
+factory below. Its minimal verifier checks saved references and a successful work
+operation; application-specific semantic correctness remains the injected verifier's
+responsibility. The native Runtime permits at most four tool actions in a batch,
+using existing ordering, authority and effect-receipt rules.
+
+First create a shared artifact with `my_write_workspace`, then call
+`platform.team.request` with a stable requestId and a goal referencing that artifact.
+Poll `platform.team.request_result` or `platform.team.task` for the existing Task.
+Read and record peer reviews through `collaboration.reviews.read/record`. Supply
+the MCP envelope `{input: {...}, requestKey: "stable-operation-key"}` for writes.
+The native worker runs in the same server process; restarting preserves stored
+work. This is the phase-one local entry, not one of the phase-two Demo Projects.
+
 `openPlatformTeam` in `application.mjs` assembles existing Core modules into a
 headless host. It is application-owned composition, not a new Core Agent class or
 Runtime. It does not create a User Assistant AI Demo.
@@ -55,6 +102,10 @@ resubmit with a new ID. `platform.team.task({id})` projects currently authorized
 team Task state, requester, executor and result without model transcripts. There
 is no new task table, ownership engine or shared login.
 
+Task result sharing revalidates the original tool history under the reading
+member's current authorization as well as the native executor's. Team membership
+does not inherit private rights from the native executor's injected work tools.
+
 The system model is metered against a fixed platform-development scope, separate
 from personal-assistant scopes. The units are issued platform allowance, not raw
 provider tokens or currency. An empty platform balance cannot borrow from a
@@ -76,3 +127,20 @@ can originate requests. No real model, live Codex connection or paid inference i
 used in this check. Persistent team-task takeover by the external member and
 bidirectional interrupted-work continuation are still unfinished; this host does
 not present native-only execution as the final team architecture.
+
+## Real collaboration evidence and limits
+
+On 2026-09-14 the system-model native member and current external Codex completed
+a code-review/correction/follow-up loop on this host. Codex then recorded a
+reciprocal review of the native-authored assessment through the same PeerReviews
+service. STATUS.md records the exact Task and artifact digests, the rejected
+incorrect initial findings and a retained unknown inference hold. The deterministic
+example remains a separate reproducible check, not a simulation presented as that
+real interaction.
+
+For a waiting native Task, a trusted host uses the existing `app.runtime` lifecycle
+API to provide input, resume after funding, or cancel work under the native actor.
+These administrative controls are not exposed by this minimum stdio entry.
+Shared work and review do not reassign a persistent native Task to Codex; arbitrary
+interrupted-task takeover is deferred. Integrators explicitly supply authorized
+development tools and outcome verification through the factory ports.
