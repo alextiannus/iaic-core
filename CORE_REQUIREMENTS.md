@@ -25,6 +25,19 @@ Codex can handle architecture, complex implementation, code review, repository
 work and release operations. These are useful defaults, not fixed job classes;
 assign work according to capability, context and current authority.
 
+**Mutual cover and reciprocal review are required.** Either participant can
+originate work, execute authorized steps, request peer review and take over when
+the other is paused, unavailable or unsuccessful. Default division of work must
+not become a one-way observer-to-coder dependency. Both need access to the work
+context and permitted development/evaluation tools needed for their assignments.
+
+Use the existing task ownership/lease and effect receipts to hand off unfinished
+work without repeating completed effects or treating unknown outcomes as absent.
+Peer review covers plans, code/Skill changes and verification evidence; retain
+review findings, revisions and follow-up results as shared artifacts. Either Agent
+can review the other. This defines a collaboration capability, not a new human
+approval UI or a requirement for two approvals on every atomic action.
+
 Use shared goals, durable Tasks, Workspace/artifact references and retained
 feedback for handoff, returned evidence and continued work. Reuse existing
 Runtime, model, collaboration and protocol modules; do not create a second
@@ -34,7 +47,7 @@ system model profile and platform development budget, not a user's Assistant
 allowance. External Codex retains its own provider/platform execution context.
 
 The presence of both participants alone does not establish teamwork: demonstrate
-an actual task handoff, result return and continued work under the same goal.
+bidirectional task handoff, result return, takeover and reciprocal review under the same goal.
 This clarifies the existing persistent Platform AI condition, not a requirement
 for more Agent role classes. Team composition is now required work; the previously
 released CLI/evidence interfaces do not by themselves establish its completion.
@@ -117,7 +130,7 @@ business workflow to the framework.
 All eight conditions below must be established before marking the objective complete. Existing deterministic tests, production integrations and small real-model samples are partial evidence; none alone proves this list.
 
 1. An Agent achieves and verifies a new in-scope application goal by composing Skills/Tools, without a goal-specific pre-coded feature. Use held-out goals, actual models, independent outcome grading and preserved failures.
-2. Core Platform AI combines a built-in system-model Agent and external Codex as a team, with shared task handoff, returned evidence and continued work. Platform capabilities support both participants. User Assistant foundations support persistent work and a generic demo, with application-provided or external access. Core need not ship a Business AI implementation; applications that use Business AI host it internally with system model configuration and system/server capabilities. Shared persistent identity/resources and task continuity remain framework capabilities.
+2. Core Platform AI combines a built-in system-model Agent and external Codex as a team, with bidirectional handoff, mutual takeover, returned evidence and reciprocal review. Platform capabilities support both participants. User Assistant foundations support persistent work and a generic demo, with application-provided or external access. Core need not ship a Business AI implementation; applications that use Business AI host it internally with system model configuration and system/server capabilities. Shared persistent identity/resources and task continuity remain framework capabilities.
 3. UI bindings, SDK, HTTP, MCP and A2A preserve the same Capability permissions, effects and result semantics. Exercise the same contract through the implemented surfaces, including denied access and durable receipts.
 4. Crashes, pauses, timeouts and unknown external results recover or reconcile without blind duplicate effects. Verify durable state and external effects across actual interruption boundaries.
 5. Delegation does not widen permissions or exceed budgets; artifact references survive and cancellation propagates. Include failed-child takeover evidence.

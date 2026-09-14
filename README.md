@@ -65,7 +65,7 @@ Core provides basic capabilities, interfaces and necessary runtime rules. Applic
 
 Core prioritizes **Platform AI capabilities**, implemented by a team of a built-in
 Agent driven by the system model and the current external Codex Agent. Shared
-tasks, work artifacts and feedback connect their work; they are complementary
+tasks, work artifacts and feedback support mutual takeover and reciprocal review; they are complementary
 participants in the same role. Codex need not adopt Core Runtime. The team still
 needs platform-side capabilities for development, evaluation and release; the
 existing CLI and evidence tools alone do not complete this integration.
