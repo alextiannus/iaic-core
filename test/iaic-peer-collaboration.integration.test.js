@@ -89,3 +89,32 @@ test('killed delivery worker preserves committed remote effect and recovers via 
   assert.equal((await restarted.call(actors.alpha,'delivery.reconcile',{id:m.id,recipientEndpointId:'beta'})).deliveries[0].state,'delivered');assert.equal(f.state.received.size,1);
  }finally{if(child&&child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 }));
+
+test('receipt reconciliation survives withdrawn evidence and a query-only retired transport',()=>fixture(async(f)=>{
+ const reference={uri:'artifact-1',version:'1',hash:createHash('sha256').update('evidence').digest('hex')};
+ f.state.deliveryMode='unknown';const m=await f.call(actors.alpha,'message.send',message({references:[reference]}));await f.peer.tick();
+ f.peer.readEvidence=async()=>null;
+ await assert.rejects(f.call(actors.alpha,'message.get',{id:m.id}),{code:'PEER_EVIDENCE'});
+ const original=f.peer.resolveDelivery;f.peer.resolveDelivery=async data=>({query:(await original(data)).query});
+ const c=await f.call(actors.alpha,'channel.get',{id:'channel'});await f.call(actors.controller,'channel.transition',{id:c.id,state:'closing',expectedRevision:c.revision});
+ await assert.rejects(f.call(actors.gamma,'delivery.reconcile',{id:m.id,recipientEndpointId:'beta'}),{code:'PEER_PARTICIPANT'});
+ const receipt=await f.call(actors.alpha,'delivery.reconcile',{id:m.id,recipientEndpointId:'beta'});
+ assert.equal(receipt.deliveries[0].state,'delivered');assert.equal(f.state.received.size,1);assert.equal(Object.hasOwn(receipt,'content'),false);
+}));
+
+test('expired human creation replay returns the original task without reopening it',()=>fixture(async(f,pool)=>{
+ const input={channelId:'channel',requestKey:'human-expiring',reason:'Query original result',allowedActions:['query'],dueAt:new Date(f.state.now+1000).toISOString()};
+ const task=await f.call(actors.controller,'human.create',input);f.state.now+=1001;
+ const replay=await f.call(actors.controller,'human.create',input);assert.equal(replay.id,task.id);assert.equal(replay.state,'expired');
+ assert.equal((await pool.query("SELECT * FROM iaic_peer_records WHERE kind='human'")).rowCount,1);
+ await assert.rejects(f.call(actors.controller,'human.create',{...input,reason:'Different meaning'}),{code:'PEER_CONFLICT'});
+ await assert.rejects(f.call(actors.controller,'human.create',{...input,requestKey:'new-expired'}),{code:'PEER_EXPIRY'});
+}));
+
+test('non-exhausted failures cannot starve later unknown deliveries from human escalation',()=>fixture(async(f)=>{
+ await f.store.transaction(async tx=>{const c=await tx.get('channel','channel');c.maxMessages=100;await tx.put('channel',c.id,c);});
+ f.state.deliveryMode='not_sent';
+ for(let n=0;n<50;n++){await f.call(actors.alpha,'message.send',message({requestKey:'failed-'+n,expectedSequence:n}));await f.peer.tick();}
+ f.state.deliveryMode='unknown';const unknown=await f.call(actors.alpha,'message.send',message({requestKey:'unknown-after-failures',expectedSequence:50}));
+ const result=await f.recovery.tick();assert.equal(result.escalations.length,1);assert.equal(result.escalations[0].messageId,unknown.id);
+}));
