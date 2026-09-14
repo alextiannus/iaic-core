@@ -6,8 +6,8 @@ Install the Core archive in a project to obtain its `iaic` npm executable. The C
 iaic list --url https://your-host/capabilities
 iaic call notes.read --url https://your-host/capabilities --input input.json
 iaic call notes.write --url https://your-host/capabilities --input input.json --request-key stable-request-id
-iaic init ./my-app --core-package /absolute/path/to/immedi-iaic-core-0.1.0.tgz
-iaic init ./my-agent --core-package /absolute/path/to/immedi-iaic-core-0.1.0.tgz --template agent
+iaic init ./my-app --core-package /absolute/path/to/immedi-iaic-core-0.1.0-candidate.93.tgz
+iaic init ./my-agent --core-package /absolute/path/to/immedi-iaic-core-0.1.0-candidate.93.tgz --template agent
 iaic evaluate --config ./evaluation.mjs
 iaic migrate --config ./migrations.mjs
 ```
@@ -18,7 +18,7 @@ List/call use the existing HTTP client and preserve its permissions, input/outpu
 
 Init creates a new directory with a local-only capability HTTP server, its contract test, package manifest and a copied Core archive. Existing directories are rejected. Run npm install, npm test, and set APP_TOKEN before npm start. The server defaults to loopback port 3000. Its identity mapping is a development fixture; the application supplies production authentication, TLS and hosting. This is a Capability starter, not a completed AI Native Application or an imposed Assistant UI. Add Core Runtime, Task, Session, Memory, Knowledge, Skills and model modules for the application's responsibilities; see the configured-jobs example for their existing composition.
 
-The archive is explicitly supplied because this source candidate has not been published to the npm registry. Copying it into vendor keeps the generated project independent of the original checkout. Init never installs dependencies or deploys automatically.
+The archive is explicitly supplied because this source candidate has not been published to the npm registry. Copying it into vendor keeps the generated project independent of the original checkout. Its filename includes the archive SHA-256, and package.json references that immutable path so changed bytes cannot silently reuse a fixed core.tgz dependency. Init never installs dependencies or deploys automatically.
 
 ## PostgreSQL migration adapter
 

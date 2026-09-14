@@ -10,6 +10,8 @@ archive:        immedi-iaic-core-0.1.0-candidate.93.tgz
 
 Download the release asset to its version-qualified filename, verify its published SHA-256, then install that path with ordinary `npm install`. Do not overwrite an older candidate's file path or rename new bytes to an old immutable release identity.
 
+`iaic init` copies the supplied archive to `vendor/core-SHA256.tgz` and writes that exact dependency path. Changed bytes therefore have a different vendor path even if a caller used a generic download filename. The digest identifies copied bytes; it does not independently establish a trusted publisher.
+
 Inspect the **installed** runtime from the consuming project:
 
 ```js
