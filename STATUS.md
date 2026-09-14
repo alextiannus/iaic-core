@@ -894,3 +894,18 @@ before its scan limit and rechecks current delivery state.
 All three new regression scenarios failed on candidate.88; all ten peer PostgreSQL
 tests pass after fixes. Existing CI remains required before verified publication.
 No new business capability or application integration is claimed.
+
+
+## 2026-09-14 — repeated stable Schema IDs (Note47 §24)
+
+Candidate.90 fixes repeated Host composition: defineCapability now reuses an existing
+validator only when a stable $id has canonically identical JSON Schema content. Object
+key order is ignored; changed contracts return CAPABILITY_SCHEMA_CONFLICT (409),
+without replacing the first validator. Input schemas are still cloned/frozen and
+validation remains non-coercing. An independent installed consumer example constructs
+two dispatchers in one process and verifies accepted/rejected inputs and ID conflicts.
+The regression reproduces the original Ajv error on candidate.89.
+
+Note47 §25 root/public TypeScript declarations remain a confirmed consumption gap,
+queued as a separate release-contract change. This fix does not supply declarations
+or prove that 12Eat has removed its Schema workaround/ambient shim.

@@ -5,6 +5,23 @@ import {toolCallLimits} from '../agent/tool-limits.js';
 const ajv = new Ajv({ allErrors: true, strict: true, coerceTypes: false, removeAdditional: false, useDefaults: false });
 const failure = (message, statusCode = 400, detail = {}) => Object.assign(new Error(message), { statusCode, ...detail });
 
+// Stable JSON Schema IDs describe immutable contracts, not a particular Host instance.
+const canonicalSchema = value => JSON.stringify(sortSchema(value));
+function sortSchema(value) {
+  if (Array.isArray(value)) return value.map(sortSchema);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, sortSchema(value[key])]));
+  return value;
+}
+function compileSchema(schema) {
+  const existing = typeof schema?.$id === 'string' ? ajv.getSchema(schema.$id) : null;
+  if (!existing) return ajv.compile(schema);
+  if (canonicalSchema(existing.schema) !== canonicalSchema(schema)) {
+    throw failure('Schema ID is already bound to a different contract', 409,
+      {code: 'CAPABILITY_SCHEMA_CONFLICT', publicCode: 'CAPABILITY_SCHEMA_CONFLICT'});
+  }
+  return existing;
+}
+
 export function defineCapability(definition) {
   if (!definition || !/^[a-z][a-z0-9_.-]*$/.test(definition.name || '')) throw failure('Invalid capability name');
   if (!definition.description || !definition.input || !definition.output || typeof definition.authorize !== 'function') {
@@ -30,7 +47,7 @@ export function defineCapability(definition) {
   if (definition.projectHistoryInput !== undefined && (implementation.kind !== 'function' || typeof definition.projectHistoryInput !== 'function')) throw failure('History input projection must be a deterministic function capability hook');
   // Trusted code defines behavior; immutable schemas are what entrypoints expose.
   const input = structuredClone(definition.input), output = structuredClone(definition.output);
-  const validateInput = ajv.compile(input), validateOutput = ajv.compile(output);
+  const validateInput = compileSchema(input), validateOutput = compileSchema(output);
   return Object.freeze({ ...definition, input: freeze(input), output: freeze(output),
     implementation: Object.freeze({ ...implementation, ...(limits ? {toolCallLimits: limits} : {}), ...(implementation.tools ? { tools: Object.freeze([...implementation.tools]) } : {}) }),
     validateInput, validateOutput });
