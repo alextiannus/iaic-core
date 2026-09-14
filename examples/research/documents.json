@@ -1,0 +1,5 @@
+[
+ {"id":"interview-a","kind":"source","title":"Operations interview","text":"Three recurring problems are delayed notifications, unclear ownership, and missing export history. Operations wants daily digest notifications at 09:00. Operations says a single named owner should be required for each task. No preference for the export file format was recorded."},
+ {"id":"interview-b","kind":"source","title":"Support interview","text":"The recurring problems are delayed notifications, unclear ownership, and missing export history. Support wants immediate notifications for urgent tickets and a daily digest for routine tickets. Support agrees that a single named owner should be required for each task. Support prefers CSV exports."},
+ {"id":"old-report","kind":"draft","title":"Draft requiring source checks","text":"Both teams report delayed notifications, unclear ownership, and missing export history. Both teams want only daily notifications for urgent tickets. Both teams prefer CSV exports. This draft has no citations."}
+]
