@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {Pool} from 'pg';
-import {AssistantChannel,PostgresChannelInbox,telegramMessage,slackMessage,LocalDirectoryDevice,LocalFiles,createLocalFileCapabilities,PostgresDeviceOperations,PostgresNotificationStore,Notifications} from '@immedi/iaic-core';
+import {AssistantChannel,PostgresChannelInbox,telegramMessage,slackMessage,larkMessage,createLarkNotificationDelivery,LocalDirectoryDevice,LocalFiles,createLocalFileCapabilities,PostgresDeviceOperations,PostgresNotificationStore,Notifications} from '@immedi/iaic-core';
 import {openUserAssistant} from '../core-user-assistant/application.mjs';
 const connectionString=process.env.SUBMISSION_TEST_DATABASE_URL||process.env.DATABASE_URL;assert.ok(connectionString);
 const schema='im_demo_'+randomUUID().replaceAll('-',''),admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);
@@ -32,9 +32,13 @@ try {
  const inbox=new PostgresChannelInbox({pool,namespace:'user-assistant'});await inbox.initialize();
  const outbox=new PostgresNotificationStore({pool,namespace:'im'});await outbox.initialize();const sent=[];
  const notifications=new Notifications({store:outbox,resolveScope:a=>a.scopeId+':'+a.subjectId,authorize:a=>a.subjectId===actor.subjectId,
-  resolveDelivery:async job=>({allowed:allowed&&job.source.identity==='demo:assistant:user-one'&&['telegram:bot-one:7','slack:slack-one:U-seven'].includes([job.source.route.provider,job.source.route.installationId,job.source.route.senderId].join(':')),send:async input=>{sent.push(input);return {status:'delivered',reference:'fixture-provider:'+input.idempotencyKey};}})});
+  resolveDelivery:async job=>{
+   const authorize=()=>allowed&&job.source.identity==='demo:assistant:user-one'&&['telegram:bot-one:7','slack:slack-one:U-seven','lark:lark-one:ou_user'].includes([job.source.route.provider,job.source.route.installationId,job.source.route.senderId].join(':'));
+   if(job.source.route.provider==='lark')return createLarkNotificationDelivery({route:job.source.route,authorize,client:{im:{message:{create:async input=>{sent.push(input);return {code:0,data:{chat_id:input.data.receive_id,message_id:'om_fixture_reply'}};}}}}});
+   return {allowed:authorize(),send:async input=>{sent.push(input);return {status:'delivered',reference:'fixture-provider:'+input.idempotencyKey};}};
+  }});
  const options={inbox,dispatcher:app.dispatcher,notifications,allowedTools:app.job.configuration.tools,
-  resolveBinding:m=>['telegram:bot-one:7','slack:slack-one:U-seven'].includes([m.provider,m.installationId,m.senderId].join(':'))?{actor,identity:'demo:assistant:user-one'}:null,
+  resolveBinding:m=>['telegram:bot-one:7','slack:slack-one:U-seven','lark:lark-one:ou_user'].includes([m.provider,m.installationId,m.senderId].join(':'))?{actor,identity:'demo:assistant:user-one'}:null,
   authorize:(_a,{message})=>allowed&&message.kind==='direct',
   project:task=>({text:task.inputRequest?.question||task.result?.summary||`Task ${task.id}: ${task.status}`})};
  let channel=new AssistantChannel(options);
@@ -55,7 +59,10 @@ try {
  assert.equal((await pool.query('SELECT * FROM iaic_channel_inbox')).rowCount,2);
  assert.equal((await files.create(actor,{deviceId:'user-folder',requestKey:'export-one',name:'declaration.txt',text:'My declaration'})).status,'created');
  await channel.publish(start,task.taskId);
+ const lark=larkMessage({event_type:'im.message.receive_v1',event_id:'lark-status',app_id:'cli_fixture',tenant_key:'tenant',sender:{sender_type:'user',sender_id:{open_id:'ou_user'}},message:{chat_id:'oc_fixture',chat_type:'p2p',message_type:'text',content:JSON.stringify({text:`/status ${task.taskId}`})}},{installationId:'lark-one',appId:'cli_fixture',tenantKey:'tenant'});
+ assert.equal((await channel.receive(lark)).taskId,task.taskId);
  while(await notifications.tick()){}assert.ok(sent.length>0);
+ assert.ok(sent.some(input=>input.data?.receive_id==='oc_fixture'));
  allowed=false;await assert.rejects(channel.publish(start,task.taskId),{statusCode:403});await assert.rejects(files.read(actor,{deviceId:'user-folder',name:'declaration.txt'}),{statusCode:403});
- console.log(JSON.stringify({example:'core-assistant-channels',normalizedProviders:['telegram','slack'],crossChannelHostBinding:true,durableInbox:true,clarification:true,declarationReceipt:true,realTemporaryLocalFile:true,notificationOutbox:true,liveProvider:false,remoteDeviceTransport:false,modelMode:'deterministic'}));
+ console.log(JSON.stringify({example:'core-assistant-channels',normalizedProviders:['telegram','slack','lark'],larkSdkSendMapping:true,crossChannelHostBinding:true,durableInbox:true,clarification:true,declarationReceipt:true,realTemporaryLocalFile:true,notificationOutbox:true,liveProvider:false,remoteDeviceTransport:false,modelMode:'deterministic'}));
 } finally {await app?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();await fs.rm(directory,{recursive:true,force:true});}

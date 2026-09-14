@@ -1,5 +1,13 @@
 # Note 30 acceptance evidence map
 
+Lark integration update (2026-09-15): candidate.95 adds inbound text and SDK
+outbound delivery, plus an optional official Lark MCP bridge with 89 reviewed
+tools in eight domains, including group join/member management. Real official
+MCP schemas and handlers are exercised with a substituted SDK network boundary;
+IM/Task/Outbox integration uses PostgreSQL. Live tenant credentials, subscriptions
+and application acceptance remain pending. See [Lark integration](channels/LARK.md).
+
+
 ## Typed module consumer
 
 The `verify:types-package` gate independently installs the candidate tarball and

@@ -1,0 +1,447 @@
+[
+  {
+    "domain": "im",
+    "tool": "im.v1.chat.list",
+    "effect": "read"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.chat.search",
+    "effect": "read"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.chat.get",
+    "effect": "read"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.chatMembers.get",
+    "effect": "read"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.chatMembers.isInChat",
+    "effect": "read"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.chatAnnouncement.get",
+    "effect": "read"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.message.get",
+    "effect": "read"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.message.list",
+    "effect": "read"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.message.readUsers",
+    "effect": "read"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.messageReaction.list",
+    "effect": "read"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.pin.list",
+    "effect": "read"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.chat.create",
+    "effect": "write"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.chat.update",
+    "effect": "write"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.chatMembers.meJoin",
+    "effect": "write"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.chatMembers.create",
+    "effect": "write"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.chatMembers.delete",
+    "effect": "write"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.chatAnnouncement.patch",
+    "effect": "write"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.message.create",
+    "effect": "write"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.message.reply",
+    "effect": "write"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.message.update",
+    "effect": "write"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.message.patch",
+    "effect": "write"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.message.forward",
+    "effect": "write"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.messageReaction.create",
+    "effect": "write"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.messageReaction.delete",
+    "effect": "write"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.pin.create",
+    "effect": "write"
+  },
+  {
+    "domain": "im",
+    "tool": "im.v1.pin.delete",
+    "effect": "write"
+  },
+  {
+    "domain": "documents",
+    "tool": "docx.v1.document.get",
+    "effect": "read"
+  },
+  {
+    "domain": "documents",
+    "tool": "docx.v1.document.rawContent",
+    "effect": "read"
+  },
+  {
+    "domain": "documents",
+    "tool": "docx.v1.documentBlock.list",
+    "effect": "read"
+  },
+  {
+    "domain": "documents",
+    "tool": "docx.v1.documentBlock.get",
+    "effect": "read"
+  },
+  {
+    "domain": "documents",
+    "tool": "drive.v1.file.list",
+    "effect": "read"
+  },
+  {
+    "domain": "documents",
+    "tool": "drive.v1.meta.batchQuery",
+    "effect": "read"
+  },
+  {
+    "domain": "documents",
+    "tool": "docx.v1.document.create",
+    "effect": "write"
+  },
+  {
+    "domain": "documents",
+    "tool": "docx.v1.documentBlockChildren.create",
+    "effect": "write"
+  },
+  {
+    "domain": "documents",
+    "tool": "docx.v1.documentBlock.patch",
+    "effect": "write"
+  },
+  {
+    "domain": "documents",
+    "tool": "drive.v1.file.createFolder",
+    "effect": "write"
+  },
+  {
+    "domain": "documents",
+    "tool": "drive.v1.file.copy",
+    "effect": "write"
+  },
+  {
+    "domain": "documents",
+    "tool": "drive.v1.file.move",
+    "effect": "write"
+  },
+  {
+    "domain": "wiki",
+    "tool": "wiki.v2.space.list",
+    "effect": "read"
+  },
+  {
+    "domain": "wiki",
+    "tool": "wiki.v2.space.getNode",
+    "effect": "read"
+  },
+  {
+    "domain": "wiki",
+    "tool": "wiki.v2.spaceNode.list",
+    "effect": "read"
+  },
+  {
+    "domain": "wiki",
+    "tool": "wiki.v1.node.search",
+    "effect": "read"
+  },
+  {
+    "domain": "wiki",
+    "tool": "wiki.v2.spaceNode.create",
+    "effect": "write"
+  },
+  {
+    "domain": "wiki",
+    "tool": "wiki.v2.spaceNode.move",
+    "effect": "write"
+  },
+  {
+    "domain": "wiki",
+    "tool": "wiki.v2.spaceNode.updateTitle",
+    "effect": "write"
+  },
+  {
+    "domain": "base",
+    "tool": "bitable.v1.app.get",
+    "effect": "read"
+  },
+  {
+    "domain": "base",
+    "tool": "bitable.v1.appTable.list",
+    "effect": "read"
+  },
+  {
+    "domain": "base",
+    "tool": "bitable.v1.appTableField.list",
+    "effect": "read"
+  },
+  {
+    "domain": "base",
+    "tool": "bitable.v1.appTableRecord.search",
+    "effect": "read"
+  },
+  {
+    "domain": "base",
+    "tool": "bitable.v1.appTableRecord.get",
+    "effect": "read"
+  },
+  {
+    "domain": "base",
+    "tool": "bitable.v1.appTableView.list",
+    "effect": "read"
+  },
+  {
+    "domain": "base",
+    "tool": "bitable.v1.app.create",
+    "effect": "write"
+  },
+  {
+    "domain": "base",
+    "tool": "bitable.v1.appTable.create",
+    "effect": "write"
+  },
+  {
+    "domain": "base",
+    "tool": "bitable.v1.appTableField.create",
+    "effect": "write"
+  },
+  {
+    "domain": "base",
+    "tool": "bitable.v1.appTableRecord.create",
+    "effect": "write"
+  },
+  {
+    "domain": "base",
+    "tool": "bitable.v1.appTableRecord.update",
+    "effect": "write"
+  },
+  {
+    "domain": "base",
+    "tool": "bitable.v1.appTableRecord.batchCreate",
+    "effect": "write"
+  },
+  {
+    "domain": "base",
+    "tool": "bitable.v1.appTableRecord.batchUpdate",
+    "effect": "write"
+  },
+  {
+    "domain": "calendar",
+    "tool": "calendar.v4.calendar.list",
+    "effect": "read"
+  },
+  {
+    "domain": "calendar",
+    "tool": "calendar.v4.calendar.primary",
+    "effect": "read"
+  },
+  {
+    "domain": "calendar",
+    "tool": "calendar.v4.calendarEvent.list",
+    "effect": "read"
+  },
+  {
+    "domain": "calendar",
+    "tool": "calendar.v4.calendarEvent.get",
+    "effect": "read"
+  },
+  {
+    "domain": "calendar",
+    "tool": "calendar.v4.calendarEvent.search",
+    "effect": "read"
+  },
+  {
+    "domain": "calendar",
+    "tool": "calendar.v4.freebusy.list",
+    "effect": "read"
+  },
+  {
+    "domain": "calendar",
+    "tool": "calendar.v4.calendarEventAttendee.list",
+    "effect": "read"
+  },
+  {
+    "domain": "calendar",
+    "tool": "calendar.v4.calendarEvent.create",
+    "effect": "write"
+  },
+  {
+    "domain": "calendar",
+    "tool": "calendar.v4.calendarEvent.patch",
+    "effect": "write"
+  },
+  {
+    "domain": "calendar",
+    "tool": "calendar.v4.calendarEvent.reply",
+    "effect": "write"
+  },
+  {
+    "domain": "calendar",
+    "tool": "calendar.v4.calendarEventAttendee.create",
+    "effect": "write"
+  },
+  {
+    "domain": "calendar",
+    "tool": "calendar.v4.calendarEventMeetingChat.create",
+    "effect": "write"
+  },
+  {
+    "domain": "tasks",
+    "tool": "task.v2.task.get",
+    "effect": "read"
+  },
+  {
+    "domain": "tasks",
+    "tool": "task.v2.task.list",
+    "effect": "read"
+  },
+  {
+    "domain": "tasks",
+    "tool": "task.v2.tasklist.list",
+    "effect": "read"
+  },
+  {
+    "domain": "tasks",
+    "tool": "task.v2.tasklist.get",
+    "effect": "read"
+  },
+  {
+    "domain": "tasks",
+    "tool": "task.v2.task.create",
+    "effect": "write"
+  },
+  {
+    "domain": "tasks",
+    "tool": "task.v2.task.patch",
+    "effect": "write"
+  },
+  {
+    "domain": "tasks",
+    "tool": "task.v2.task.addMembers",
+    "effect": "write"
+  },
+  {
+    "domain": "tasks",
+    "tool": "task.v2.task.addReminders",
+    "effect": "write"
+  },
+  {
+    "domain": "tasks",
+    "tool": "task.v2.tasklist.create",
+    "effect": "write"
+  },
+  {
+    "domain": "tasks",
+    "tool": "task.v2.task.addTasklist",
+    "effect": "write"
+  },
+  {
+    "domain": "contacts",
+    "tool": "contact.v3.user.get",
+    "effect": "read"
+  },
+  {
+    "domain": "contacts",
+    "tool": "contact.v3.user.batchGetId",
+    "effect": "read"
+  },
+  {
+    "domain": "contacts",
+    "tool": "contact.v3.user.findByDepartment",
+    "effect": "read"
+  },
+  {
+    "domain": "contacts",
+    "tool": "contact.v3.department.get",
+    "effect": "read"
+  },
+  {
+    "domain": "contacts",
+    "tool": "contact.v3.department.children",
+    "effect": "read"
+  },
+  {
+    "domain": "meetings",
+    "tool": "vc.v1.meeting.get",
+    "effect": "read"
+  },
+  {
+    "domain": "meetings",
+    "tool": "vc.v1.meeting.listByNo",
+    "effect": "read"
+  },
+  {
+    "domain": "meetings",
+    "tool": "vc.v1.meetingRecording.get",
+    "effect": "read"
+  },
+  {
+    "domain": "meetings",
+    "tool": "vc.v1.reserve.apply",
+    "effect": "write"
+  }
+]
