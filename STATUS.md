@@ -744,3 +744,16 @@ Review also found and closed a direct-function invocation path for Task-bound
 grants. Those grants must execute through DelegatedTasks/Runtime and their existing
 parent/authority/accounting checks. See collaboration/TOOLS.md for migration.
 This is not yet full team Task takeover or a live built-in model/Codex connection.
+
+
+## Candidate.84 publication preparation
+
+PR8 and PR9 are merged. PR9 CI34835761978 passed 348 module checks and 43
+independently installed examples; merged runtime source is be02797. This release
+combines reciprocal peer-review evidence and external function-grant receipts,
+including the Task-bound direct-invocation correction. VERSION_LIFECYCLE.md sets
+candidate.83 support to end 2026-09-28 23:59 UTC when candidate.84 is published.
+The publication preparation changes only documentation after the tested runtime.
+Actual release/asset verification remains the publication evidence. ImmediToday
+has not automatically adopted the package; live Platform AI team integration is
+still incomplete.

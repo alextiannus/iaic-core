@@ -12,7 +12,11 @@ owner and new end date; there is no automatic or unlimited extension.
 | Versions | Current status | Support ends | Successor / action |
 | --- | --- | --- | --- |
 | Existing candidates through `v0.1.0-candidate.82` | Superseded; one-time migration window established by this policy | 2026-09-28 23:59 UTC | Migrate to the current verified candidate after checking pinned source, package integrity, module contracts and application evidence |
-| `v0.1.0-candidate.83` | Current published code candidate | On replacement, record an explicit date 14 days later | No replacement published yet; PRs and documentation commits are not code releases |
+| `v0.1.0-candidate.83` | Replaced when candidate.84 is published | 2026-09-28 23:59 UTC | Upgrade to candidate.84; Task-bound grants must use Runtime, not direct function invocation |
+| `v0.1.0-candidate.84` | Candidate prepared by this source; current upon verified publication | On replacement, record an explicit date 14 days later | Reciprocal peer-review evidence and external tool receipts; complete team integration remains unfinished |
+
+The GitHub release and verified asset determine whether publication occurred.
+A source commit or this preparation record alone is not a published version.
 
 End of support means no ongoing feature work or compatibility promise for the old
 candidate. It does **not** remotely stop an installed application, delete archived
