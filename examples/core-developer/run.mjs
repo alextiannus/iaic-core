@@ -9,7 +9,15 @@ try{
  // Invoke the installed npm bin symlink as well as the generated application.
  assert.match(run([path.join(target,'node_modules/.bin/iaic'),'help'],target),/iaic migrate/);
  run([npm,'test'],target);
+ const evaluationConfig=path.join(target,'evaluation.mjs');
+ await fs.writeFile(evaluationConfig,`import {FileEvaluationStore} from '@immedi/iaic-core';import {fileURLToPath} from 'node:url';
+export async function open(){return {store:new FileEvaluationStore({directory:fileURLToPath(new URL('./evaluation-evidence',import.meta.url))}),settings:{dataset:[{id:'double',category:'fixture',input:{value:3},expected:6}],revision:'fixture-candidate',graderRevision:'exact-v1',environmentRevision:'local-v1'},execute:({input})=>({value:input.value*2}),grade:({testCase,observation})=>({passed:observation.value===testCase.expected,score:observation.value===testCase.expected?1:0,checks:[{name:'outcome',passed:observation.value===testCase.expected}]})};}`);
+ const evaluated=JSON.parse(run([path.join(target,'node_modules/.bin/iaic'),'evaluate','--config',evaluationConfig],target));
+ assert.equal(evaluated.status,'recorded');assert.deepEqual(evaluated.records,{planned:1,recorded:1,failed:0});
+ const retained=JSON.parse(await fs.readFile(evaluated.evidence.path,'utf8'));
+ assert.equal(retained.run.id,evaluated.evaluationId);assert.equal(retained.run.revision,'fixture-candidate');assert.equal(retained.run.records[0].observation.value,6);
+
  const duplicate=spawnSync(process.execPath,[cli,'init',target,'--core-package',archive],{encoding:'utf8'});assert.equal(duplicate.status,1);assert.ok(await fs.stat(path.join(target,'app.mjs')));
  const agentTarget=path.join(temp,'agent-app');run([cli,'init',agentTarget,'--core-package',archive,'--template','agent'],root);run([npm,'install','--ignore-scripts','--no-audit','--no-fund'],agentTarget);run([npm,'test'],agentTarget);
- console.log(JSON.stringify({example:'core-developer',status:'passed',generatedAppInstalled:true,installedBin:true,sharedCapabilityTest:true,existingDirectoryPreserved:true,persistentAgentTemplate:true,separateWorkerProcess:true,allowancePauseAndResume:true}));
+ console.log(JSON.stringify({example:'core-developer',status:'passed',generatedAppInstalled:true,installedBin:true,evaluationCli:true,retainedEvaluationEvidence:true,sharedCapabilityTest:true,existingDirectoryPreserved:true,persistentAgentTemplate:true,separateWorkerProcess:true,allowancePauseAndResume:true}));
 }finally{await fs.rm(temp,{recursive:true,force:true});}
