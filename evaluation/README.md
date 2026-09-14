@@ -37,3 +37,34 @@ The run binds a digest of the complete dataset, implementation revision, grader/
 `FileEvaluationStore({directory})` stores complete run snapshots with canonical SHA256 digests. Files become visible atomically and existing IDs cannot be overwritten. Loading checks ID and digest. The host owns the directory and access controls; these hashes detect accidental content mismatch, not forgery by an attacker able to replace both data and hash. Do not publish private inputs, traces or provider data as part of a public framework release.
 
 This implements reusable dataset execution, outcome gating, baseline comparison and evidence storage. Full release manifests, experiments/canary, production observation/rollback, independent real-model acceptance and human review workflows remain additional work. The deterministic example deliberately catches a broken candidate; it is evidence about the evaluator, not proof that all Core abilities or a real model passed final acceptance.
+
+## Platform Agent evidence capabilities
+
+`createEvaluationCapabilities({readEvaluation, authorize, prefix?})` exposes
+`evaluations.read({id})` and
+`evaluations.compare({baselineId,candidateId})` as ordinary read Capabilities.
+Register them with the same Dispatcher used by HTTP, SDK, MCP or an internal
+Platform Agent. No model or additional Runtime is needed for these operations.
+
+The host supplies `readEvaluation(actor,id)`, for example an authorized adapter
+around `FileEvaluationStore.get`, and `authorize(actor,{id})` returning exactly
+true for permitted evidence. Every referenced artifact must be authorized before
+any read and checked again before results return. Comparison checks both IDs;
+history revalidation reads current evidence under current authority. Dataset,
+grader, environment and coverage compatibility use `compareEvaluations` unchanged.
+
+Read results contain `{id,digest,run}`. Comparisons contain baseline/candidate
+`{id,digest}` references and the existing comparison result, preserving failed
+records. Digests identify content, not authenticated provenance or quality.
+The host reader must preserve evidence integrity and tenant boundaries. Full run
+records can contain private sources, observations and grading material: grant
+access to the appropriate maintenance principal, not automatically to the Agent
+being evaluated. Applications own scope mapping, evidence retention and storage.
+
+These operations do not run evaluations, edit scores, accept caller-supplied
+thresholds, approve releases or change the existing host-owned release policy.
+Use EvaluationRunner for execution and ReleaseManager for evaluated registration.
+The independently installed core-evaluation example uses an external MCP client
+to read a failed candidate and compare it with a baseline, matches the direct SDK
+result, and verifies revocation. It uses synthetic evidence, not paid inference or
+production rollout.

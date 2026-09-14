@@ -703,3 +703,13 @@ Application report quality remains separate from Core foundation delivery;
 Note 30's complete capability map and eight acceptance conditions still apply.
 This documentation correction adds no runtime capability, changes no test result
 and does not establish final framework acceptance.
+
+## Platform AI access to retained evaluation evidence
+
+Evaluation now exports shared read/compare Capabilities using host-owned evidence
+readers and per-artifact authorization. External or application-provided Platform
+Agents can inspect failures and compare pinned baseline/candidate evidence through
+the existing Dispatcher surfaces. This closes a protocol access gap; it does not
+start evaluations, change grading policy or replace the release/observation modules.
+The neutral installed evaluation example exercises external MCP access, direct
+result parity and current revocation. Existing failures remain unchanged.

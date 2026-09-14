@@ -77,6 +77,7 @@ export {importHttpCapabilities} from './http/import.js';
 
 export {EvaluationRunner,evaluateGate,compareEvaluations} from './evaluation/runner.js';
 export {FileEvaluationStore} from './evaluation/files.js';
+export {createEvaluationCapabilities} from './evaluation/capabilities.js';
 
 export {ReleaseManager} from './releases/service.js';
 export {PostgresReleaseStore} from './releases/store.js';
