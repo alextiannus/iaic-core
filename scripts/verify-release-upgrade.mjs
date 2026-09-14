@@ -6,8 +6,8 @@ import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import assert from 'node:assert/strict';
 
-// Pinned real predecessor: the legacy internal version problem exists in this archive.
-const predecessor={tag:'v0.1.0-candidate.92',asset:'immedi-iaic-core-0.1.0-candidate.92.tgz',sha256:'a521413cabf3e27e1da70ba74d4641056e67a82784b9a16f0ae2feb5fad5d79c'};
+// Pinned real predecessor; advance this verified baseline for each candidate.
+const predecessor={tag:'v0.1.0-candidate.93',asset:'immedi-iaic-core-0.1.0-candidate.93.tgz',sha256:'fe91b29e70655f0381edee4457cf157bc1f88897d0321ff7305384d1bbaae253'};
 const root=fileURLToPath(new URL('../',import.meta.url)),npm=process.env.npm_execpath;
 if(!npm)throw Error('Use npm run verify:release-upgrade');
 const current=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8'));
@@ -30,9 +30,9 @@ try {
  const install=archive=>run([npm,'install','--ignore-scripts','--no-audit','--no-fund',archive],consumer,env);
  const inspect=`import assert from 'node:assert/strict';import fs from 'node:fs';import * as core from '@immedi/iaic-core';const pkg=JSON.parse(fs.readFileSync('node_modules/@immedi/iaic-core/package.json','utf8'));assert.equal(typeof core.AssistantChannel,'function');console.log(JSON.stringify({version:pkg.version,release:core.CORE_RELEASE??null}));`;
  await fs.writeFile(path.join(consumer,'inspect.mjs'),inspect);
- install(previous);const before=JSON.parse(run(['inspect.mjs'],consumer,env));assert.equal(before.version,'0.1.0');assert.equal(before.release,null);
+ install(previous);const before=JSON.parse(run(['inspect.mjs'],consumer,env));assert.equal('v'+before.version,predecessor.tag);assert.deepEqual(before.release,{name:current.name,version:before.version,tag:predecessor.tag});assert.notEqual(before.version,current.version);
  install(path.join(temporary,packed.filename));const after=JSON.parse(run(['inspect.mjs'],consumer,env));
  assert.equal(after.version,current.version);assert.deepEqual(after.release,{name:current.name,version:current.version,tag:'v'+current.version});
  const lock=JSON.parse(await fs.readFile(path.join(consumer,'package-lock.json'),'utf8'));assert.equal(lock.packages['node_modules/@immedi/iaic-core'].version,current.version);
- console.log(JSON.stringify({predecessor:predecessor.tag,current:after.release.tag,ordinaryNpmUpgrade:true,cachePreservedBetweenInstalls:true,runtimeIdentityAppeared:true,lockVersionMatches:true}));
+ console.log(JSON.stringify({predecessor:predecessor.tag,current:after.release.tag,ordinaryNpmUpgrade:true,cachePreservedBetweenInstalls:true,runtimeIdentityUpdated:true,lockVersionMatches:true}));
 } finally {await fs.rm(temporary,{recursive:true,force:true});}
