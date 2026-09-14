@@ -63,10 +63,15 @@ Each module owns its state and documents its injected dependencies. [Assistant w
 
 Core provides basic capabilities, interfaces and necessary runtime rules. Applications own authenticated identity mapping, business truth and calculations, capability implementations, installed Skill code, configuration storage/distribution, resource-sharing policy, service deployment and UI/UX.
 
-Core prioritizes **Platform AI capabilities**, then **User Assistant AI foundations
-and a generic demo**. Both may be provided by the application or connected as
-external third-party Agents. External Codex need not adopt Core Runtime, but still
-needs the platform-side capabilities for development, evaluation and release.
+Core prioritizes **Platform AI capabilities**, implemented by a team of a built-in
+Agent driven by the system model and the current external Codex Agent. Shared
+tasks, work artifacts and feedback support mutual takeover and reciprocal review; they are complementary
+participants in the same role. Codex need not adopt Core Runtime. The team still
+needs platform-side capabilities for development, evaluation and release; the
+existing CLI and evidence tools alone do not complete this integration.
+
+**User Assistant AI foundations and a generic demo** remain the next priority.
+User Assistants may be application-provided or external third-party Agents.
 
 Business AI is application-resident, using system model configuration and
 system/server capabilities to fulfill the application's business responsibilities.
