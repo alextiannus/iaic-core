@@ -21,7 +21,8 @@ owner and new end date; there is no automatic or unlimited extension.
 | `v0.1.0-candidate.89` | Replaced when candidate.90 is published | 2026-09-28 23:59 UTC | Upgrade for equivalent stable Schema ID reuse; no database migration |
 | `v0.1.0-candidate.90` | Replaced when candidate.91 is published | 2026-09-28 23:59 UTC | Optional successor demo; no Core database migration; TypeScript declarations remain pending |
 | `v0.1.0-candidate.91` | Replaced when candidate.92 is published | 2026-09-29 23:59 UTC | Optional IM/local-file modules; keep existing Tasks on the original host version |
-| `v0.1.0-candidate.92` | IM and local file foundations prepared by this source; current upon verified publication | On replacement, record an explicit date 14 days later | Initialize the optional channel inbox and device operation namespace; configure trusted IM bindings and user-device roots |
+| `v0.1.0-candidate.92` | Replaced when candidate.93 is published | 2026-09-29 23:59 UTC | Upgrade to the version-qualified package and verify CORE_RELEASE; no database migration |
+| `v0.1.0-candidate.93` | Package identity fix prepared by this source; current upon verified publication | On replacement, record an explicit date 14 days later | Package version and tag now agree; use the original candidate-qualified archive filename; existing Tasks retain their original host binding |
 
 The GitHub release and verified asset determine whether publication occurred.
 A source commit or this preparation record alone is not a published version.

@@ -42,3 +42,4 @@ jobs:
       - run: node --test examples/research/application.test.mjs
       - run: npm exec --yes --package=typescript@5.9.3 -- tsc --noEmit --strict --lib es2022,dom --module nodenext --moduleResolution nodenext examples/core-http/client-types.mts
       - run: npm run verify:core-package
+      - run: npm run verify:release-upgrade

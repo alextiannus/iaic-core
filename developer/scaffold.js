@@ -1,12 +1,14 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 export async function scaffoldCapabilityApp({directory,corePackage}){
  const target=path.resolve(directory),archive=path.resolve(corePackage);
  if(!(await fs.stat(archive)).isFile())throw new Error('Core package archive required');
+ const bytes=await fs.readFile(archive),vendorPath='vendor/core-'+createHash('sha256').update(bytes).digest('hex')+'.tgz';
  await fs.mkdir(target); // Existing directories are never overwritten.
  try{
-  await fs.mkdir(path.join(target,'vendor'));await fs.copyFile(archive,path.join(target,'vendor/core.tgz'));
-  await fs.writeFile(path.join(target,'package.json'),JSON.stringify({name:'iaic-capability-app',version:'0.1.0',private:true,type:'module',scripts:{start:'node app.mjs',test:'node --test app.test.mjs'},dependencies:{'@immedi/iaic-core':'file:vendor/core.tgz'}},null,2)+'\n');
+  await fs.mkdir(path.join(target,'vendor'));await fs.writeFile(path.join(target,vendorPath),bytes,{flag:'wx'});
+  await fs.writeFile(path.join(target,'package.json'),JSON.stringify({name:'iaic-capability-app',version:'0.1.0',private:true,type:'module',scripts:{start:'node app.mjs',test:'node --test app.test.mjs'},dependencies:{'@immedi/iaic-core':'file:'+vendorPath}},null,2)+'\n');
   await fs.writeFile(path.join(target,'app.mjs'),`import {createServer} from 'node:http';
 import {pathToFileURL} from 'node:url';
 import {CapabilityDispatcher,defineCapability,createCapabilityHttpHandler} from '@immedi/iaic-core';
@@ -23,6 +25,6 @@ test('Shared capability returns a greeting and denies anonymous callers',async()
 `);
   await fs.writeFile(path.join(target,'.gitignore'),'node_modules/\n.env\n');
   await fs.writeFile(path.join(target,'README.md'),'# Core capability starter\n\nRun `npm install --ignore-scripts`, `npm test`, then set APP_TOKEN and run `npm start`. The included archive pins the Core source candidate. This local-only server demonstrates a shared Capability, not a complete AI Native Application. Replace the local identity mapping with your application authentication; add existing Core Agent/Task/Session/Memory/Skill/model modules as required. No UI or business domain is imposed.\n');
-  return {directory:target,files:['package.json','app.mjs','app.test.mjs','README.md','.gitignore','vendor/core.tgz']};
+  return {directory:target,files:['package.json','app.mjs','app.test.mjs','README.md','.gitignore',vendorPath]};
  }catch(error){error.createdDirectory=target;throw error;}
 }

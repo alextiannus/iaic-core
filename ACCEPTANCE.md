@@ -1,5 +1,15 @@
 # Note 30 acceptance evidence map
 
+## Candidate upgrade contract
+
+The release-upgrade gate installs the SHA-256-pinned published candidate.92 and
+then the current tarball into one consumer with the same npm cache and lockfile.
+It verifies the new installed runtime identity export and matching installed/lock
+versions, in addition to the normal independently installed example suite. This
+checks the documented immutable-path upgrade, not replacing bytes under an old
+filename, public root TypeScript coverage or 12Eat's own dependency update.
+
+
 ## IM and local file foundation (2026-09-15)
 
 The new deterministic `core-assistant-channels` installed example uses actual Core
