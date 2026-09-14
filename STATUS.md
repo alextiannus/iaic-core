@@ -607,3 +607,34 @@ fences before secret access, BYOK endpoint binding and unsupported-policy errors
 Evidence: ImmediToday-evidence/2026-09-14/core-completion-budget. This validation is
 deterministic; application adoption and actual-provider behavior still require
 separate verification. Full Note30/40 acceptance remains incomplete.
+
+## 2026-09-14 — Explicit versioned model reasoning effort
+
+The independent real GLM-5.2 grader completed two calls but missed a material
+source/claim contradiction. Those original scores and the developer disagreement
+remain retained; separate-model grading is not automatic semantic acceptance.
+Provider documentation also shows model-specific default reasoning policies,
+which the Core configuration previously could not select explicitly.
+
+Model invocation now accepts reasoningEffort (none, minimal, low, medium, high,
+xhigh, max). Responses maps it to reasoning.effort and compatible Chat to
+reasoning_effort. Labels are preserved, with provider/model support and meaning
+left explicit to the host. Omission preserves prior wire defaults and identities.
+System profile and BYOK endpoint revisions include this policy; changing only the
+policy fences old bindings. Provider rejections never trigger a silent default,
+downgrade or retry. This does not change total completion limits, time/turn/tool
+budgets, platform allowance, currency prices or hidden-reasoning handling.
+
+All334 module checks passed without skips, plus42 independently installed
+examples. Transport fixtures cover explicit values, omission, hidden-reasoning
+exclusion and unchanged usage; profile/BYOK fixtures cover revision fencing and
+invalid policy rejection. The installed model-routing example uses the actual
+profile/provider/metering composition with injected truncation and confirms the
+reasoning field alongside total-output accounting. Initial new BYOK test assumed
+public endpoint metadata exposed its internal revision; the failed assertion is
+retained and corrected to derive the existing canonical endpoint revision.
+Evidence: ImmediToday-evidence/2026-09-14/core-reasoning-policy.
+
+These checks establish configurable foundation behavior, not improved real-model
+latency, quality or full Note30/40 acceptance. ImmediToday remains on candidate.78
+until it explicitly adopts the new package; production model settings are unchanged.

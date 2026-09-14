@@ -27,6 +27,32 @@ for the concrete distinction that motivated this addition. Focused checks live i
 `test/iaic-model-invocation.test.js`; the independent model-routing example covers
 the configured field and metered truncated usage through public module contracts.
 
+## Explicit reasoning policy
+
+Profiles and approved BYOK endpoints may also set
+`invocation: {reasoningEffort: 'high', maxCompletionTokens: 8192}`.
+Accepted policy labels are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`
+and `max`. This is a transport vocabulary, not a claim that every model supports
+all labels or that labels have equivalent meanings across providers. The host
+selects a supported value and evaluates it for the task. Responses sends
+`reasoning: {effort: value}`; compatible Chat sends `reasoning_effort: value`.
+The exact selected label is preserved without remapping. Omission sends neither
+field and preserves existing profile identities and provider defaults.
+
+The policy is immutable and included in system profile and BYOK endpoint
+revisions. Changing only reasoning effort fences old model identities before
+secret access. A provider rejection remains an error with no automatic retry or
+fallback to another effort. Total output, time, turn and allowance budgets remain
+independent controls; this option does not expose or persist hidden reasoning.
+Provider acceptance alone is not evidence of improved quality or reduced cost.
+
+See [OpenAI model guidance](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.5)
+and [Huawei compatible API](https://support.huaweicloud.com/intl/en-us/model-call-maas/model-call-021.html).
+For example, Huawei documents GLM-5.2 default `max`, with `low`/`medium` mapped by
+the provider to `high`; DeepSeek V4 has different supported behavior. Core does
+not silently reinterpret those provider-specific semantics. Model policy belongs
+to configuration, not a Skill or a model-selected Tool argument.
+
 ## Per-tool Task attempt ceilings
 
 Host Agent definitions may set `implementation.toolCallLimits`, for example

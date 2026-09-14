@@ -72,3 +72,42 @@ test('unsupported total completion field is not silently replaced with a visible
  let calls=0;const model=createModelProvider({apiKey:'fixture',model:'fixture',provider:'chat-completions',baseUrl:profile.baseUrl,invocation:{maxCompletionTokens:8192},fetchImpl:async()=>{calls++;return new Response('',{status:400});}});
  await assert.rejects(model.next(request),{providerStatus:400});assert.equal(calls,1);
 });
+
+test('reasoning effort is explicit, transport-specific and omitted without configuration',async()=>{
+ for(const provider of ['openai','chat-completions'])for(const effort of [undefined,'none','minimal','low','medium','high','xhigh','max']){
+  let wire,calls=0;
+  const model=createModelProvider({apiKey:'fixture',model:'fixture',provider,baseUrl:provider==='openai'?'':profile.baseUrl,
+   ...(effort===undefined?{}:{invocation:{reasoningEffort:effort,maxCompletionTokens:8192}}),fetchImpl:async(_url,options)=>{
+    calls++;wire=JSON.parse(options.body);
+    return Response.json(provider==='openai'?{status:'completed',usage:{input_tokens:3,output_tokens:2},output:[{type:'function_call',name:'iaic_finish',arguments:'{"result":{"ok":true}}'}]}:
+     {usage:{prompt_tokens:3,completion_tokens:2},choices:[{finish_reason:'tool_calls',message:{reasoning_content:'private reasoning',tool_calls:[{type:'function',function:{name:'iaic_finish',arguments:'{"result":{"ok":true}}'}}]}}]});
+   }});
+  const result=await model.next(request);assert.equal(result.type,'finish');assert.equal(result.usage.outputTokens,2);assert.equal(calls,1);assert.ok(!JSON.stringify(result).includes('private reasoning'));
+  if(provider==='openai'){assert.deepEqual(wire.reasoning,effort===undefined?undefined:{effort});assert.equal(Object.hasOwn(wire,'reasoning_effort'),false);}
+  else{assert.equal(wire.reasoning_effort,effort);assert.equal(Object.hasOwn(wire,'reasoning'),false);}
+  if(effort===undefined){assert.equal(Object.hasOwn(wire,'reasoning'),false);assert.equal(Object.hasOwn(wire,'reasoning_effort'),false);}
+ }
+});
+test('reasoning-only changes fence system and BYOK identities before secret access',async()=>{
+ let secrets=0;
+ const make=effort=>new ModelProfiles({profiles:[{...profile,invocation:{reasoningEffort:effort}}],resolveSecret:async()=>{secrets++;return 'fixture';}});
+ const old=make('high'),next=make('low');
+ await assert.rejects(next.resolve(profile.id,{expectedIdentity:old.list()[0].modelIdentity}),{statusCode:409});assert.equal(secrets,0);
+ for(const effort of [undefined,null,'',true,2,'HIGH','ultra',{},[]])assert.throws(()=>make(effort),/Invalid reasoning effort/);
+ const config={pool:{},encryptionKey:Buffer.alloc(32,1).toString('base64')};
+ const endpoint={id:'fixture',label:'fixture',provider:'chat-completions',baseUrl:profile.baseUrl,invocation:{reasoningEffort:'high'}};
+ const prior=new UserModels({...config,endpoints:[endpoint]});
+ const row={id:'byok-fixture',endpoint_id:'fixture',endpoint_revision:createHash('sha256').update(JSON.stringify(prior.endpoints()[0])).digest('hex'),revoked:false};
+ assert.equal(prior.metadata(row).available,true);
+ const changed=new UserModels({...config,endpoints:[{...endpoint,invocation:{reasoningEffort:'low'}}]});
+ assert.equal(changed.metadata(row).available,false);
+});
+test('unsupported reasoning policy fails once without retrying at provider default',async()=>{
+ for(const provider of ['openai','chat-completions']){
+  let calls=0;
+  const model=createModelProvider({apiKey:'fixture',model:'fixture',provider,baseUrl:provider==='openai'?'':profile.baseUrl,invocation:{reasoningEffort:'max'},fetchImpl:async(_url,options)=>{
+   calls++;const wire=JSON.parse(options.body);assert.equal(provider==='openai'?wire.reasoning.effort:wire.reasoning_effort,'max');return new Response('',{status:400});
+  }});
+  await assert.rejects(model.next(request),{providerStatus:400});assert.equal(calls,1);
+ }
+});

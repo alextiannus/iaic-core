@@ -25,7 +25,8 @@ export class OpenAIProvider {
     const response=await this.fetch('https://api.openai.com/v1/responses',{
       method:'POST',signal,headers:{Authorization:`Bearer ${this.#apiKey}`,'Content-Type':'application/json'},
       body:JSON.stringify({model:this.name,input:providerMessages,tools:definitions,tool_choice:this.#invocation.toolChoice??'required',parallel_tool_calls:batchBound>1,
-        store:false,max_output_tokens:this.maxOutputTokens})
+        store:false,max_output_tokens:this.maxOutputTokens,
+        ...(this.#invocation.reasoningEffort===undefined?{}:{reasoning:{effort:this.#invocation.reasoningEffort}})})
     });
     if(!response.ok){
       const value=response.headers?.get('retry-after');
