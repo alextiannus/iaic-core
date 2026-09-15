@@ -24,7 +24,8 @@ owner and new end date; there is no automatic or unlimited extension.
 | `v0.1.0-candidate.92` | Replaced when candidate.93 is published | 2026-09-29 23:59 UTC | Upgrade to the version-qualified package and verify CORE_RELEASE; no database migration |
 | `v0.1.0-candidate.93` | Replaced when candidate.94 is published | 2026-09-29 23:59 UTC | Optional typed Capability/HTTP module imports; no database migration |
 | `v0.1.0-candidate.94` | Replaced when candidate.95 is published | 2026-09-29 23:59 UTC | Optional Lark channel and MCP modules; no database migration |
-| `v0.1.0-candidate.95` | Lark channel/MCP integration prepared by this source; current upon verified publication | On replacement, record an explicit date 14 days later | Optional official MCP server and application credentials; no breaking Core change |
+| `v0.1.0-candidate.95` | Replaced when candidate.96 is published | 2026-09-29 23:59 UTC | Optional provider channels; no database migration |
+| `v0.1.0-candidate.96` | WhatsApp/Telegram/WeCom text integration prepared by this source; current upon verified publication | On replacement, record an explicit date 14 days later | WeCom internal application only; optional crypto/XML peers; live host configuration required |
 
 The GitHub release and verified asset determine whether publication occurred.
 A source commit or this preparation record alone is not a published version.
