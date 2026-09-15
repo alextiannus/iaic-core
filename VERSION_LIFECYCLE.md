@@ -25,7 +25,8 @@ owner and new end date; there is no automatic or unlimited extension.
 | `v0.1.0-candidate.93` | Replaced when candidate.94 is published | 2026-09-29 23:59 UTC | Optional typed Capability/HTTP module imports; no database migration |
 | `v0.1.0-candidate.94` | Replaced when candidate.95 is published | 2026-09-29 23:59 UTC | Optional Lark channel and MCP modules; no database migration |
 | `v0.1.0-candidate.95` | Replaced when candidate.96 is published | 2026-09-29 23:59 UTC | Optional provider channels; no database migration |
-| `v0.1.0-candidate.96` | WhatsApp/Telegram/WeCom text integration prepared by this source; current upon verified publication | On replacement, record an explicit date 14 days later | WeCom internal application only; optional crypto/XML peers; live host configuration required |
+| `v0.1.0-candidate.96` | Replaced when candidate.97 is published | 2026-09-29 23:59 UTC | Lark subpath type addition; no database migration |
+| `v0.1.0-candidate.97` | Lark public declarations prepared by this source; current upon verified publication | On replacement, record an explicit date 14 days later | No runtime change; full root/Agent/Task/Peer types remain pending |
 
 The GitHub release and verified asset determine whether publication occurred.
 A source commit or this preparation record alone is not a published version.

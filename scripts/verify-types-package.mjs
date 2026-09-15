@@ -5,7 +5,7 @@ const temp=await fs.mkdtemp(path.join(os.tmpdir(),'iaic-types-'));
 try{
  const packed=JSON.parse(run([npm,'pack','--json','--pack-destination',temp],root))[0];
  const consumer=path.join(temp,'consumer');await fs.mkdir(consumer);await fs.writeFile(path.join(consumer,'package.json'),JSON.stringify({private:true,type:'module'}));
- run([npm,'install','--ignore-scripts','--no-audit','--no-fund',path.join(temp,packed.filename),'typescript@5.9.3'],consumer);
+ run([npm,'install','--ignore-scripts','--no-audit','--no-fund',path.join(temp,packed.filename),'typescript@5.9.3','@larksuiteoapi/node-sdk@1.74.0'],consumer);
  const installed=await fs.realpath(path.join(consumer,'node_modules/@immedi/iaic-core'));if(!installed.startsWith((await fs.realpath(consumer))+path.sep))throw Error('Source link instead of installed package');
  await fs.copyFile(path.join(root,'examples/core-types-consumer/consumer.mts'),path.join(consumer,'consumer.mts'));
  run([path.join(consumer,'node_modules/typescript/bin/tsc'),'--strict','--noEmitOnError','--target','es2022','--lib','es2022,dom','--module','nodenext','--moduleResolution','nodenext','--outDir','built','consumer.mts'],consumer);

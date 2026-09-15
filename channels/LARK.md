@@ -1,5 +1,10 @@
 # Lark / Feishu integration
 
+Candidate.97 supplies public declarations for both exports from
+`@immedi/iaic-core/channels/lark.js`. The installed strict NodeNext consumer checks
+normalization, delivery result narrowing and compatibility with official SDK
+1.74.0 without an ambient shim. This does not supply root/module-wide types.
+
 Two independent modules share the existing User Assistant runtime:
 
 - `channels/lark.js`: receive verified text events and deliver Task projections through Notifications.

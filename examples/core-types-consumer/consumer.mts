@@ -51,3 +51,25 @@ if(false){
  await client.invoke('records.write',{value:3});
 }
 console.log(JSON.stringify({typedCapabilityAndHttp:true,currentActor:true,callContext:true,taskAdmissionPort:true,preflightError:true,negativeCompileChecks:8,realAgentRuntime:false,rootTypes:false,peerTypes:false}));
+
+// Public Lark entry must compile from the installed archive without an ambient shim.
+import {larkMessage, createLarkNotificationDelivery} from '@immedi/iaic-core/channels/lark.js';
+const incoming = larkMessage({header:{event_type:'im.message.receive_v1',event_id:'evt',app_id:'app',tenant_key:'tenant'},event:{sender:{sender_type:'user',sender_id:{open_id:'user'}},message:{chat_type:'p2p',chat_id:'chat',message_type:'text',content:'{"text":"hello"}'}}}, {installationId:'installation',appId:'app',tenantKey:'tenant'});
+if (!incoming || incoming.provider !== 'lark' || incoming.text !== 'hello') throw Error('Lark normalization failed');
+const delivery = createLarkNotificationDelivery({route:incoming,authorize:route=>route.senderId==='user',client:{im:{message:{create:async input=>({code:0,data:{chat_id:input.data.receive_id,message_id:'receipt'}})}}}});
+const larkReceipt = await delivery.send({idempotencyKey:'stable-key',message:{text:'hello'}});
+if (larkReceipt.status !== 'delivered' || larkReceipt.reference !== 'receipt') throw Error('Lark delivery failed');
+if (false) {
+ // @ts-expect-error Tenant binding is mandatory.
+ larkMessage({}, {installationId:'installation',appId:'app'});
+ // @ts-expect-error Outbound message text is a string.
+ delivery.send({idempotencyKey:'key',message:{text:1}});
+ // @ts-expect-error Unknown delivery does not have a confirmed provider receipt.
+ const reference: string = ({} as Awaited<ReturnType<typeof delivery.send>>).reference;
+}
+console.log(JSON.stringify({larkTypedSubpath:true,larkRuntimeRoundTrip:true}));
+
+import type {Client as OfficialLarkClient} from '@larksuiteoapi/node-sdk';
+import type {LarkSdkClient} from '@immedi/iaic-core/channels/lark.js';
+const officialSdkCompatible = (client: OfficialLarkClient): LarkSdkClient => client;
+void officialSdkCompatible;

@@ -1,5 +1,10 @@
 # IAiC Core
 
+Lark type fix (2026-09-15): candidate.97 supplies declarations for both Lark
+channel exports, verified by an independent strict NodeNext consumer and official
+SDK structural compatibility. Runtime behavior is unchanged; full root and
+Agent/Task/Peer types remain pending. See channels/LARK.md.
+
 Provider integration update (2026-09-15): candidate.96 adds WhatsApp Cloud API
 and WeCom internal-application text channels, plus Telegram outbound delivery and
 verified webhook ingress. All share the existing User Assistant and Outbox.
