@@ -1,6 +1,6 @@
 {
   "name": "@immedi/iaic-core",
-  "version": "0.1.0-candidate.95",
+  "version": "0.1.0-candidate.96",
   "private": true,
   "type": "module",
   "description": "Headless modular IAiC capabilities, durable agents, memory, models and platform allowance rules.",
@@ -106,13 +106,21 @@
   },
   "peerDependencies": {
     "@a2a-js/sdk": "^1.1.0",
-    "@modelcontextprotocol/sdk": "^1.30.0"
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@wecom/crypto": "^1.0.1",
+    "fast-xml-parser": "^5.11.1"
   },
   "peerDependenciesMeta": {
     "@modelcontextprotocol/sdk": {
       "optional": true
     },
     "@a2a-js/sdk": {
+      "optional": true
+    },
+    "@wecom/crypto": {
+      "optional": true
+    },
+    "fast-xml-parser": {
       "optional": true
     }
   },
@@ -128,6 +136,8 @@
     "@a2a-js/sdk": "1.1.0",
     "@larksuiteoapi/lark-mcp": "0.5.1",
     "@modelcontextprotocol/sdk": "1.30.0",
+    "@wecom/crypto": "1.0.1",
+    "fast-xml-parser": "5.11.1",
     "pg": "8.23.0"
   },
   "bin": {

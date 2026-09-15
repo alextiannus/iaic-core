@@ -184,3 +184,7 @@ export {LocalDirectoryDevice,LocalFiles,createLocalFileCapabilities} from './dev
 
 export {CORE_RELEASE} from './releases/identity.js';
 export {larkMessage,createLarkNotificationDelivery} from './channels/lark.js';
+
+export {readTelegramWebhook,createTelegramNotificationDelivery} from './channels/telegram.js';
+export {whatsappMessages,readWhatsAppWebhook,whatsappWebhookChallenge,createWhatsAppNotificationDelivery} from './channels/whatsapp.js';
+export {wecomMessage,createWecomNotificationDelivery} from './channels/wecom.js';

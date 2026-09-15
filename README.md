@@ -1,5 +1,14 @@
 # IAiC Core
 
+Provider integration update (2026-09-15): candidate.96 adds WhatsApp Cloud API
+and WeCom internal-application text channels, plus Telegram outbound delivery and
+verified webhook ingress. All share the existing User Assistant and Outbox.
+The WeCom optional encrypted entry uses open-source crypto/XML packages;
+WhatsApp requires a current host text-window policy. Live account validation,
+attachments/cards and provider Unknown recovery remain pending. See
+[provider integration](channels/PROVIDERS.md).
+
+
 Lark integration update (2026-09-15): candidate.95 adds inbound text and SDK
 outbound delivery, plus an optional official Lark MCP bridge with 89 reviewed
 tools in eight domains, including group join/member management. Real official

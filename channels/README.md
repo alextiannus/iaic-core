@@ -42,11 +42,13 @@ The host's `resolveDelivery` must recheck the current account/conversation bindi
 
 | Channel | Included now | Host work before live use |
 | --- | --- | --- |
-| Telegram | Text update normalizer; ignores edited/bot messages | Bot registration, webhook secret verification, durable acknowledgement, account linking, send mapping |
+| Telegram | Verified secret-header ingress, text/group/topic normalization, SDK-free sendMessage delivery | Bot registration, durable acknowledgement, account linking and current group policy; see [providers](PROVIDERS.md) |
 | Slack | Message event normalizer; team check; ignores subtype/bot events | App installation, raw-body signature/timestamp verification, subscription/challenge handling, durable acknowledgement, send mapping |
 | Lark/Feishu | Text event normalizer, app/tenant checks, own-bot mention removal, official SDK text create/thread reply | Verified official SDK event ingress, durable acknowledgement, account linking, tenant/app credentials; see [Lark](LARK.md) |
-| DingTalk, WeCom | Same envelope/ports; no built-in provider adapter yet | Provider verification/decryption, identity binding, inbound/outbound adapter |
-| WhatsApp, Teams, Discord, Matrix | Same extension boundary; no built-in provider adapter yet | Official application/bot API integration and receipt semantics |
+| WeCom internal application | Encrypted callback/challenge, Corp/App/employee binding, application text delivery | Optional crypto/XML peers, credentials, visible employee range and durable ingress; see [providers](PROVIDERS.md) |
+| WhatsApp Cloud API | Signed raw webhook, batch text, WABA/phone binding, direct text delivery | Credentials, subscription, current text-window policy and durable ingress; see [providers](PROVIDERS.md) |
+| DingTalk | Same envelope/ports; no built-in provider adapter yet | Provider verification/decryption, identity binding, inbound/outbound adapter |
+| Teams, Discord, Matrix | Same extension boundary; no built-in provider adapter yet | Official application/bot API integration and receipt semantics |
 | Personal WeChat | No adapter | Evaluate available official access for the application; do not promise arbitrary personal-account automation |
 
 Normalization is **not authentication**. These functions are not public webhook handlers. Verify the original request using the provider's official contract before parsing/dispatching; persist and acknowledge it within the provider deadline, then process it in a worker. Challenge responses, credentials, attachments, cards, voice and message editing are host/provider concerns. Default to direct conversations; group access and projection require an explicit host policy, particularly for private memories and file content.
