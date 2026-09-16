@@ -31,14 +31,18 @@ export class OpenAIProvider {
     if(!response.ok){
       const value=response.headers?.get('retry-after');
       const retryAfterMs=value===null||value===undefined?null:/^\d+(?:\.\d+)?$/.test(value)?Number(value)*1000:Math.max(0,Date.parse(value)-Date.now());
-      throw Object.assign(new Error(`Model API returned HTTP ${response.status}`),{providerStatus:response.status,...(Number.isFinite(retryAfterMs)?{retryAfterMs}:{} )});
+      throw Object.assign(new Error(`Model API returned HTTP ${response.status}`),{code:'MODEL_PROVIDER_ERROR',providerStatus:response.status,...(Number.isFinite(retryAfterMs)?{retryAfterMs}:{} )});
     }
     const text=await readBoundedResponse(response,2_000_000);
     const body=JSON.parse(text);const usage=normalizeUsage(body.usage);
     const usageEvidence={rawUsage:body.provider_usage??body.usage??null,providerReference:body.id||response.headers?.get('x-request-id')||null};
-    const error=(message,invalidAction=false)=>Object.assign(new Error(message),{usage,usageEvidence,invalidAction,providerCompleted:body.status==='completed'});
+    const error=(message,invalidAction=false)=>Object.assign(new Error(message),{usage,usageEvidence,invalidAction,code:invalidAction?'INVALID_MODEL_ACTION':'MODEL_PROVIDER_ERROR',providerCompleted:body.status==='completed'});
     const reason=['stop','tool_calls','length','content_filter','insufficient_system_resource','unknown'].includes(body.completion_reason)?`; finish_reason=${body.completion_reason}`:'';
-    if(body.status!=='completed')throw error(`Model response not completed: ${body.status||'unknown'}${reason}`);
+    if(body.status!=='completed'){
+      const failure=error(`Model response not completed: ${body.status||'unknown'}${reason}`);
+      if(body.completion_reason==='length'||body.incomplete_details?.reason==='max_output_tokens')failure.code='MODEL_OUTPUT_LIMIT';
+      throw failure;
+    }
     const calls=(body.output||[]).filter(item=>item.type==='function_call');
     if(calls.length>1&&calls.length<=batchBound){
       const actions=calls.map(call=>{

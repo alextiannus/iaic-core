@@ -1,5 +1,12 @@
 # IAiC Core
 
+Model failure update (2026-09-17): candidate.98 distinguishes measured output
+truncation, invalid actions, provider failures and model deadlines. Deterministic
+failures cannot be blindly resumed; unknown usage still requires reconciliation.
+See [failure and migration contract](agent/MODEL_FAILURES.md). Executor deployment
+handoff and the agent-template typing request remain pending.
+
+
 Lark type fix (2026-09-15): candidate.97 supplies declarations for both Lark
 channel exports, verified by an independent strict NodeNext consumer and official
 SDK structural compatibility. Runtime behavior is unchanged; full root and

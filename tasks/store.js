@@ -105,6 +105,7 @@ export class TaskStore {
         }
       }else{
         if(row.status!=='waiting')throw conflict('Only waiting tasks can resume');
+        if(['model_output_limit','invalid_model_action'].includes(row.waiting_reason))throw Object.assign(conflict('Deterministic model failure requires a reviewed new Task; preserve original effect receipts'),{code:'MODEL_RESTART_REQUIRED'});
         if(row.delegation&&!row.delegation.received)throw conflict('Delegation must finish or the parent must be cancelled before resuming');
         if(row.version!==version)throw conflict('Code/Skill version mismatch; resume with original version or create a new task');
         if((await connection.query("SELECT id FROM iaic_calls WHERE task_id=$1 AND status IN ('running','unknown') LIMIT 1",[id])).rowCount)throw conflict('Resolve uncertain calls before resuming');
