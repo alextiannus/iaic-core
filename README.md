@@ -1,5 +1,13 @@
 # IAiC Core
 
+Executor handoff update (2026-09-17): candidate.99 adds trusted generation-scoped
+drain requests, fenced executor transactions and a bounded Runtime drain port.
+In-flight work may finish; the old Runtime retires before another Task claim.
+See [deployment contract](agent/EXECUTOR_HANDOFF.md). First upgrades from older
+binaries require a controlled executor stop; real rollout acceptance stays with
+the application. Host Context/template requests remain pending.
+
+
 Model failure update (2026-09-17): candidate.98 distinguishes measured output
 truncation, invalid actions, provider failures and model deadlines. Deterministic
 failures cannot be blindly resumed; unknown usage still requires reconciliation.
