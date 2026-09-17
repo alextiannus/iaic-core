@@ -34,8 +34,9 @@ and authorizes business effects using the restored Actor.
 Pass the service as `new AgentRuntime({...,trustedContext:service})`. The ordinary
 Agent starter `developer/templates/agent/app.mjs` also accepts `hostContext` ports
 and wires its own TaskStore read port; the returned `app.hostContext` is the
-service. This is executable composition, not completion of the starter's full
-TypeScript declarations, which remain pending.
+service. Candidate.101 adds a strict declaration for the ordinary starter entry
+and its Task/Host/allowance ports. Optional extensions and raw module handles are
+not fully declared; see `developer/templates/agent/README.md` for exact scope.
 
 Task creation persists only `{source,schema,version,reference,revision,digest,
 owner}` in trusted_context and the created audit event, atomically with the Task.

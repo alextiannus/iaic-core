@@ -5,10 +5,15 @@ const temp=await fs.mkdtemp(path.join(os.tmpdir(),'iaic-types-'));
 try{
  const packed=JSON.parse(run([npm,'pack','--json','--pack-destination',temp],root))[0];
  const consumer=path.join(temp,'consumer');await fs.mkdir(consumer);await fs.writeFile(path.join(consumer,'package.json'),JSON.stringify({private:true,type:'module'}));
- run([npm,'install','--ignore-scripts','--no-audit','--no-fund',path.join(temp,packed.filename),'typescript@5.9.3','@larksuiteoapi/node-sdk@1.74.0'],consumer);
+ run([npm,'install','--ignore-scripts','--no-audit','--no-fund',path.join(temp,packed.filename),'typescript@5.9.3','@larksuiteoapi/node-sdk@1.74.0','pg@8.23.0','@types/pg@8.15.5'],consumer);
  const installed=await fs.realpath(path.join(consumer,'node_modules/@immedi/iaic-core'));if(!installed.startsWith((await fs.realpath(consumer))+path.sep))throw Error('Source link instead of installed package');
  await fs.copyFile(path.join(root,'examples/core-types-consumer/consumer.mts'),path.join(consumer,'consumer.mts'));
- run([path.join(consumer,'node_modules/typescript/bin/tsc'),'--strict','--noEmitOnError','--target','es2022','--lib','es2022,dom','--module','nodenext','--moduleResolution','nodenext','--outDir','built','consumer.mts'],consumer);
+ await fs.copyFile(path.join(root,'examples/core-types-consumer/starter.mts'),path.join(consumer,'starter.mts'));
+ // Declarations must also resolve after the CLI copies the starter outside Core.
+ for(const name of ['app.mjs','app.d.mts'])await fs.copyFile(path.join(installed,'developer/templates/agent',name),path.join(consumer,name));
+ await fs.writeFile(path.join(consumer,'copied.mts'),"import {openApplication} from './app.mjs'; import type {ApplicationOptions} from './app.mjs'; export const open = (options:ApplicationOptions) => openApplication(options);\n");
+ run([path.join(consumer,'node_modules/typescript/bin/tsc'),'--strict','--noEmitOnError','--target','es2022','--lib','es2022,dom','--module','nodenext','--moduleResolution','nodenext','--outDir','built','consumer.mts','starter.mts','copied.mts'],consumer);
  process.stdout.write(run(['built/consumer.mjs'],consumer));
+ process.stdout.write(run(['built/starter.mjs'],consumer));
  console.log(JSON.stringify({strictTypes:true,independentTarball:true,ambientShim:false,emittedProgramExecuted:true}));
 }finally{await fs.rm(temp,{recursive:true,force:true});}

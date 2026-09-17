@@ -29,7 +29,8 @@ owner and new end date; there is no automatic or unlimited extension.
 | `v0.1.0-candidate.97` | Replaced when candidate.98 is published | 2026-10-01 23:59 UTC | Upgrade for model failure classification; expanded waiting-reason constraint, no mixed-version initialization |
 | `v0.1.0-candidate.98` | Replaced when candidate.99 is published | 2026-10-01 23:59 UTC | Controlled executor stop for initial upgrade; migration017 and new ownership protocol |
 | `v0.1.0-candidate.99` | Replaced when candidate.100 is published | 2026-10-01 23:59 UTC | Migration018; new context-enabled host version, no old Core executor for bound Tasks |
-| `v0.1.0-candidate.100` | Trusted Host context prepared; current upon verified publication | On replacement, record an explicit date 14 days later | See context/HOST.md; application acceptance and full starter declarations remain pending |
+| `v0.1.0-candidate.100` | Replaced when candidate.101 is published | 2026-10-01 23:59 UTC | Ordinary starter declarations; no runtime/database migration |
+| `v0.1.0-candidate.101` | Typed basic starter prepared; current upon verified publication | On replacement, record an explicit date 14 days later | See developer/templates/agent/README.md for typed scope and remaining extensions |
 
 The GitHub release and verified asset determine whether publication occurred.
 A source commit or this preparation record alone is not a published version.
