@@ -1,5 +1,13 @@
 # IAiC Core
 
+Model readiness update (2026-09-18): candidate.105 adds an opt-in typed evidence
+gate for Host-declared job requirements, bound verification, expiry/revocation
+and HTTPS/TLS evidence. Runtime checks admission; metering checks before reserve;
+the provider wrapper rechecks before dispatch. See agent/MODEL_READINESS.md.
+Real probe execution, multimodal transport and first-class Task requirements are
+not included. Existing unknown usage is never released by this gate.
+
+
 Capability visibility update (2026-09-18): candidate.104 adds opt-in model/host/both
 consumption declarations. Model tools, HTTP/MCP discovery and execution, Runtime
 calls and historical call projections enforce the selected surface. Defaults keep

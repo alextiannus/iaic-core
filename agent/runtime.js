@@ -1,3 +1,4 @@
+import {isModelReadinessError} from './model-readiness.js';
 import {capabilityVisible,assertModelHistory} from '../capabilities/visibility.js';
 import {modelFailureReason} from './model-failure.js';
 import {usageDiagnostic} from './usage-diagnostic.js';
@@ -43,6 +44,7 @@ export class AgentRuntime {
     const authority=this.authority?await this.authority.bind({actor,capability,input,idempotencyKey,version:this.version}):null;
     const agent=this.agentIdentity?await this.agentIdentity.bind({actor,capability,input,version:this.version}):null;
     const model=this.resolveModel?await this.resolveModel({actor,agent}):this.model;
+    if(typeof model.checkReady==='function')await model.checkReady();
     const trustedContext=this.trustedContext?await this.trustedContext.bind({actor,capability,idempotencyKey,version:this.version}):null;
     return this.store.create({capability,input,actor,idempotencyKey,version:this.version,model:model.name,agent,handoff,authority,trustedContext});
   }
@@ -204,8 +206,8 @@ export class AgentRuntime {
         ]);}catch(error){
           clearTimeout(timer);
           const diagnostic=usageDiagnostic(error.usageDiagnostic);
-          await this.executor.append(task.id,'model_usage',{model:model.name,turn:turns+1,usage:error.usage??null,failed:true,...(diagnostic?{diagnostic}:{})});
-          if(error.code==='USAGE_RECONCILIATION_REQUIRED')throw error;
+          await this.executor.append(task.id,'model_usage',{model:model.name,turn:turns+1,usage:error.usage??null,failed:true,...(isModelReadinessError(error)?{providerNotCalled:true,failureCode:error.code}:{}),...(diagnostic?{diagnostic}:{})});
+          if(error.code==='USAGE_RECONCILIATION_REQUIRED'||isModelReadinessError(error))throw error;
           modelSignal.throwIfAborted();
           if(error.providerStatus===429){
             const waitMs=Math.max(this.rateLimitDelayMs,Number.isFinite(error.retryAfterMs)?error.retryAfterMs:0);
@@ -307,7 +309,7 @@ export class AgentRuntime {
       }
     }catch(error){
       const current=await this.store.get(actor,task.id);
-      if(current.status==='running')await this.executor.finish(task.id,{status:'waiting',reason:error.code==='TOKEN_BALANCE_INSUFFICIENT'?'token_balance':error.code==='USAGE_RECONCILIATION_REQUIRED'?'usage_reconciliation':modelFailureReason(error)??(error.limitReached?'limit':'interrupted'),error:(modelFailureReason(error)||error.code==='CAPABILITY_SURFACE_DENIED')?error.code:String(error.message||error)});
+      if(current.status==='running')await this.executor.finish(task.id,{status:'waiting',reason:error.code==='TOKEN_BALANCE_INSUFFICIENT'?'token_balance':error.code==='USAGE_RECONCILIATION_REQUIRED'?'usage_reconciliation':modelFailureReason(error)??(error.limitReached?'limit':'interrupted'),error:(modelFailureReason(error)||isModelReadinessError(error)||error.code==='CAPABILITY_SURFACE_DENIED')?error.code:String(error.message||error)});
     }
     return this.store.get(actor,task.id);
   }
