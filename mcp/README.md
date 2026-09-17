@@ -47,9 +47,8 @@ SDK `RequestHandlerExtra<ServerRequest, ServerNotification>`, including its
 `authInfo?: AuthInfo`. Rich Host Actors retain the dispatcher Actor type.
 
 ```ts
-import {
-  createCapabilityMcpServer, connectCapabilityMcpHttpTransport,
-} from '@immedi/iaic-core/mcp/server.js';
+import {createCapabilityMcpServer} from '@immedi/iaic-core/mcp/server.js';
+import {connectCapabilityMcpHttpTransport} from '@immedi/iaic-core/mcp/http.js';
 import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 const server = createCapabilityMcpServer({dispatcher, resolveAccess});
 const transport = new StreamableHTTPServerTransport({enableJsonResponse: true});
@@ -57,6 +56,8 @@ await connectCapabilityMcpHttpTransport(server, transport);
 // Host middleware verifies the request, sets req.auth, then calls handleRequest.
 ```
 
+The optional helper lives in `mcp/http.js`; importing the basic server alone does
+not pull HTTP transport declarations into other transports' type checks.
 The helper delegates to `server.connect(transport)` without changing runtime,
 transport, credentials, or authorization. Direct SDK connection still works in
 ordinary strict NodeNext. Both use the application's optional peer, tested at

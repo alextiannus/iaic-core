@@ -15,6 +15,9 @@ try{
  for(const name of ['app.mjs','app.d.mts'])await fs.copyFile(path.join(installed,'developer/templates/agent',name),path.join(consumer,name));
  await fs.writeFile(path.join(consumer,'copied.mts'),"import {openApplication} from './app.mjs'; import type {ApplicationOptions} from './app.mjs'; export const open = (options:ApplicationOptions) => openApplication(options);\n");
  run([path.join(consumer,'node_modules/typescript/bin/tsc'),'--strict','--noEmitOnError','--target','es2022','--lib','es2022,dom','--module','nodenext','--moduleResolution','nodenext','--outDir','built','consumer.mts','starter.mts','copied.mts','http-results.mts'],consumer);
+ // The base MCP declaration must compile exact-optional without HTTP's defects.
+ await fs.writeFile(path.join(consumer,'mcp-base.mts'),"export {createCapabilityMcpServer} from '@immedi/iaic-core/mcp/server.js';\n");
+ run([path.join(consumer,'node_modules/typescript/bin/tsc'),'--strict','--exactOptionalPropertyTypes','--noEmit','--target','es2022','--module','nodenext','--moduleResolution','nodenext','mcp-base.mts'],consumer);
  // Check every declaration; tolerate only the two independently reproduced SDK
  // 1.30.0 TS2420 defects, never errors in Core or in the application consumer.
  const exact=[path.join(consumer,'node_modules/typescript/bin/tsc'),'--strict','--exactOptionalPropertyTypes','--target','es2022','--module','nodenext','--moduleResolution','nodenext'];

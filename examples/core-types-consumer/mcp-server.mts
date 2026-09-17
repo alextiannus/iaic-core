@@ -6,7 +6,8 @@ import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/st
 import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type {Server} from '@modelcontextprotocol/sdk/server/index.js';
 import type {AuthInfo} from '@modelcontextprotocol/sdk/server/auth/types.js';
-import {createCapabilityMcpServer,connectCapabilityMcpHttpTransport,type McpAccessContext} from '@immedi/iaic-core/mcp/server.js';
+import {createCapabilityMcpServer,type McpAccessContext} from '@immedi/iaic-core/mcp/server.js';
+import {connectCapabilityMcpHttpTransport} from '@immedi/iaic-core/mcp/http.js';
 import {CapabilityDispatcher,defineCapability,type Actor} from '@immedi/iaic-core/capabilities/index.js';
 
 type HostActor=Actor & {revision:number};
