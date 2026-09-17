@@ -11,12 +11,13 @@ import {setTimeout as delay} from 'node:timers/promises';
 const fail=(message,statusCode=409)=>Object.assign(new Error(message),{statusCode});
 
 export class AgentRuntime {
-  constructor({store,dispatcher,model,context,version,maxTurns=20,maxCalls=30,modelTimeoutMs=120000,maxOutputBytes=32000,taskTimeoutMs=300000,rateLimitDelayMs=60000,maxBatchCalls=1,resolveModel=null,agentIdentity=null,mandates=null,handoffs=null,authority=null}) {
+  constructor({store,dispatcher,model,context,version,maxTurns=20,maxCalls=30,modelTimeoutMs=120000,maxOutputBytes=32000,taskTimeoutMs=300000,rateLimitDelayMs=60000,maxBatchCalls=1,resolveModel=null,agentIdentity=null,mandates=null,handoffs=null,authority=null,trustedContext=null}) {
+    if(trustedContext!==null&&['bind','check','project'].some(name=>typeof trustedContext?.[name]!=='function'))throw fail('Trusted Host context ports required',400);
     if(!Number.isInteger(maxBatchCalls)||maxBatchCalls<1||maxBatchCalls>8)throw new Error('Batch bound must be 1..8');
     if(maxBatchCalls>1&&typeof context?.revalidateHistory!=='function')throw new Error('Batch execution requires current history revalidation');
     if(!version||!model?.name)throw new Error('Runtime requires a code/Skill version and configured model');
     if(!Number.isFinite(rateLimitDelayMs)||rateLimitDelayMs<0||rateLimitDelayMs>60000)throw new Error('Rate-limit delay must be between zero and 60000 ms');
-    Object.assign(this,{store,dispatcher,model,context,version,maxTurns,maxCalls,modelTimeoutMs,maxOutputBytes,taskTimeoutMs,rateLimitDelayMs,maxBatchCalls,resolveModel,agentIdentity,mandates,handoffs,authority});
+    Object.assign(this,{store,dispatcher,model,context,version,maxTurns,maxCalls,modelTimeoutMs,maxOutputBytes,taskTimeoutMs,rateLimitDelayMs,maxBatchCalls,resolveModel,agentIdentity,mandates,handoffs,authority,trustedContext});
     this.resultWaits=new ResultWaits({store,dispatcher,version,authorizeTask:(actor,task,name)=>this.checkResultWait(actor,task,name),admitRead:async(actor,task,action)=>{if(!task.authority)return null;const callId=randomUUID();await this.authority.admitTool({actor,task,action,callId});return callId;},settleRead:async(task,callId,outcome)=>{if(task.authority)await this.authority.settleTool({task,callId,outcome});}});
     this.delegations=new Delegations({store,handoffs,version,authorizeTask:async(actor,task)=>{await this.state(actor,task.id);await this.checkMandate(actor,task);if(task.agent&&!this.agentIdentity)throw fail('Agent resolver unavailable',503);if(this.agentIdentity)await this.agentIdentity.check({actor,task,binding:task.agent});}});
     this.executor=null;this.running=null;this.timer=null;this.retired=false;
@@ -41,7 +42,8 @@ export class AgentRuntime {
     const authority=this.authority?await this.authority.bind({actor,capability,input,idempotencyKey,version:this.version}):null;
     const agent=this.agentIdentity?await this.agentIdentity.bind({actor,capability,input,version:this.version}):null;
     const model=this.resolveModel?await this.resolveModel({actor,agent}):this.model;
-    return this.store.create({capability,input,actor,idempotencyKey,version:this.version,model:model.name,agent,handoff,authority});
+    const trustedContext=this.trustedContext?await this.trustedContext.bind({actor,capability,idempotencyKey,version:this.version}):null;
+    return this.store.create({capability,input,actor,idempotencyKey,version:this.version,model:model.name,agent,handoff,authority,trustedContext});
   }
   taskTools(capability,input){
     const declared=capability.implementation.tools,allowed=input.allowedTools;
@@ -53,8 +55,12 @@ export class AgentRuntime {
     if(task.input.mandate!==undefined&&!this.mandates)throw fail('Task Mandate resolver is unavailable',503);
     if(task.input.mandate!==undefined)await this.mandates.checkTask(actor,{capability:task.capability,input:task.input,tool});
   }
+  async checkHostContext(actor,task){
+    if(task.trusted_context){if(!this.trustedContext)throw fail('Host context resolver unavailable',503);await this.trustedContext.check({actor,task});}
+  }
   async checkAgent(actor,task){return this.checkExecution(actor,task);}
   async checkExecution(actor,task){
+    await this.checkHostContext(actor,task);
     if(task.authority&&!this.authority)throw fail('Task authority resolver unavailable',503);
     if(task.authority)await this.authority.check({actor,task});
     await this.checkMandate(actor,task);
@@ -78,6 +84,7 @@ export class AgentRuntime {
   async state(actor,id){
     const task=await this.store.get(actor,id);const capability=this.dispatcher.capabilities.get(task.capability);
     if(!capability||await capability.authorize(actor,task.input)!==true)throw fail('Task access denied',403);
+    await this.checkHostContext(actor,task);
     // Lifecycle coordination needs status, not historical source/result access.
     const {id:taskId,capability:name,input,request_key,version,status,waiting_reason,agent,handoff,authority,delegation,updated_at}=task;
     return {id:taskId,capability:name,input,request_key,version,status,waiting_reason,agent,handoff,authority,delegation,updated_at};
@@ -99,6 +106,7 @@ export class AgentRuntime {
   async transition(actor,id,request){
     const task=await this.store.get(actor,id);const capability=this.dispatcher.capabilities.get(task.capability);
     if(!capability||await capability.authorize(actor,task.input)!==true)throw fail('Task access denied',403);
+    await this.checkHostContext(actor,task);
     if(request.requestKey!==undefined&&request.requestKey!==null){
       const prior=await this.store.findTransition(actor,id,{...request,version:this.version});
       if(prior)return prior;
@@ -170,7 +178,8 @@ export class AgentRuntime {
         if(!batch){
         if(turns>=this.maxTurns||(completionOnly&&history.events.some(event=>event.kind==='model_requested'&&event.data.completionOnly===true))){await this.executor.finish(task.id,{status:'waiting',reason:'limit'});break;}
         if(task.authority)await this.authority.checkContext({actor,task,history});
-        const messages=await this.context.assemble({task,capability,history,actor,dispatcher:this.dispatcher});
+        const hostContext=task.trusted_context?await this.trustedContext.project({actor,task}):null;
+        const messages=await this.context.assemble({task,capability,history,actor,dispatcher:this.dispatcher,hostContext});
         messages.push({role:'system',content:JSON.stringify({executionBudget:{remainingToolCalls,remainingModelTurns:this.maxTurns-turns,maxBatchCalls:completionOnly?0:invocationBatchBound,completionOnly}})+'\nThese are current execution limits, not additional authority. Remaining model turns include this invocation. Reserve enough work to verify results and submit completion; avoid repeating unchanged successful operations.'});
         if(completionOnly)messages.push({role:'system',content:'The tool-call budget is exhausted. No further tools or delegation are available. Use the existing evidence to submit iaic_finish for application verification, or iaic_wait if essential user input is missing. This is the final completion opportunity; do not claim unfinished work is complete.'});
         if(Object.keys(remainingByTool).length)messages.push({role:'system',content:JSON.stringify({remainingToolAttempts:remainingByTool})+'\nThese per-Task ceilings count all prepared attempts, including failures and unknown outcomes. Exhausted tools cannot be called again in this Task. Use retained evidence, another permitted capability, or request help; do not repeat the mutation or claim it succeeded.'});

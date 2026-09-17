@@ -23,7 +23,7 @@ function compileSchema(schema) {
 }
 
 export function defineCapability(definition) {
-  if (!definition || !/^[a-z][a-z0-9_.-]*$/.test(definition.name || '')) throw failure('Invalid capability name');
+  if (!definition || !/^[a-z][a-z0-9_.-]*$/.test(definition.name || '')) throw failure('Invalid capability name; expected ^[a-z][a-z0-9_.-]*$',400,{code:'INVALID_CAPABILITY_NAME',publicCode:'INVALID_CAPABILITY_NAME',pattern:'^[a-z][a-z0-9_.-]*$'});
   if (!definition.description || !definition.input || !definition.output || typeof definition.authorize !== 'function') {
     throw failure('Capability requires description, input/output schemas and authorization');
   }

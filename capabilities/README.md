@@ -34,3 +34,5 @@ include secrets, raw upstream exceptions or private field values. A host functio
 is responsible for composing authorized feedback; Core does not infer it from
 arbitrary exception text. Schema errors already have bounded path/keyword/message
 feedback; this addition fills the separate business-preflight gap.
+
+Agent history requires a current `revalidate` on every retained function result. It receives the persisted `taskId` for explicit Host Actor restoration; see [Host context](../context/HOST.md). Capability names use `^[a-z][a-z0-9_.-]*$`; invalid names return `INVALID_CAPABILITY_NAME` and the pattern.

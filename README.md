@@ -1,5 +1,12 @@
 # IAiC Core
 
+Host context update (2026-09-17): candidate.100 adds Host-only immutable context
+references, separate model projections, explicit current business Actor restoration,
+and ordinary Agent starter wiring. See [Host context contract](context/HOST.md).
+Full starter/root Task declarations remain pending; application schemas, redaction,
+authority and production acceptance remain with each application.
+
+
 Executor handoff update (2026-09-17): candidate.99 adds trusted generation-scoped
 drain requests, fenced executor transactions and a bounded Runtime drain port.
 In-flight work may finish; the old Runtime retires before another Task claim.

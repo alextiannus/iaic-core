@@ -33,7 +33,7 @@ export type CapabilityDefinition<I = unknown, O = unknown, A extends Actor = Act
   implementation: FunctionImplementation<I,O,A> | AgentImplementation<I,O,A>;
   preflight?: (input: I, context: ExecutionContext<A>) => MaybePromise<PreflightResult>;
   verify?: (input: I, result: O, context: ExecutionContext<A>) => MaybePromise<boolean>;
-  revalidate?: (input: I, previous: O, context: {actor: Readonly<A>; callId?: string}) => MaybePromise<O>;
+  revalidate?: (input: I, previous: O, context: {actor: Readonly<A>; callId?: string; taskId?: string}) => MaybePromise<O>;
   waitReady?: (input: I, result: O, context: {actor: Readonly<A>}) => MaybePromise<boolean>;
   projectHistoryInput?: (input: I, context: {actor: Readonly<A>; callId: string; status: string}) => MaybePromise<Record<string,unknown>>;
 };
