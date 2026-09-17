@@ -1,3 +1,4 @@
+import {HostTaskContext} from '@immedi/iaic-core/context/host.js';
 import {
  ReleaseBoundAgentIdentity,MandateStore,AssistantMandates,AgentRegistry,AgentIdentityStore,TaskStore,AgentRuntime,ContextAssembler,CapabilityDispatcher,defineCapability,TaskPlans,DeferredTaskStore,createAgentDeferredTasks,
  EventStore,AssistantEvents,PostgresEventSubscriptions,EventSubscriptions,EventTaskSubscriptions,EVENT_SUBSCRIPTION_TASK_PREFIX,
@@ -6,7 +7,7 @@ import {
 } from '@immedi/iaic-core';
 
 // This is application-owned composition. Each imported Core module remains independently replaceable.
-export async function openApplication({pool,skillRoot,job,profiles,resolveSecret,modelFactory,userModels=null,routing=null,tokenPolicies,authorize,verifyOutcome,version,runtimeLimits={},taskCursorKey=null,toolCallLimits,enablePlans=false,scheduling=null,eventWork=null,executionPolicy=null,mandates=null,extraCapabilities=[],releaseBinding=null}){
+export async function openApplication({pool,skillRoot,job,profiles,resolveSecret,modelFactory,userModels=null,routing=null,tokenPolicies,authorize,verifyOutcome,version,runtimeLimits={},taskCursorKey=null,toolCallLimits,enablePlans=false,scheduling=null,eventWork=null,executionPolicy=null,mandates=null,extraCapabilities=[],releaseBinding=null,hostContext=null}){
  if(releaseBinding!==null&&(!releaseBinding||releaseBinding.implementationRevision!==version))throw new Error('Release binding must match the explicit application version');
  if(!Array.isArray(extraCapabilities))throw new Error('extraCapabilities must be an array of host-defined Capabilities');
  if(mandates!==null&&(typeof mandates?.authorizeGrant!=='function'||typeof mandates?.sourceFor!=='function'))throw new Error('Mandates require trusted authorizeGrant and sourceFor ports');
@@ -21,6 +22,7 @@ export async function openApplication({pool,skillRoot,job,profiles,resolveSecret
  for(const store of [identities,memoryStore,workspaceStore,settings,ledger,knowledgeStore,sessionStore])await store.initialize();
  const mandateStore=mandates?new MandateStore({pool}):null;if(mandateStore)await mandateStore.initialize();
  const assistantMandates=mandates?new AssistantMandates({store:mandateStore,resolveScope:scope,authorizeGrant:mandates.authorizeGrant,sourceFor:mandates.sourceFor}):null;
+ const hostContexts=hostContext===null?null:new HostTaskContext({...hostContext,readTask:(actor,id)=>tasks.get(actor,id)});
  const registry=new AgentRegistry({store:identities,definitions:[job],resolveScope:scope,authorizeStateChange:check});
  const memory=new AssistantMemory({store:memoryStore,resolveScope:scope,sourceFor:()=>({kind:'user-request'})});
  const workspace=new AssistantWorkspace({store:workspaceStore,resolveScope:scope,sourceFor:()=>({kind:'user-request'})});
@@ -51,9 +53,9 @@ export async function openApplication({pool,skillRoot,job,profiles,resolveSecret
  const dispatcher=new CapabilityDispatcher({capabilities,executionPolicy});
  const identity={bind:({actor,capability})=>registry.bind(actor,job.id,capability.name),check:({actor,task,binding})=>registry.check(actor,binding,task.capability)};
  const agentIdentity=releaseBinding===null?identity:new ReleaseBoundAgentIdentity({identity,releases:releaseBinding.releases,reference:releaseBinding.reference,implementationRevision:releaseBinding.implementationRevision});
- runtime=new AgentRuntime({...runtimeLimits,store:tasks,dispatcher,mandates:assistantMandates,model:{name:'host-model-resolver'},resolveModel:request=>(modelRouting||models).resolve(request),context:new ContextAssembler({skillRoot,planProvider:plans?({actor,task})=>plans.read(actor,{id:task.id}):null,overflow:'omit-old-results',sessionProvider:({actor,task})=>task.input.session?sessions.context(actor,task.input.session):null}),version,agentIdentity});
+ runtime=new AgentRuntime({...runtimeLimits,store:tasks,dispatcher,mandates:assistantMandates,model:{name:'host-model-resolver'},resolveModel:request=>(modelRouting||models).resolve(request),context:new ContextAssembler({skillRoot,planProvider:plans?({actor,task})=>plans.read(actor,{id:task.id}):null,overflow:'omit-old-results',sessionProvider:({actor,task})=>task.input.session?sessions.context(actor,task.input.session):null}),version,agentIdentity,trustedContext:hostContexts});
  dispatcher.tasks=runtime;
  try{await runtime.initialize();}catch(error){await runtime.stop();throw error;}
  const entry={capabilities:dispatcher.capabilities,invoke:(name,input,context)=>name==='agent.work'?startSessionTask({sessions,actor:context.actor,input,startTask:()=>dispatcher.invoke(name,input,context)}):dispatcher.invoke(name,input,context)};
- return {dispatcher:entry,mandates:assistantMandates,runtime,tasks,taskListing,plans,deferred,events,eventSubscriptions,eventTasks,registry,memory,workspace,skills,knowledge,knowledgeStore,sessions,models,modelRouting,ledger,scope,start:()=>{deferred?.start();runtime.start();},close:async()=>{await deferred?.stop();await runtime.stop();}};
+ return {dispatcher:entry,hostContext:hostContexts,mandates:assistantMandates,runtime,tasks,taskListing,plans,deferred,events,eventSubscriptions,eventTasks,registry,memory,workspace,skills,knowledge,knowledgeStore,sessions,models,modelRouting,ledger,scope,start:()=>{deferred?.start();runtime.start();},close:async()=>{await deferred?.stop();await runtime.stop();}};
 }

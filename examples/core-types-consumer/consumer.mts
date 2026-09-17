@@ -73,3 +73,28 @@ import type {Client as OfficialLarkClient} from '@larksuiteoapi/node-sdk';
 import type {LarkSdkClient} from '@immedi/iaic-core/channels/lark.js';
 const officialSdkCompatible = (client: OfficialLarkClient): LarkSdkClient => client;
 void officialSdkCompatible;
+
+import {HostTaskContext,hostProjection} from '@immedi/iaic-core/context/host.js';
+import type {HostBinding,CoreActor} from '@immedi/iaic-core/context/host.js';
+type BusinessActor=CoreActor&{principalId:string};
+let binding:HostBinding|null=null;
+const host=new HostTaskContext<BusinessActor>({
+ bind:async()=>({schema:'app.identity',version:'v1',reference:'original',revision:'1',projection:{principalId:'trusted'}}),
+ resolve:async()=>({principalId:'trusted'}),authorize:()=>true,
+ readTask:async(_actor,id)=>({id,trusted_context:binding}),
+ restoreActor:async({actor})=>({...actor,principalId:'trusted'})
+});
+const owner={scopeId:'app',subjectId:'owner'};
+binding=await host.bind({actor:owner,capability:{name:'agent.work'},idempotencyKey:'key',version:'v1'});
+const projection=await host.project({actor:owner,task:{id:'task',trusted_context:binding}});
+const restored:BusinessActor=await host.restoreActor({actor:owner,taskId:'task'});
+if(projection.digest!==hostProjection({principalId:'trusted'}).digest||restored.principalId!=='trusted')throw Error('Host context typed consumer failed');
+if(false){
+ // @ts-expect-error Trusted context restoration requires a Task identity.
+ host.restoreActor({actor:owner});
+ // @ts-expect-error Core Actor always has a subject, independent of rich context.
+ host.bind({actor:{scopeId:'app'},capability:{name:'agent.work'},idempotencyKey:'key',version:'v1'});
+ // @ts-expect-error Projection binding is distinct from user-provided text.
+ host.project({actor:owner,task:{id:'task',trusted_context:'forged'}});
+}
+console.log(JSON.stringify({hostContextTyped:true,hostActorExplicit:true,rootAmbientShim:false}));

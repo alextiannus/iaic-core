@@ -1,3 +1,4 @@
+import {checkedHostBinding} from '../context/host.js';
 import {executorState,requestExecutorDrain,takeOwnership,assertOwnership} from './ownership.js';
 import fs from 'node:fs/promises';
 import {pageOptions,pagePosition} from './paging.js';
@@ -22,9 +23,11 @@ export class TaskStore {
     await this.pool.query(await fs.readFile(new URL('./migrations/015_iaic_transition_receipts.sql',import.meta.url),'utf8'));
     await this.pool.query(await fs.readFile(new URL('./migrations/016_iaic_task_pages.sql',import.meta.url),'utf8'));
     await this.pool.query(await fs.readFile(new URL('./migrations/017_iaic_executor_ownership.sql',import.meta.url),'utf8'));
+    await this.pool.query(await fs.readFile(new URL('./migrations/018_iaic_host_context.sql',import.meta.url),'utf8'));
   }
-  async create({actor,capability,input,idempotencyKey,version,model,agent=null,handoff=null,authority=null}) {
+  async create({actor,capability,input,idempotencyKey,version,model,agent=null,handoff=null,authority=null,trustedContext=null}) {
     if(!idempotencyKey||!version||!model)throw conflict('Task identity, key, code/Skill version and model are required');
+    if(trustedContext!==null){trustedContext=checkedHostBinding(trustedContext);if(trustedContext.owner.scopeId!==actor.scopeId||trustedContext.owner.subjectId!==actor.subjectId)throw conflict('Host context owner mismatch');}
     const name=typeof capability==='string'?capability:capability.name;
     const connection=await this.pool.connect();
     try {
@@ -33,12 +36,12 @@ export class TaskStore {
       const prior=await connection.query(`SELECT *,input=$5::jsonb AS same_input FROM iaic_tasks
         WHERE employee_id=$1 AND erp_user=$2 AND capability=$3 AND request_key=$4`,[...this.identity(actor),name,idempotencyKey,JSON.stringify(input)]);
       if(prior.rowCount){
-        const row=prior.rows[0];if(!row.same_input||!isDeepStrictEqual(row.authority??null,authority))throw conflict('Task request key belongs to different input or authority');
+        const row=prior.rows[0];if(!row.same_input||!isDeepStrictEqual(row.authority??null,authority)||!isDeepStrictEqual(row.trusted_context??null,trustedContext))throw conflict('Task request key belongs to different input or authority');
         delete row.same_input;await connection.query('COMMIT');return row;
       }
-      const row=(await connection.query(`INSERT INTO iaic_tasks(id,employee_id,erp_user,capability,input,request_key,version,model,agent,handoff,authority,status)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'queued') RETURNING *`,[randomUUID(),...this.identity(actor),name,JSON.stringify(input),idempotencyKey,version,model,agent,handoff,authority])).rows[0];
-      await event(connection,row.id,'created',{version,model,...(agent?{agent}:{}),...(handoff?{handoff}:{}),...(authority?{authority}:{})});await connection.query('COMMIT');return row;
+      const row=(await connection.query(`INSERT INTO iaic_tasks(id,employee_id,erp_user,capability,input,request_key,version,model,agent,handoff,authority,trusted_context,status)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'queued') RETURNING *`,[randomUUID(),...this.identity(actor),name,JSON.stringify(input),idempotencyKey,version,model,agent,handoff,authority,trustedContext])).rows[0];
+      await event(connection,row.id,'created',{version,model,...(agent?{agent}:{}),...(handoff?{handoff}:{}),...(authority?{authority}:{}),...(trustedContext?{trustedContext}: {})});await connection.query('COMMIT');return row;
     }catch(error){await connection.query('ROLLBACK').catch(()=>{});throw error;}finally{connection.release();}
   }
   async findRequest(actor,capability,requestKey) {
