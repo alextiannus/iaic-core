@@ -1,5 +1,13 @@
 # Candidate status and practical limits
 
+MCP type update (2026-09-18): candidate.103 provides the typed server subpath,
+peer SDK AuthInfo access context and an optional HTTP connection helper. A real
+installed HTTP consumer checks current identity, permission and stable write keys.
+SDK 1.30.0 still has two upstream exact-optional declaration errors; these are
+explicitly checked, not reported as a clean full-library compile. See mcp/README.md.
+OAuth provider implementation and full authentication acceptance remain Host work.
+
+
 HTTP result update (2026-09-17): candidate.102 adds opt-in typed `invokeResult`
 for deterministic business results; `invoke` retains its transport envelope.
 Malformed responses retain observed HTTP status and never trigger automatic retry.
