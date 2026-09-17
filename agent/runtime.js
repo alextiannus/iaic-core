@@ -1,3 +1,4 @@
+import {modelFailureReason} from './model-failure.js';
 import {usageDiagnostic} from './usage-diagnostic.js';
 import {verificationResult} from './verification.js';
 import {remainingToolAttempts} from './tool-limits.js';
@@ -176,11 +177,12 @@ export class AgentRuntime {
         let response;
         try{response=await Promise.race([
           model.next({messages,tools,maxBatchCalls:invocationBatchBound,delegationSchema:completionOnly?null:this.delegations.schema(task),outputSchema:capability.output,billingContext:{taskId:task.id,turn:turns+1,capability:task.capability},signal:modelSignal}),
-          new Promise((_,reject)=>{timer=setTimeout(()=>{const error=Object.assign(new Error('Model response timed out'),{limitReached:true});controller.abort(error);reject(error);},this.modelTimeoutMs);})
+          new Promise((_,reject)=>{timer=setTimeout(()=>{const error=Object.assign(new Error('Model response timed out'),{code:'MODEL_TIMEOUT'});controller.abort(error);reject(error);},this.modelTimeoutMs);})
         ]);}catch(error){
           clearTimeout(timer);
           const diagnostic=usageDiagnostic(error.usageDiagnostic);
           await this.executor.append(task.id,'model_usage',{model:model.name,turn:turns+1,usage:error.usage??null,failed:true,...(diagnostic?{diagnostic}:{})});
+          if(error.code==='USAGE_RECONCILIATION_REQUIRED')throw error;
           modelSignal.throwIfAborted();
           if(error.providerStatus===429){
             const waitMs=Math.max(this.rateLimitDelayMs,Number.isFinite(error.retryAfterMs)?error.retryAfterMs:0);
@@ -201,13 +203,15 @@ export class AgentRuntime {
           if(error.invalidAction===true){
             executionSignal()?.throwIfAborted();
             await this.executor.append(task.id,'feedback',{error:error.message});
+            if(turns+1>=this.maxTurns)throw Object.assign(error,{code:'INVALID_MODEL_ACTION'});
             continue;
           }
+          if(!['TOKEN_BALANCE_INSUFFICIENT','USAGE_RECONCILIATION_REQUIRED','MODEL_OUTPUT_LIMIT','INVALID_MODEL_ACTION','MODEL_TIMEOUT'].includes(error.code)&&!error.limitReached)error=Object.assign(new Error('Model provider failed'),{code:'MODEL_PROVIDER_ERROR'});
           throw error;
         }finally{clearTimeout(timer);}
         await this.executor.append(task.id,'model_usage',{model:model.name,turn:turns+1,usage:response?.usage??null,failed:false});
         modelSignal.throwIfAborted();
-        if(Buffer.byteLength(JSON.stringify(response))>this.maxOutputBytes)throw Object.assign(new Error('Model output limit reached'),{limitReached:true});
+        if(Buffer.byteLength(JSON.stringify(response))>this.maxOutputBytes)throw Object.assign(new Error('Model output limit reached'),{code:'MODEL_OUTPUT_LIMIT'});
         action=normalizeAction(response);
         if(action.type==='batch'){
           if(completionOnly||action.actions.length>this.maxBatchCalls||action.actions.length>this.maxCalls-history.calls.length){await this.executor.append(task.id,'feedback',{error:'Batch exceeds the current action budget; propose fewer calls.'});continue;}
@@ -280,7 +284,7 @@ export class AgentRuntime {
       }
     }catch(error){
       const current=await this.store.get(actor,task.id);
-      if(current.status==='running')await this.executor.finish(task.id,{status:'waiting',reason:error.code==='TOKEN_BALANCE_INSUFFICIENT'?'token_balance':error.code==='USAGE_RECONCILIATION_REQUIRED'?'usage_reconciliation':error.limitReached?'limit':'interrupted',error:String(error.message||error)});
+      if(current.status==='running')await this.executor.finish(task.id,{status:'waiting',reason:error.code==='TOKEN_BALANCE_INSUFFICIENT'?'token_balance':error.code==='USAGE_RECONCILIATION_REQUIRED'?'usage_reconciliation':modelFailureReason(error)??(error.limitReached?'limit':'interrupted'),error:modelFailureReason(error)?error.code:String(error.message||error)});
     }
     return this.store.get(actor,task.id);
   }
@@ -293,5 +297,5 @@ function normalizeAction(response){
   if(response?.type==='call'&&typeof response.name==='string'&&response.input&&typeof response.input==='object'&&!Array.isArray(response.input))return {type:'call',name:response.name,input:response.input};
   if(response?.type==='finish'&&response.result!==undefined)return {type:'finish',result:response.result};
   if(response?.type==='wait'&&typeof response.question==='string'&&response.question.trim())return {type:'wait',question:response.question};
-  throw new Error('Model returned an invalid action');
+  throw Object.assign(new Error('Model returned an invalid action'),{code:'INVALID_MODEL_ACTION'});
 }

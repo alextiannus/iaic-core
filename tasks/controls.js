@@ -1,6 +1,7 @@
+import {taskDiagnostic} from './diagnostics.js';
 import {defineCapability} from '../capabilities/index.js';
 const id={type:'string',pattern:'^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$'};
-const publicView=(task,{operation})=>({id:task.id,capability:task.capability,status:task.status,waitingReason:task.waiting_reason??null,...(operation==='get'?{result:task.result??null,inputRequest:task.inputRequest??null}:{}),...(task.controlReceipt?{controlReceipt:task.controlReceipt}:{})});
+const publicView=(task,{operation})=>({id:task.id,capability:task.capability,status:task.status,waitingReason:task.waiting_reason??null,...(taskDiagnostic(task)?{diagnostic:taskDiagnostic(task)}:{}),...(operation==='get'?{result:task.result??null,inputRequest:task.inputRequest??null}:{}),...(task.controlReceipt?{controlReceipt:task.controlReceipt}:{})});
 
 // All state transitions remain owned by the same Runtime and Task store.
 export function createTaskControlCapabilities({runtime,authorize,namespace='tasks',project=publicView,receipts=false}){

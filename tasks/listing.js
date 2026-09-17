@@ -1,8 +1,9 @@
+import {taskDiagnostic} from './diagnostics.js';
 import {createCipheriv,createDecipheriv,createHash,randomBytes} from 'node:crypto';
 import {defineCapability} from '../capabilities/index.js';
 import {pageOptions,pagePosition,taskPageSchema} from './paging.js';
 const invalid=()=>Object.assign(new Error('Invalid Task page or continuation cursor'),{statusCode:400});
-const publicTask=task=>({id:task.id,capability:task.capability,status:task.status,waitingReason:task.waiting_reason??null});
+const publicTask=task=>({id:task.id,capability:task.capability,status:task.status,waitingReason:task.waiting_reason??null,...(taskDiagnostic(task)?{diagnostic:taskDiagnostic(task)}:{})});
 export class TaskListing{
  #key;
  constructor({store,readTask,resolveOwner,cursorKey,project=publicTask}){

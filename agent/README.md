@@ -102,7 +102,7 @@ Task input may include `allowedTools`, a unique subset of the Agent capability t
 
 The optional `handoffs` port binds reserved child admission keys, checks lifecycle and parent domain restrictions, limits model admissions, reconciles receipts before dispatch, and propagates parent cancellation through existing Task controls. It is independent of the Runtime and adds no executor. See `../handoffs/README.md`.
 
-Chat `finish_reason=stop` is a completed response, but free text is not an executable IAiC action. It produces zero-action correction feedback in the original bounded Runtime loop; it is never converted into a tool, wait or final result. Only `tool_calls` admits a proposed wire call. Length, content filtering, insufficient system resources and unknown terminal reasons still interrupt, with an allow-listed reason in the error. Failed-response usage remains chargeable through the original gateway. This is protocol classification, not automatic replay of business actions or a new retry loop. See https://api-docs.deepseek.com/api/create-chat-completion/ .
+Chat `finish_reason=stop` is a completed response, but free text is not an executable IAiC action. It produces zero-action correction feedback in the original bounded Runtime loop; it is never converted into a tool, wait or final result. Only `tool_calls` admits a proposed wire call. Length produces `model_output_limit`; content filtering, insufficient system resources and unknown terminal reasons produce `provider_error`, with an allow-listed reason in the error. Failed-response usage remains chargeable through the original gateway. This is protocol classification, not automatic replay of business actions or a new retry loop. See https://api-docs.deepseek.com/api/create-chat-completion/ .
 
 ## Waiting for a deterministic external result
 
@@ -138,6 +138,6 @@ reason even when a provider rejects with a different transport error. Recorded
 provider usage/diagnostics are retained before applying that reason; unknown
 usage is not replaced with zero. An expired invocation cannot trigger a rate-limit
 retry or submit completion, including a provider resolving during cancellation.
-Ordinary provider errors without a Runtime abort remain interrupted. These limits
+Ordinary provider errors without a Runtime abort use `provider_error`; the model deadline uses `model_timeout`. See [failure policy](MODEL_FAILURES.md). These limits
 bound execution; they do not prove that a remote provider stopped or billed zero.
 `taskTimeoutMs` applies to an active execution interval, not lifetime across waits.

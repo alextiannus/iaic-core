@@ -1,0 +1,3 @@
+// Public recovery guidance is policy, not proof of provider accounting.
+const failures=Object.freeze({model_output_limit:['MODEL_OUTPUT_LIMIT','review_profile_and_create_task'],invalid_model_action:['INVALID_MODEL_ACTION','review_profile_and_create_task'],model_timeout:['MODEL_TIMEOUT','check_usage_before_resume'],provider_error:['MODEL_PROVIDER_ERROR','check_provider_and_usage_before_resume'],usage_reconciliation:['USAGE_RECONCILIATION_REQUIRED','reconcile_usage']});
+export function taskDiagnostic(task){const entry=task.status==='waiting'&&Object.hasOwn(failures,task.waiting_reason)?failures[task.waiting_reason]:null;return entry?{code:entry[0],nextAction:entry[1]}:null;}
