@@ -37,3 +37,70 @@ ImmediToday's `assistant.run` now uses `createAssistantTask`, matching the ordin
 ## Lark integration
 
 The optional [Lark bridge](../channels/LARK.md) selects 89 reviewed official MCP tools across eight domains, including joining groups and managing members. It uses this importer and the same Dispatcher; the provider server remains an application dependency. Import `@immedi/iaic-core/mcp/lark.js`.
+
+## Typed server and HTTP connection (candidate.103)
+
+The server subpath now exports `McpAccessContext`, `McpAccess<A>` and a typed
+`createCapabilityMcpServer`. Its return value is the **peer SDK Server**, not a
+Core replacement. `serverInfo` uses SDK `Implementation`; the access context uses
+SDK `RequestHandlerExtra<ServerRequest, ServerNotification>`, including its
+`authInfo?: AuthInfo`. Rich Host Actors retain the dispatcher Actor type.
+
+```ts
+import {
+  createCapabilityMcpServer, connectCapabilityMcpHttpTransport,
+} from '@immedi/iaic-core/mcp/server.js';
+import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+const server = createCapabilityMcpServer({dispatcher, resolveAccess});
+const transport = new StreamableHTTPServerTransport({enableJsonResponse: true});
+await connectCapabilityMcpHttpTransport(server, transport);
+// Host middleware verifies the request, sets req.auth, then calls handleRequest.
+```
+
+The helper delegates to `server.connect(transport)` without changing runtime,
+transport, credentials, or authorization. Direct SDK connection still works in
+ordinary strict NodeNext. Both use the application's optional peer, tested at
+1.30.0; Core does not install a private SDK or patch node_modules.
+
+**Known upstream limitation:** SDK 1.30.0's Node HTTP server and client transport
+classes fail TS2420 against their own `Transport` interface with
+`exactOptionalPropertyTypes` (explicit undefined callback/session getters versus
+optional interface properties). Core declarations cannot repair the SDK's own
+`implements` checks. Applications using that flag currently need `skipLibCheck`
+for the upstream declarations or an upstream SDK correction, even with this helper.
+Do not describe the full-library exact-optional compile as passing. The installed
+consumer first checks all declarations and permits exactly those two SDK TS2420
+diagnostics, rejecting every other diagnostic; it then emits with `skipLibCheck`.
+Core and consumer types are checked with exact-optional enabled. The test client
+has one explicit expected upstream connect error; the application **server** uses
+no cast, ambient shim or expected-error suppression. The existing ordinary strict
+package gate remains enabled without skipLibCheck. This bounded compatibility
+allowance must be revisited with any SDK upgrade.
+
+### Trusted identity remains a Host port
+
+A type is not proof of token validity. Host middleware must verify token signature
+or introspection, expiry, intended resource/audience and current revocation before
+setting `req.auth`. A client JSON field named `authInfo` or `actor` is never this
+context. `AuthInfo.extra` is untrusted unless the Host itself constructs/validates
+its contents. `resolveAccess` must derive current Actor/context and current
+capability visibility for each request, and the Dispatcher separately checks
+current domain authorization at execution. Do not log bearer tokens or copy them
+into tool inputs, task history or memory.
+
+For authenticated use, reject missing/invalid identity at the HTTP boundary with
+401 and `WWW-Authenticate` referring to protected-resource metadata, **before** MCP
+initialization. If needed, serve an explicitly anonymous public endpoint separately.
+The installed `examples/core-types-consumer/mcp-server.mts` uses a local fixture
+verifier, separate endpoints, metadata and real SDK HTTP requests. It exercises
+missing/expired/wrong-resource credentials, token revocation, current Actor revision,
+Dispatcher denial after cached discovery, forged input identity and stable write
+keys. This is not an OAuth authorization server, PKCE flow or real-user login test.
+A complete mock authorization-server example and stable auth error taxonomy remain
+pending; production OAuth/CORS/rate limits/consent/token storage stay Host-owned.
+
+Migration: install candidate.103 plus the tested peer, remove the application's
+server ambient declaration, and replace a local server transport cast with the
+helper if needed. Preserve existing authentication and access resolvers. No schema,
+Task or database migration occurs. Rollback to 102 requires restoring the local
+types/connection boundary; existing operations and request keys are unchanged.
