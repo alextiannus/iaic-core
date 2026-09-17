@@ -2,6 +2,13 @@
 
 Set an isolated `SUBMISSION_TEST_DATABASE_URL` and run `npm run verify:types-package` from the installed/source Core package with npm available. The gate creates an independent tarball consumer and executes the compiled `consumer.mts` and `starter.mts`; it does not rely on the source checkout's module declarations. It also compiles a copied `app.mjs`/`app.d.mts` pair as used by the scaffolder.
 
+`http-results.mts` additionally runs the opt-in business-result client against the
+real HTTP handler/dispatcher: read/write results, retained envelope API, missing
+write key, 409/422, malformed/redirected/non-JSON responses and a committed write
+whose acknowledgement is lost. The original key is reconciled by an explicit read;
+no retry is issued automatically. Strict negative cases keep the envelope and
+business result types distinct.
+
 `starter.mts` covers the real ordinary Agent composition: pg.Pool compatibility,
 Host context and rich Actor restoration, task wait/rebuild/continuation, revocation,
 historical function-result revalidation and metered settlement. Negative compile

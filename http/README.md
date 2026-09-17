@@ -16,7 +16,28 @@ const client = new CapabilityHttpClient({
 });
 const contracts = await client.list();
 const response = await client.invoke('notes.create', {title: 'Next steps'}, {requestKey: 'stable-operation-id'});
+// Function capabilities only: returns the business result, not its HTTP envelope.
+const result = await client.invokeResult('notes.create', {title: 'Next steps'}, {requestKey: 'stable-operation-id'});
 ```
+
+Candidate.102 adds `invokeResult` without changing `invoke`: existing transport
+callers still receive a discriminated envelope, including Agent Task receipts.
+Use `invokeResult` for native UI or model adapters calling deterministic functions.
+It requires `resultKind: capability-result` and a present `result`; it does not
+pretend TypeScript validates the business payload schema. A Task receipt is not a
+completed business result and raises `UNEXPECTED_RESULT_KIND`: admission may have
+occurred, so query the original operation and never create a replacement key.
+The HTTP server still requires stable keys for writes. Error status, public code,
+validation and recovery fields remain available through `CapabilityHttpError`.
+Malformed/non-JSON/redirected or missing responses after POST remain unknown;
+status is retained when an HTTP response was observed. No automatic retries or
+generic forwarding of private server error details is introduced.
+
+Migration is opt-in: replace manual `invoke(...).result` handling for known
+function contracts with `invokeResult(...)`; keep `invoke` for Agent admission or
+explicit envelope inspection. Rollback returns to the old envelope API and its
+explicit result-kind check. No database migration. Visibility policy and temporary
+Artifact transfer credentials are separate open work, not delivered by this API.
 
 The SDK has TypeScript declarations; supply your application's contract mapping as its generic parameter. Schemas remain authoritative at runtime. It preserves the distinction between a completed result and an admitted Task, supports AbortSignal and current credentials, and never retries automatically. Stable keys are forwarded, not implemented as a second idempotency store: the domain service or durable Task store owns deduplication. On an unknown result, query/reconcile before deciding to retry; do not generate a replacement key. Aborting a transport does not undo committed effects or cancel an already admitted Task.
 

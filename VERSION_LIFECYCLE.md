@@ -30,7 +30,8 @@ owner and new end date; there is no automatic or unlimited extension.
 | `v0.1.0-candidate.98` | Replaced when candidate.99 is published | 2026-10-01 23:59 UTC | Controlled executor stop for initial upgrade; migration017 and new ownership protocol |
 | `v0.1.0-candidate.99` | Replaced when candidate.100 is published | 2026-10-01 23:59 UTC | Migration018; new context-enabled host version, no old Core executor for bound Tasks |
 | `v0.1.0-candidate.100` | Replaced when candidate.101 is published | 2026-10-01 23:59 UTC | Ordinary starter declarations; no runtime/database migration |
-| `v0.1.0-candidate.101` | Typed basic starter prepared; current upon verified publication | On replacement, record an explicit date 14 days later | See developer/templates/agent/README.md for typed scope and remaining extensions |
+| `v0.1.0-candidate.101` | Replaced when candidate.102 is published | 2026-10-01 23:59 UTC | Opt-in HTTP result API, existing invoke preserved; no database migration |
+| `v0.1.0-candidate.102` | Typed HTTP business result prepared; current upon verified publication | On replacement, record an explicit date 14 days later | See http/README.md; visibility and Artifact transfer remain pending |
 
 The GitHub release and verified asset determine whether publication occurred.
 A source commit or this preparation record alone is not a published version.
