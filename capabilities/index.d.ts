@@ -1,9 +1,10 @@
+import type {CapabilitySurface,CapabilityVisibility} from './visibility.js';
 export type MaybePromise<T> = T | Promise<T>;
 export interface Actor {subjectId: string; scopeId?: string}
 export type Schema = object | true;
 export interface CapabilityContract<Input = unknown, Output = unknown> {input: Input; output: Output}
 export interface InvocationContext<A extends Actor = Actor> {
-  actor: A; callId?: string | null; signal?: AbortSignal | null;
+  actor: A; surface?: CapabilitySurface; callId?: string | null; signal?: AbortSignal | null;
   allowedCapabilities?: string[] | null; taskId?: string | null;
 }
 export interface ExecutionContext<A extends Actor = Actor> {
@@ -28,7 +29,7 @@ export interface AgentImplementation<I, O, A extends Actor> {
 }
 type Effect = {effect: 'read'; retry?: 'idempotent' | 'never-replay'} | {effect: 'write'; retry: 'idempotent' | 'never-replay'};
 export type CapabilityDefinition<I = unknown, O = unknown, A extends Actor = Actor> = Effect & {
-  name: string; description: string; input: Schema; output: Schema;
+  name: string; description: string; input: Schema; output: Schema; visibility?: CapabilityVisibility;
   authorize(actor: Readonly<A>, input: I): MaybePromise<boolean>;
   implementation: FunctionImplementation<I,O,A> | AgentImplementation<I,O,A>;
   preflight?: (input: I, context: ExecutionContext<A>) => MaybePromise<PreflightResult>;
@@ -42,6 +43,7 @@ declare const registered: unique symbol;
 export interface RegisteredCapability {
   readonly [registered]: true;
   readonly name: string; readonly description: string; readonly input: Schema; readonly output: Schema;
+  readonly visibility?: CapabilityVisibility;
   readonly effect: 'read' | 'write'; readonly retry?: 'idempotent' | 'never-replay';
   readonly implementation: {readonly kind: 'function' | 'agent'};
 }
@@ -61,5 +63,5 @@ export class CapabilityDispatcher<Contracts extends {[K in keyof Contracts]: Cap
   constructor(options: {capabilities: readonly RegisteredCapability[]; tasks?: TaskCreationPort<A> | null; executionPolicy?: ExecutionPolicyPort<A> | null; validateActor?: (actor: A, capability: RegisteredCapability) => boolean});
   capabilities: Map<string,RegisteredCapability>;
   invoke<K extends keyof Contracts & string>(name: K, input: Contracts[K]['input'], context: InvocationContext<A>): Promise<Contracts[K]['output']>;
-  toolsFor(actor: A): Record<string,{name: string; description: string; inputSchema: Schema; outputSchema: Schema; handler(input: unknown, context?: Omit<InvocationContext<A>,'actor'>): Promise<unknown>}>;
+  toolsFor(actor: A, options?: {surface?: CapabilitySurface}): Record<string,{name: string; description: string; inputSchema: Schema; outputSchema: Schema; handler(input: unknown, context?: Omit<InvocationContext<A>,'actor'|'surface'>): Promise<unknown>}>;
 }

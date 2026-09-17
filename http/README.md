@@ -63,3 +63,8 @@ Input/output schemas, per-input authorization, optional outcome `verify` and opt
 Writes default to `never-replay`. To declare an idempotent write, specify `retry:'idempotent'` and the remote service's `idempotencyHeader`, which receives the original callId. The remote service must actually enforce this contract; Core does not infer it from HTTP method. There is no automatic retry. Failed or invalid responses after writes remain unknown under the Dispatcher; query/reconcile the existing operation first. Body-based idempotency can be mapped explicitly from context, but this adapter does not automatically certify it as idempotent.
 
 This is explicit JSON API import, not an OpenAPI document parser, automatic endpoint discovery, arbitrary URL browsing or a remote server installer. Host request mappers define usable operations and remote authoritative authorization still applies. `examples/core-http-import` exports an imported API capability through MCP; focused tests additionally exercise a real local HTTP server, credential rotation, stable keys, projection, schema errors and timeouts.
+
+Candidate.104: server constructors accept trusted `surface` (default `model`).
+Use a separately authenticated `surface:'host'` handler for native Host operations;
+never derive it from request data. Discovery and invocation both enforce registry
+visibility. See ../capabilities/VISIBILITY.md for authorization and migration.

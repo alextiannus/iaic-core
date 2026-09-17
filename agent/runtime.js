@@ -1,3 +1,4 @@
+import {capabilityVisible,assertModelHistory} from '../capabilities/visibility.js';
 import {modelFailureReason} from './model-failure.js';
 import {usageDiagnostic} from './usage-diagnostic.js';
 import {verificationResult} from './verification.js';
@@ -47,9 +48,10 @@ export class AgentRuntime {
   }
   taskTools(capability,input){
     const declared=capability.implementation.tools,allowed=input.allowedTools;
-    if(allowed===undefined)return declared;
+    const visible=declared.filter(name=>capabilityVisible(this.dispatcher.capabilities.get(name),'model'));
+    if(allowed===undefined)return visible;
     if(!Array.isArray(allowed)||allowed.some(name=>typeof name!=='string'||!declared.includes(name))||new Set(allowed).size!==allowed.length)throw fail('Task allowedTools must be a unique subset of the Agent tools',400);
-    return declared.filter(name=>allowed.includes(name));
+    return visible.filter(name=>allowed.includes(name));
   }
   async checkMandate(actor,task,tool=null){
     if(task.input.mandate!==undefined&&!this.mandates)throw fail('Task Mandate resolver is unavailable',503);
@@ -92,6 +94,7 @@ export class AgentRuntime {
   async get(actor,id,{history=false}={}) {
     await this.state(actor,id);const task=await this.store.get(actor,id);
     const records=await this.store.history(actor,id);
+    assertModelHistory(records,this.dispatcher);
     // Validate current access before returning stored sources or report artifacts.
     const visible=await this.context.revalidateHistory({history:records,actor,dispatcher:this.dispatcher});
     const request=task.status==='waiting'&&task.waiting_reason==='input'?[...visible.events].reverse().find(event=>event.kind==='model_response'&&event.data?.type==='wait'&&typeof event.data.question==='string'):null;
@@ -163,6 +166,7 @@ export class AgentRuntime {
         if(await capability.authorize(actor,task.input)!==true)throw fail('Task access revoked',403);
         await this.checkExecution(actor,task);
         const history=await this.store.history(actor,task.id);
+        assertModelHistory(history,this.dispatcher);
         if(history.calls.some(call=>['running','unknown'].includes(call.status))){await this.executor.finish(task.id,{status:'waiting',reason:'external_result'});break;}
         const batch=pendingBatch(history);
         if(batch&&this.maxBatchCalls===1)throw fail('Pending batch requires its original enabled Runtime policy',503);
@@ -268,7 +272,7 @@ export class AgentRuntime {
         if(!allowedTools.includes(action.name)||selected?.implementation.kind!=='function'
           ||(capability.implementation.allowCall&&await capability.implementation.allowCall(task.input,action,{actor,task})!==true)){
           if(batch)await this.executor.append(task.id,'action_batch_closed',{id:batch.id,reason:'scope_rejected'});
-          await this.executor.append(task.id,'feedback',{error:'Requested capability is outside this task scope'});continue;
+          await this.executor.append(task.id,'feedback',{error:'Requested capability is outside this task scope',...(!capabilityVisible(selected,'model')?{code:'CAPABILITY_SURFACE_DENIED'}:{})});continue;
         }
         await this.checkExecution(actor,task);
         await this.checkMandate(actor,task,action.name);
@@ -287,7 +291,7 @@ export class AgentRuntime {
         if(task.authority)await this.authority.admitTool({actor,task,action,callId:call.id});
         await this.executor.dispatch(task.id,call.id);
         try{
-          const result=await this.dispatcher.invoke(action.name,action.input,{actor,taskId:task.id,callId:call.id,signal:executionSignal(),allowedCapabilities:allowedTools});
+          const result=await this.dispatcher.invoke(action.name,action.input,{actor,taskId:task.id,callId:call.id,signal:executionSignal(),allowedCapabilities:allowedTools,surface:'model'});
           const wait=selected.waitReady?await selected.waitReady(action.input,result,{actor})!==true:false;
           await this.executor.settle(task.id,call.id,{result,wait});
           if(task.authority)await this.authority.settleTool({task,callId:call.id,outcome:'returned'}).catch(()=>{});
@@ -303,7 +307,7 @@ export class AgentRuntime {
       }
     }catch(error){
       const current=await this.store.get(actor,task.id);
-      if(current.status==='running')await this.executor.finish(task.id,{status:'waiting',reason:error.code==='TOKEN_BALANCE_INSUFFICIENT'?'token_balance':error.code==='USAGE_RECONCILIATION_REQUIRED'?'usage_reconciliation':modelFailureReason(error)??(error.limitReached?'limit':'interrupted'),error:modelFailureReason(error)?error.code:String(error.message||error)});
+      if(current.status==='running')await this.executor.finish(task.id,{status:'waiting',reason:error.code==='TOKEN_BALANCE_INSUFFICIENT'?'token_balance':error.code==='USAGE_RECONCILIATION_REQUIRED'?'usage_reconciliation':modelFailureReason(error)??(error.limitReached?'limit':'interrupted'),error:(modelFailureReason(error)||error.code==='CAPABILITY_SURFACE_DENIED')?error.code:String(error.message||error)});
     }
     return this.store.get(actor,task.id);
   }

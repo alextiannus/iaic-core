@@ -98,3 +98,11 @@ if(false){
  host.project({actor:owner,task:{id:'task',trusted_context:'forged'}});
 }
 console.log(JSON.stringify({hostContextTyped:true,hostActorExplicit:true,rootAmbientShim:false}));
+
+// Consumption surface is a trusted constructor/call option, not business input.
+const modelTools = dispatcher.toolsFor(actor, {surface:'model'});
+void modelTools;
+if(false){
+ // @ts-expect-error Unknown surface is not accepted.
+ dispatcher.toolsFor(actor, {surface:'untrusted'});
+}
