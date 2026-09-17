@@ -1,5 +1,13 @@
 # Candidate status and practical limits
 
+Capability visibility update (2026-09-18): candidate.104 adds opt-in model/host/both
+consumption declarations. Model tools, HTTP/MCP discovery and execution, Runtime
+calls and historical call projections enforce the selected surface. Defaults keep
+undeclared capabilities on both surfaces. Host-only still requires current Actor
+permission, execution policy and stable write keys. See capabilities/VISIBILITY.md
+for explicit Host composition, migration, old Task handling and remaining limits.
+
+
 MCP type update (2026-09-18): candidate.103 provides the typed server subpath,
 peer SDK AuthInfo access context and an optional HTTP connection helper. A real
 installed HTTP consumer checks current identity, permission and stable write keys.

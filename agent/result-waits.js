@@ -21,7 +21,7 @@ export class ResultWaits {
      if(capability?.effect!=='read'||typeof capability.waitReady!=='function')return null;
      await this.authorizeTask(actor,task,task.wait_capability);
      const callId=await this.admitRead(actor,task,{name:task.wait_capability,input:task.wait_input});
-     let result;try{result=await this.dispatcher.invoke(task.wait_capability,task.wait_input,{actor,callId,signal:controller.signal});await this.settleRead(task,callId,'returned').catch(()=>{});}
+     let result;try{result=await this.dispatcher.invoke(task.wait_capability,task.wait_input,{actor,callId,signal:controller.signal,surface:'model'});await this.settleRead(task,callId,'returned').catch(()=>{});}
      catch(error){await this.settleRead(task,callId,'unknown').catch(()=>{});throw error;}
      if(await capability.waitReady(task.wait_input,result,{actor})!==true)return null;
      controller.signal.throwIfAborted();

@@ -1,3 +1,4 @@
+import {assertModelHistory} from '../capabilities/visibility.js';
 import {boundedHistory} from './bounded-history.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -43,6 +44,7 @@ export class ContextAssembler {
     ];
   }
   async revalidateHistory({history,actor,dispatcher}) {
+    assertModelHistory(history,dispatcher);
     const calls=[];
     for(const call of history.calls) {
       const target=dispatcher.capabilities.get(call.capability);

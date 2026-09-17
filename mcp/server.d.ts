@@ -1,3 +1,4 @@
+import type {CapabilitySurface} from '../capabilities/visibility.js';
 import type {Server} from '@modelcontextprotocol/sdk/server/index.js';
 import type {RequestHandlerExtra} from '@modelcontextprotocol/sdk/shared/protocol.js';
 import type {Implementation, ServerRequest, ServerNotification} from '@modelcontextprotocol/sdk/types.js';
@@ -13,4 +14,5 @@ export function createCapabilityMcpServer<Contracts extends {[K in keyof Contrac
   /** Re-evaluated on every discovery and call; the Dispatcher also authorizes execution. */
   resolveAccess(extra: McpAccessContext): MaybePromise<McpAccess<A> | null | undefined>;
   serverInfo?: Implementation;
+  surface?: CapabilitySurface;
 }): Server;

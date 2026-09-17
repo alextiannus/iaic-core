@@ -1,3 +1,4 @@
+import type {CapabilitySurface} from '../capabilities/visibility.js';
 import type {Actor, CapabilityContract, CapabilityDispatcher, MaybePromise} from '../capabilities/index.js';
 export interface HttpAccess<A extends Actor = Actor> {actor: A; capabilities: string[]}
 /** Host authentication, listening, body limits and transport remain application-owned. */
@@ -5,4 +6,5 @@ export function createCapabilityHttpHandler<Contracts extends {[K in keyof Contr
   dispatcher: Pick<CapabilityDispatcher<Contracts,A>,'capabilities'|'invoke'>;
   resolveAccess(request: Request): MaybePromise<HttpAccess<A> | null | undefined>;
   basePath?: string;
+  surface?: CapabilitySurface;
 }): (request: Request) => Promise<Response>;

@@ -1,3 +1,4 @@
+import {capabilityVisible,assertCapabilitySurface,validateSurface} from './visibility.js';
 import Ajv from 'ajv';
 import {preflightResult} from './preflight.js';
 import {toolCallLimits} from '../agent/tool-limits.js';
@@ -27,6 +28,7 @@ export function defineCapability(definition) {
   if (!definition.description || !definition.input || !definition.output || typeof definition.authorize !== 'function') {
     throw failure('Capability requires description, input/output schemas and authorization');
   }
+  if(definition.visibility!==undefined&&!['model','host','both'].includes(definition.visibility))throw failure('Invalid capability visibility',400,{code:'INVALID_CAPABILITY_VISIBILITY',publicCode:'INVALID_CAPABILITY_VISIBILITY'});
   const implementation = definition.implementation;
   if (implementation?.kind === 'function') {
     if (typeof implementation.execute !== 'function' || implementation.tools || implementation.instructions) {
@@ -78,9 +80,10 @@ export class CapabilityDispatcher {
     return decision;
   }
 
-  async invoke(name, input, { actor, callId = null, signal = null, allowedCapabilities = null, taskId = null } = {}) {
+  async invoke(name, input, { actor, callId = null, signal = null, allowedCapabilities = null, taskId = null, surface = 'host' } = {}) {
     const capability = this.capabilities.get(name);
     if (!capability) throw failure('Capability not found', 404);
+    assertCapabilitySurface(capability,surface);
     if (allowedCapabilities && !allowedCapabilities.includes(name)) throw failure('Capability is outside this task scope', 403);
     if (this.validateActor(actor,capability) !== true) throw failure('Application identity required', 401);
     if (signal?.aborted) throw failure('Execution cancelled', 409);
@@ -119,11 +122,12 @@ export class CapabilityDispatcher {
     }
   }
 
-  toolsFor(actor) {
-    return Object.fromEntries([...this.capabilities.values()].map(capability => [capability.name, {
+  toolsFor(actor,{surface='model'}={}) {
+    validateSurface(surface);
+    return Object.fromEntries([...this.capabilities.values()].filter(capability=>capabilityVisible(capability,surface)).map(capability => [capability.name, {
       name: capability.name, description: capability.description, inputSchema: capability.input,
       outputSchema: capability.output,
-      handler: (input, execution = {}) => this.invoke(capability.name, input, { ...execution, actor })
+      handler: (input, execution = {}) => this.invoke(capability.name, input, { ...execution, actor, surface })
     }]));
   }
 }

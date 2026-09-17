@@ -105,3 +105,9 @@ server ambient declaration, and replace a local server transport cast with the
 helper if needed. Preserve existing authentication and access resolvers. No schema,
 Task or database migration occurs. Rollback to 102 requires restoring the local
 types/connection boundary; existing operations and request keys are unchanged.
+
+Candidate.104: MCP server `surface` defaults to `model`; Host-only capabilities are
+hidden and guessed names denied. Only trusted composition may explicitly select
+`host`; external personal agents should receive the model endpoint. See
+../capabilities/VISIBILITY.md. AuthInfo and current Dispatcher authorization remain
+required independently of visibility.
