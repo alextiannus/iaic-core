@@ -9,11 +9,13 @@ try{
  const installed=await fs.realpath(path.join(consumer,'node_modules/@immedi/iaic-core'));if(!installed.startsWith((await fs.realpath(consumer))+path.sep))throw Error('Source link instead of installed package');
  await fs.copyFile(path.join(root,'examples/core-types-consumer/consumer.mts'),path.join(consumer,'consumer.mts'));
  await fs.copyFile(path.join(root,'examples/core-types-consumer/starter.mts'),path.join(consumer,'starter.mts'));
+ await fs.copyFile(path.join(root,'examples/core-types-consumer/http-results.mts'),path.join(consumer,'http-results.mts'));
  // Declarations must also resolve after the CLI copies the starter outside Core.
  for(const name of ['app.mjs','app.d.mts'])await fs.copyFile(path.join(installed,'developer/templates/agent',name),path.join(consumer,name));
  await fs.writeFile(path.join(consumer,'copied.mts'),"import {openApplication} from './app.mjs'; import type {ApplicationOptions} from './app.mjs'; export const open = (options:ApplicationOptions) => openApplication(options);\n");
- run([path.join(consumer,'node_modules/typescript/bin/tsc'),'--strict','--noEmitOnError','--target','es2022','--lib','es2022,dom','--module','nodenext','--moduleResolution','nodenext','--outDir','built','consumer.mts','starter.mts','copied.mts'],consumer);
+ run([path.join(consumer,'node_modules/typescript/bin/tsc'),'--strict','--noEmitOnError','--target','es2022','--lib','es2022,dom','--module','nodenext','--moduleResolution','nodenext','--outDir','built','consumer.mts','starter.mts','copied.mts','http-results.mts'],consumer);
  process.stdout.write(run(['built/consumer.mjs'],consumer));
  process.stdout.write(run(['built/starter.mjs'],consumer));
+ process.stdout.write(run(['built/http-results.mjs'],consumer));
  console.log(JSON.stringify({strictTypes:true,independentTarball:true,ambientShim:false,emittedProgramExecuted:true}));
 }finally{await fs.rm(temp,{recursive:true,force:true});}

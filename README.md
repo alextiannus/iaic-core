@@ -1,5 +1,12 @@
 # IAiC Core
 
+HTTP result update (2026-09-17): candidate.102 adds opt-in typed `invokeResult`
+for deterministic business results; `invoke` retains its transport envelope.
+Malformed responses retain observed HTTP status and never trigger automatic retry.
+See http/README.md for migration, unknown outcomes and the separate pending
+visibility/Artifact-transfer work. Application adoption remains unverified.
+
+
 Typed starter update (2026-09-17): candidate.101 supplies the ordinary Agent
 composition's strict NodeNext declaration and an independently installed PostgreSQL
 consumer. Task admission, wait/rebuild/continuation, explicit Host Actor restoration

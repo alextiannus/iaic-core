@@ -10,4 +10,6 @@ export class CapabilityHttpClient<Contracts extends {[K in keyof Contracts]: Cap
   constructor(options: {url: string; fetch?: typeof fetch; headers?: () => HeadersInit | Promise<HeadersInit>});
   list(options?: {signal?: AbortSignal}): Promise<CapabilityDescription[]>;
   invoke<K extends keyof Contracts & string>(name: K, input: Contracts[K]['input'], options?: CallOptions): Promise<CapabilityResponse<Contracts[K]['output']>>;
+  /** Deterministic function result only. Task admission throws; reconcile, never auto-retry. */
+  invokeResult<K extends keyof Contracts & string>(name: K, input: Contracts[K]['input'], options?: CallOptions): Promise<Contracts[K]['output']>;
 }
