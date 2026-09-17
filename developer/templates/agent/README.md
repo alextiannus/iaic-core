@@ -2,6 +2,38 @@
 
 This is application-owned glue over the existing Core Runtime and resource modules. It supplies a configurable persistent working subject with scoped Memory, Workspace, selected Skills, sourced Knowledge, Session links, independent model settings and platform allowance accounting. It has no UI or mandatory role taxonomy. It does not copy an external companion framework.
 
+## TypeScript starter contract
+
+Import `openApplication`, `ApplicationOptions` and `Application` from
+`@immedi/iaic-core/developer/templates/agent/app.mjs`. The adjacent `app.d.mts`
+supports strict NodeNext and is also copied by the Agent scaffolder. It declares
+ordinary system-profile configuration, custom metered model factories, job/tool
+selection, current authorization, independent outcome verification, Host context,
+Capability injection, Task admission/read/continuation/drain, scoped allowance
+grants and settlement inspection. The structural database port accepts `pg.Pool`.
+No root ambient declaration or implicit `any` is required.
+
+`Application<A>` uses rich `A` only for explicit `hostContext.restoreActor`.
+The `authorize` and outcome callbacks receive the minimal Core Actor, because
+business identity is not persisted/restored by Runtime. Define extra Capabilities
+against CoreActor and restore business identity using their Task ID, including in
+history `revalidate`. Every function result used in later history needs current
+revalidation; these declarations do not enforce that entire application policy.
+
+This is a **basic composition contract**, not full declarations for every returned
+module. Raw resource handles are `unknown`, not callable `any`. Optional scheduling,
+events, Mandates, routing, release-binding and legacy user-model extension options
+are not yet declared here; their existing JavaScript module compositions remain
+available. Extend those module contracts separately when needed. Core root and full
+Agent/Task/Peer declarations remain open. No runtime behavior or database migration
+changes in candidate.101.
+
+`examples/core-types-consumer/starter.mts` compiles and executes this public entry
+from an independently installed tarball against isolated PostgreSQL. It verifies
+Task wait, process-composition rebuild, continuation, explicit Actor restoration,
+revocation, current history revalidation, one synthetic write and settled allowance.
+This is not a real Provider or production business acceptance test.
+
 Install with `npm install --ignore-scripts`. Set an isolated `SUBMISSION_TEST_DATABASE_URL` and run `npm test`. The test submits work, closes its Session, changes the default model, stops the initial Runtime, then runs queued work in a separate Node process. It confirms original model binding, existing resources, artifact references, scoped access and allowance settlement, plus pause on zero allowance and resume after explicit funding. `fixture-model.mjs` is only for this deterministic test; the real server never imports it. This is process-separated queued-work recovery, not a kill during a remote write or real-model quality acceptance.
 
 For actual use, set DATABASE_URL, APP_TOKEN, APP_SUBJECT, APP_ORGANIZATION, IAIC_MODEL and AI_API_KEY. Optionally set IAIC_PROVIDER=chat-completions and IAIC_MODEL_BASE_URL to a compatible HTTPS base endpoint. Run `npm start`; it binds loopback port 3000 by default. Replace the single-user token mapping in server.mjs with application authentication and current organization membership checks before wider use.

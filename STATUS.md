@@ -1,5 +1,13 @@
 # Candidate status and practical limits
 
+Typed starter update (2026-09-17): candidate.101 supplies the ordinary Agent
+composition's strict NodeNext declaration and an independently installed PostgreSQL
+consumer. Task admission, wait/rebuild/continuation, explicit Host Actor restoration
+and allowance settlement are exercised. See developer/templates/agent/README.md
+for the exact scope: raw module handles remain unknown; optional extension and
+full root/Agent/Task/Peer declarations are not complete. No runtime/schema change.
+
+
 Host context update (2026-09-17): candidate.100 adds Host-only immutable context
 references, separate model projections, explicit current business Actor restoration,
 and ordinary Agent starter wiring. See [Host context contract](context/HOST.md).
