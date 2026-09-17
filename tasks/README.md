@@ -58,3 +58,5 @@ Use `readTask:(actor,id)=>runtime.state(actor,id)` for current authorization wit
 The reference identifies the recorded response; it is not a conditional-write token or an authorization grant. Use the existing stable clarification request key and receipt rules. Applications own stale-question interaction, display and any additional output/retention policy; this field does not reconstruct a new question or automatically redact derived historical statements. See the opt-in core-ui-bindings example for a browser using this field through the ordinary SDK.
 
 Model waits additionally expose an allow-listed diagnostic in default controls/listing. Deterministic model failures cannot be resumed. See [model failures and migration](../agent/MODEL_FAILURES.md).
+
+Migration017 and host-only executorState/requestExecutorDrain ports support generation-scoped handoff; all executor transactions validate ownership. See [deployment contract](../agent/EXECUTOR_HANDOFF.md).

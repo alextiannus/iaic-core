@@ -19,10 +19,13 @@ export class AgentRuntime {
     Object.assign(this,{store,dispatcher,model,context,version,maxTurns,maxCalls,modelTimeoutMs,maxOutputBytes,taskTimeoutMs,rateLimitDelayMs,maxBatchCalls,resolveModel,agentIdentity,mandates,handoffs,authority});
     this.resultWaits=new ResultWaits({store,dispatcher,version,authorizeTask:(actor,task,name)=>this.checkResultWait(actor,task,name),admitRead:async(actor,task,action)=>{if(!task.authority)return null;const callId=randomUUID();await this.authority.admitTool({actor,task,action,callId});return callId;},settleRead:async(task,callId,outcome)=>{if(task.authority)await this.authority.settleTool({task,callId,outcome});}});
     this.delegations=new Delegations({store,handoffs,version,authorizeTask:async(actor,task)=>{await this.state(actor,task.id);await this.checkMandate(actor,task);if(task.agent&&!this.agentIdentity)throw fail('Agent resolver unavailable',503);if(this.agentIdentity)await this.agentIdentity.check({actor,task,binding:task.agent});}});
-    this.executor=null;this.running=null;this.timer=null;
+    this.executor=null;this.running=null;this.timer=null;this.retired=false;
   }
-  async initialize(){
-    await this.store.initialize();const executor=await this.store.acquireExecutor();
+  async initialize({requestHandoff=false}={}){
+    if(typeof requestHandoff!=='boolean')throw fail('requestHandoff must be boolean',400);
+    await this.store.initialize();
+    if(requestHandoff){const current=await this.store.executorState();if(current.generation!==null)await this.store.requestExecutorDrain({generation:current.generation});}
+    const executor=await this.store.acquireExecutor();
     if(executor&&this.maxBatchCalls>1&&typeof executor.prepareBatchAction!=='function'){await executor.close();throw fail('Task executor does not support durable batch action receipts',503);}
     this.executor=executor;return {ready:Boolean(executor)};
   }
@@ -106,21 +109,28 @@ export class AgentRuntime {
     if(request.action==='cancel'&&this.handoffs)await this.handoffs.cancelChildren(actor,id);
     return result;
   }
-  start(intervalMs=1000){if(this.timer)return;this.timer=setInterval(()=>this.tick().catch(error=>console.error('IAiC runtime stopped a tick',{message:error.message})),intervalMs);this.timer.unref?.();}
+  start(intervalMs=1000){if(this.timer||this.retired)return;this.timer=setInterval(()=>this.tick().catch(error=>console.error('IAiC runtime stopped a tick',{message:error.message})),intervalMs);this.timer.unref?.();}
   get ready(){return Boolean(this.executor&&!this.executor.failed&&!this.executor.closed);}
   tick(){
+    if(this.retired)return Promise.resolve(null);
     if(this.running)return this.running;
     this.running=(async()=>{
       if(!this.ready){
+        if(this.executor?.generation){
+          const state=await this.store.executorState();
+          if(state.generation!==this.executor.generation||state.state==='draining'){this.retired=true;clearInterval(this.timer);this.timer=null;await this.executor.close();this.executor=null;return null;}
+        }
         if(this.executor)await this.executor.close();
         this.executor=await this.store.acquireExecutor();
       }
-      if(!this.ready)return null;
+      if(this.retired||!this.ready)return null;
       if(this.authority?.tick)await this.authority.tick();
       if(this.handoffs)await this.handoffs.tick();
       await this.delegations.tick();
       await this.resultWaits.tick();
-      return this.runNext();
+      const result=await this.runNext();
+      if(this.executor?.draining){this.retired=true;clearInterval(this.timer);this.timer=null;await this.executor.close();this.executor=null;}
+      return result;
     })().finally(()=>{this.running=null;});
     return this.running;
   }
@@ -288,7 +298,23 @@ export class AgentRuntime {
     }
     return this.store.get(actor,task.id);
   }
-  async stop(){clearInterval(this.timer);this.timer=null;if(this.running)await this.running;if(this.executor)await this.executor.close();this.executor=null;}
+  async deploymentState(){
+    const ownership=await this.store.executorState();
+    return {acceptingTicks:!this.retired,ownsExecutor:this.ready,generation:this.executor?.generation??null,ownership,requiresTermination:this.retired&&Boolean(this.running)};
+  }
+  async drain({timeoutMs=30000}={}){
+    if(!Number.isSafeInteger(timeoutMs)||timeoutMs<0||timeoutMs>300000)throw fail('Drain timeout must be 0..300000 ms',400);
+    this.retired=true;clearInterval(this.timer);this.timer=null;
+    if(this.executor?.generation)await this.store.requestExecutorDrain({generation:this.executor.generation});
+    let timer;
+    const completed=this.running?await Promise.race([this.running.then(()=>true,()=>true),new Promise(resolve=>{timer=setTimeout(()=>resolve(false),timeoutMs);})]).finally(()=>clearTimeout(timer)):true;
+    // Never unlock while the host's action can still be running. On timeout the
+    // supervisor must terminate the process; the next session then recovers.
+    if(!completed)return {drained:false,requiresTermination:true};
+    if(this.executor)await this.executor.close();this.executor=null;
+    return {drained:true,requiresTermination:false};
+  }
+  async stop(){this.retired=true;clearInterval(this.timer);this.timer=null;try{if(this.running)await this.running;}finally{if(this.executor)await this.executor.close();this.executor=null;}}
 }
 
 function normalizeAction(response){

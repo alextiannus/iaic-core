@@ -1,3 +1,4 @@
+import {executorState,requestExecutorDrain,takeOwnership,assertOwnership} from './ownership.js';
 import fs from 'node:fs/promises';
 import {pageOptions,pagePosition} from './paging.js';
 import {transitionBinding,checkedTransition} from './transition-requests.js';
@@ -20,6 +21,7 @@ export class TaskStore {
     await this.pool.query(await fs.readFile(new URL('./migrations/014_iaic_action_batches.sql',import.meta.url),'utf8'));
     await this.pool.query(await fs.readFile(new URL('./migrations/015_iaic_transition_receipts.sql',import.meta.url),'utf8'));
     await this.pool.query(await fs.readFile(new URL('./migrations/016_iaic_task_pages.sql',import.meta.url),'utf8'));
+    await this.pool.query(await fs.readFile(new URL('./migrations/017_iaic_executor_ownership.sql',import.meta.url),'utf8'));
   }
   async create({actor,capability,input,idempotencyKey,version,model,agent=null,handoff=null,authority=null}) {
     if(!idempotencyKey||!version||!model)throw conflict('Task identity, key, code/Skill version and model are required');
@@ -188,27 +190,30 @@ export class TaskStore {
       await event(connection,id,'delegation_received',{...receipt,delegationId});await event(connection,id,'resumed',{source:'delegation'});await connection.query('COMMIT');return true;
     }catch(error){await connection.query('ROLLBACK').catch(()=>{});throw error;}finally{connection.release();}
   }
+  executorState(){return executorState(this.pool);}
+  requestExecutorDrain(request){return requestExecutorDrain(this.pool,request);}
   async acquireExecutor() {
     const connection=await this.pool.connect();
     try{
       const acquired=(await connection.query("SELECT pg_try_advisory_lock(hashtextextended(current_database() || ':' || current_schema() || ':iaic-executor',0)) AS acquired")).rows[0].acquired;
       if(!acquired){connection.release();return null;}
       const executor=new TaskExecutor(connection);
+      executor.generation=await takeOwnership(connection,executor.token);
       await executor.recover();return executor;
     }catch(error){connection.release(true);throw error;}
   }
 }
 
 class TaskExecutor {
-  constructor(connection){this.connection=connection;this.token=randomUUID();this.closed=false;this.failed=false;this.queue=Promise.resolve();
+  constructor(connection){this.connection=connection;this.token=randomUUID();this.closed=false;this.failed=false;this.draining=false;this.queue=Promise.resolve();
     this.onError=()=>{this.failed=true;};connection.on('error',this.onError);}
   // A dedicated DB session owns the executor lock. Never reconnect this session;
   // connection loss prevents any new operation from passing admission.
   transaction(operation){
     const run=this.queue.then(async()=>{
       if(this.closed||this.failed)throw conflict('Executor session is unavailable');
-      try{await this.connection.query('BEGIN');const result=await operation(this.connection);await this.connection.query('COMMIT');return result;}
-      catch(error){await this.connection.query('ROLLBACK').catch(()=>{this.failed=true;});throw error;}
+      try{await this.connection.query('BEGIN');const ownership=await assertOwnership(this.connection,this);this.draining=ownership.state==='draining';const result=await operation(this.connection);await this.connection.query('COMMIT');return result;}
+      catch(error){await this.connection.query('ROLLBACK').catch(()=>{this.failed=true;});if(error.code==='EXECUTOR_FENCED')this.failed=true;throw error;}
     });this.queue=run.catch(()=>{});return run;
   }
   recover(){return this.transaction(async c=>{
@@ -222,6 +227,7 @@ class TaskExecutor {
     }
   });}
   claim(version){return this.transaction(async c=>{
+    if(this.draining)return null;
     if((await c.query("SELECT id FROM iaic_tasks WHERE status='running' LIMIT 1")).rowCount)return null;
     if((await c.query("SELECT id FROM iaic_calls WHERE status='running' LIMIT 1")).rowCount)return null;
     const row=(await c.query("SELECT * FROM iaic_tasks WHERE status='queued' ORDER BY created_at,id FOR UPDATE LIMIT 1")).rows[0];
@@ -288,6 +294,7 @@ class TaskExecutor {
     await event(c,taskId,kind,data);
   });}
   async close(){await this.queue;if(this.closed)return;this.closed=true;this.connection.off('error',this.onError);
+    if(!this.failed)await this.connection.query("UPDATE iaic_executor_ownership SET state='released',owner_token=NULL,updated_at=now() WHERE singleton=true AND owner_token=$1 AND generation=$2",[this.token,this.generation]).catch(()=>{this.failed=true;});
     if(!this.failed)await this.connection.query("SELECT pg_advisory_unlock(hashtextextended(current_database() || ':' || current_schema() || ':iaic-executor',0))").catch(()=>{this.failed=true;});this.connection.release(this.failed);}
 }
 async function event(connection,taskId,kind,data){await connection.query('INSERT INTO iaic_task_events(task_id,kind,data) VALUES($1,$2,$3)',[taskId,kind,JSON.stringify(data)]);}

@@ -27,7 +27,8 @@ owner and new end date; there is no automatic or unlimited extension.
 | `v0.1.0-candidate.95` | Replaced when candidate.96 is published | 2026-09-29 23:59 UTC | Optional provider channels; no database migration |
 | `v0.1.0-candidate.96` | Replaced when candidate.97 is published | 2026-09-29 23:59 UTC | Lark subpath type addition; no database migration |
 | `v0.1.0-candidate.97` | Replaced when candidate.98 is published | 2026-10-01 23:59 UTC | Upgrade for model failure classification; expanded waiting-reason constraint, no mixed-version initialization |
-| `v0.1.0-candidate.98` | Model failure classification prepared; current upon verified publication | On replacement, record an explicit date 14 days later | See agent/MODEL_FAILURES.md; executor handoff and template types remain pending |
+| `v0.1.0-candidate.98` | Replaced when candidate.99 is published | 2026-10-01 23:59 UTC | Controlled executor stop for initial upgrade; migration017 and new ownership protocol |
+| `v0.1.0-candidate.99` | Executor handoff prepared; current upon verified publication | On replacement, record an explicit date 14 days later | See agent/EXECUTOR_HANDOFF.md; live host rollout, trusted Context and template types remain pending |
 
 The GitHub release and verified asset determine whether publication occurred.
 A source commit or this preparation record alone is not a published version.

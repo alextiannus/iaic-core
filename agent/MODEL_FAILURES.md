@@ -51,8 +51,8 @@ the correct host implementation/version policy.
 
 ## Remaining scope
 
-This release does not implement deployment drain/fenced lease handoff from
-12Eat feedback §34.1. Historical executor recovery keeps its `interrupted`
+Candidate.98 did not implement deployment handoff. Candidate.99 adds the
+host-only drain/generation protocol for feedback §34.1; see EXECUTOR_HANDOFF.md. Historical executor recovery keeps its `interrupted`
 reason. Non-model host failures still use the legacy interruption fallback;
 separating all host/authorization/configuration failures and renaming historical
 executor reasons needs a separate lifecycle/API change. No production incident
