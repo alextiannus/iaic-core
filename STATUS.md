@@ -1,5 +1,11 @@
 # Candidate status and practical limits
 
+Access diagnostics update (2026-09-18): candidate.106 adds stable public codes for
+unavailable capabilities, Domain denial, Task scope exclusion and missing Actor.
+HTTP status and MCP protocol/tool-error envelopes are preserved. MCP no longer
+exports arbitrary private error.code values. See capabilities/ACCESS_DIAGNOSTICS.md.
+Actor matrix tooling and automatic projection drift detection remain pending.
+
 Model readiness update (2026-09-18): candidate.105 adds an opt-in typed evidence
 gate for Host-declared job requirements, bound verification, expiry/revocation
 and HTTPS/TLS evidence. Runtime checks admission; metering checks before reserve;

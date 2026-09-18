@@ -31,7 +31,7 @@ export function createCapabilityMcpServer({dispatcher,resolveAccess,serverInfo={
   let cap,key,started=false;
   try{
    const access=await accessFor(extra);cap=access.capabilities.find(cap=>cap.name===request.params.name);
-   if(!cap)throw new McpError(ErrorCode.InvalidParams,'Tool is not available to this caller');
+   if(!cap)throw new McpError(ErrorCode.InvalidParams,'Tool is not available to this caller',{code:'CAPABILITY_NOT_AVAILABLE',statusCode:404});
    assertCapabilitySurface(cap,surface);
    if(request.params.task!==undefined)throw fail('MCP task-augmented execution is unsupported; Agent tools return application Task receipts',400);
    const envelope=request.params.arguments??{};
@@ -47,7 +47,7 @@ export function createCapabilityMcpServer({dispatcher,resolveAccess,serverInfo={
    const statusCode=Number.isInteger(error.statusCode)?error.statusCode:500;
    const outcomeUnknown=error.outcomeUnknown===true||(started&&cap?.implementation.kind==='agent'&&statusCode>=500);
    const details={...publicErrorFields(error),message:statusCode<500?String(error.message).slice(0,2000):'Capability execution failed',statusCode,outcomeUnknown,
-    ...(typeof error.code==='string'?{code:error.code}:{}),...(Array.isArray(error.validation)?{validation:error.validation.slice(0,20).map(({instancePath,keyword,message})=>({path:instancePath,keyword,message}))}:{}),...(typeof key==='string'?{requestKey:key}:{}),
+    ...(Array.isArray(error.validation)?{validation:error.validation.slice(0,20).map(({instancePath,keyword,message})=>({path:instancePath,keyword,message}))}:{}),...(typeof key==='string'?{requestKey:key}:{}),
     ...(outcomeUnknown?{recovery:'Query or reconcile the existing operation before retrying. Do not use a new request key to bypass an unknown result.'}:{})};
    return {isError:true,content:[{type:'text',text:JSON.stringify({error:details})}]};
   }

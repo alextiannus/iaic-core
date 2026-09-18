@@ -82,15 +82,15 @@ export class CapabilityDispatcher {
 
   async invoke(name, input, { actor, callId = null, signal = null, allowedCapabilities = null, taskId = null, surface = 'host' } = {}) {
     const capability = this.capabilities.get(name);
-    if (!capability) throw failure('Capability not found', 404);
+    if (!capability) throw failure('Capability not found', 404, {code: 'CAPABILITY_NOT_AVAILABLE', publicCode: 'CAPABILITY_NOT_AVAILABLE'});
     assertCapabilitySurface(capability,surface);
-    if (allowedCapabilities && !allowedCapabilities.includes(name)) throw failure('Capability is outside this task scope', 403);
-    if (this.validateActor(actor,capability) !== true) throw failure('Application identity required', 401);
+    if (allowedCapabilities && !allowedCapabilities.includes(name)) throw failure('Capability is outside this task scope', 403, {code: 'CAPABILITY_SCOPE_DENIED', publicCode: 'CAPABILITY_SCOPE_DENIED'});
+    if (this.validateActor(actor,capability) !== true) throw failure('Application identity required', 401, {code: 'ACTOR_REQUIRED', publicCode: 'ACTOR_REQUIRED'});
     if (signal?.aborted) throw failure('Execution cancelled', 409);
     const value = structuredClone(input);
     if (!capability.validateInput(value)) throw failure('Capability input is invalid', 400, { validation: structuredClone(capability.validateInput.errors) });
     const identity = freeze(structuredClone(actor));
-    if (await capability.authorize(identity, value) !== true) throw failure('Capability access denied', 403);
+    if (await capability.authorize(identity, value) !== true) throw failure('Capability access denied', 403, {code: 'CAPABILITY_ACCESS_DENIED', publicCode: 'CAPABILITY_ACCESS_DENIED'});
     if (signal?.aborted) throw failure('Execution cancelled', 409);
     if (taskId !== null && (typeof taskId !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(taskId))) throw failure('Invalid host Task reference');
     const context = { actor: identity, callId, signal, ...(taskId === null ? {} : {taskId}) };

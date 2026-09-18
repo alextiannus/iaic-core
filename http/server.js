@@ -32,7 +32,7 @@ export function createCapabilityHttpHandler({dispatcher, resolveAccess, basePath
         resultKind: c.implementation.kind === 'agent' ? 'task-receipt' : 'capability-result'
       }))});
       cap = capabilities.find(c => c.name === name);
-      if (!cap) throw failure('Capability not available', 404);
+      if (!cap) throw Object.assign(failure('Capability not available', 404), {publicCode: 'CAPABILITY_NOT_AVAILABLE'});
       assertCapabilitySurface(cap,surface);
       if (request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json') throw failure('JSON content type required', 415);
       let body;
