@@ -1,5 +1,11 @@
 # IAiC Core
 
+Access matrix update (2026-09-18): candidate.107 adds an optional typed Host
+catalog matrix checker for explicit Actor/context fixtures across HTTP/MCP/UI
+entrances and model/host surfaces. It reports omissions and excess visibility
+without invoking capabilities. See developer/ACCESS_MATRIX.md. Execution matrix
+automation and application acceptance remain pending.
+
 Access diagnostics update (2026-09-18): candidate.106 adds stable public codes for
 unavailable capabilities, Domain denial, Task scope exclusion and missing Actor.
 HTTP status and MCP protocol/tool-error envelopes are preserved. MCP no longer
