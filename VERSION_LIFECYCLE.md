@@ -36,7 +36,8 @@ owner and new end date; there is no automatic or unlimited extension.
 | `v0.1.0-candidate.104` | Replaced when candidate.105 is published | 2026-10-02 23:59 UTC | Opt-in model readiness; preserve original model identity and stop unaware executors |
 | `v0.1.0-candidate.105` | Replaced when candidate.106 is published | 2026-10-02 23:59 UTC | Additive access diagnostics; no database migration |
 | `v0.1.0-candidate.106` | Replaced when candidate.107 is published | 2026-10-02 23:59 UTC | Optional catalog matrix; no runtime/database migration |
-| `v0.1.0-candidate.107` | Access catalog matrix prepared; current upon verified publication | On replacement, record an explicit date 14 days later | See developer/ACCESS_MATRIX.md; no database migration |
+| `v0.1.0-candidate.107` | Replaced when candidate.108 is published | 2026-10-03 23:59 UTC | Upgrade for sparse catalog/configuration validation |
+| `v0.1.0-candidate.108` | Matrix validation fix prepared; current upon verified publication | On replacement, record an explicit date 14 days later | No runtime/database migration |
 
 The GitHub release and verified asset determine whether publication occurred.
 A source commit or this preparation record alone is not a published version.

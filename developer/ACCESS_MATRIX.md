@@ -46,3 +46,7 @@ to discover access. A combined execution matrix runner is still pending.
 Migration: opt-in developer module; no runtime, database or Task changes. Preserve
 existing Actor/Workspace bindings and operation receipts. Rollback removes only
 the optional check/import. candidate.106 support ends 2026-10-02 23:59 UTC.
+
+Candidate.108 rejects sparse arrays in catalogs, expected names, cases and entrances.
+Previously a one-hole catalog could incorrectly pass an empty expectation. No
+API/database migration; rollback loses this check, so validate dense inputs in Host.
