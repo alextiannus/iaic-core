@@ -30,3 +30,17 @@ test('Matrix validates expectations before reads and keeps catalog failures priv
  const result=await checkAccessCatalogMatrix({cases:[{name:'fixture',context:'secret-token',expected:{model:[]}}],entrances:[{...entrance,name:'throws',list:()=>{throw new Error('secret-token');}},{...entrance,name:'malformed',list:()=>['a','a']},entrance]});
  assert.equal(result.passed,false);assert.deepEqual(result.checks.map(c=>c.error),['CATALOG_UNAVAILABLE','INVALID_CATALOG',undefined]);assert.equal(reads,1);assert.equal(JSON.stringify(result).includes('secret-token'),false);
 });
+
+test('Sparse catalogs never pass an empty expected catalog and sparse configuration fails before reads',async()=>{
+ let reads=0;
+ const fixture={name:'empty',context:null,expected:{model:[]}};
+ const entrance={name:'reader',surface:'model',list:()=>{reads++;return [];}};
+ const result=await checkAccessCatalogMatrix({cases:[fixture],entrances:[{...entrance,list:()=>Array(1)}]});
+ assert.equal(result.passed,false);assert.equal(result.checks[0].error,'INVALID_CATALOG');
+ for(const options of [
+  {cases:[fixture,,],entrances:[entrance]},
+  {cases:[fixture],entrances:[entrance,,]},
+  {cases:[fixture,{...fixture,name:'sparse',expected:{model:Array(1)}}],entrances:[entrance]}
+ ])await assert.rejects(checkAccessCatalogMatrix(options),TypeError);
+ assert.equal(reads,0);
+});

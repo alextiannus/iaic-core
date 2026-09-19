@@ -1,10 +1,11 @@
 // Host-side diagnostics only. Entrances adapt authenticated catalog readers;
 // this module has no execution, authorization or grant-changing port.
 const label=value=>typeof value==='string'&&value.trim().length>0&&value.length<=128;
-const names=value=>Array.isArray(value)&&value.every(n=>typeof n==='string'&&/^[a-z][a-z0-9_.-]*$/.test(n))&&new Set(value).size===value.length;
+const names=value=>Array.isArray(value)&&Array.from(value).every(n=>typeof n==='string'&&/^[a-z][a-z0-9_.-]*$/.test(n))&&new Set(value).size===value.length;
 const invalid=()=>{throw new TypeError('Invalid access catalog matrix configuration');};
 export async function checkAccessCatalogMatrix({cases,entrances}={}){
  if(!Array.isArray(cases)||!cases.length||!Array.isArray(entrances)||!entrances.length)invalid();
+ cases=Array.from(cases);entrances=Array.from(entrances);
  if(new Set(cases.map(c=>c?.name)).size!==cases.length||new Set(entrances.map(e=>e?.name)).size!==entrances.length)invalid();
  // Snapshot expectations and callbacks before the first asynchronous read.
  const readers=entrances.map(e=>{

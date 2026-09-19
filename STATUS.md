@@ -1,5 +1,9 @@
 # Candidate status and practical limits
 
+Catalog validation fix (2026-09-19 UTC): candidate.108 rejects sparse catalog
+arrays instead of incorrectly passing an empty expectation. Sparse matrix
+configuration is rejected before any reader runs. No authorization/runtime changes.
+
 Access matrix update (2026-09-18): candidate.107 adds an optional typed Host
 catalog matrix checker for explicit Actor/context fixtures across HTTP/MCP/UI
 entrances and model/host surfaces. It reports omissions and excess visibility
