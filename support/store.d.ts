@@ -1,6 +1,9 @@
 import type {SupportStore,SupportIssue,SupportEvent} from './service.js';
 export class PostgresSupportStore implements SupportStore {
  constructor(options:{pool:any;namespace:string}); initialize():Promise<void>;
+ scopes(input?:{limit?:number;afterScope?:string}):Promise<string[]>;
+ pendingEvents(consumerId:string,input?:{limit?:number}):Promise<Array<{scopeId:string;issueId:string;revision:number;state:string}>>;
+ acknowledgeEvent(consumerId:string,event:{scopeId:string;issueId:string;revision:number}):Promise<void>;
  create(scope:string,reporter:string,input:{requestKey:string;report:Record<string,string>}):Promise<SupportIssue>;
  get(scope:string,id:string):Promise<SupportIssue|null>;
  list(scope:string,input?:{reporterId?:string;limit?:number;afterId?:string}):Promise<SupportIssue[]>;

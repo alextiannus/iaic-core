@@ -17,3 +17,12 @@ Initialize the additive PostgreSQL schema through the host's migration lifecycle
 Remaining scope: host capture/UI, trusted Platform Agent identity, engineering-task linking/claiming, automatic event collection, cross-reporter deduplication, notification scheduling, deployed release adapter and actual user acceptance. This module does not claim these are configured in 12Eat.
 
 `list` and `queue` return bounded pages (default 50, maximum 100). Pass the last issue's `id` as `afterId` until an empty/short page; ordering is stable by UUID, not creation time. Restart a scan to discover concurrent reports inserted before the cursor. Tenant/reporter authorization applies independently to every page. Notification admission rechecks the caller after the asynchronous sender resolver.
+
+`SupportEventConsumer` is a trusted host worker port for durable engineering handoff
+and notification admission. Each independent consumer acknowledges individual events
+only after its delivery port succeeds. A failed callback remains pending, including
+when its external effect succeeded but the acknowledgement was lost. Delivery ports
+must use the supplied stable `requestKey` to deduplicate or query that effect before
+retrying. This is not a task executor and grants no code, repository, or deployment
+authority. Do not expose `pendingEvents` directly to untrusted callers. The host must
+restore current engineering authority and scope before exposing any report content.
