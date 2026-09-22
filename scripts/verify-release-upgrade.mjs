@@ -11,7 +11,8 @@ const predecessor={tag:'v0.1.0-candidate.107',asset:'immedi-iaic-core-0.1.0-cand
 const root=fileURLToPath(new URL('../',import.meta.url)),npm=process.env.npm_execpath;
 if(!npm)throw Error('Use npm run verify:release-upgrade');
 const current=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8'));
-assert.match(current.version,/^\d+\.\d+\.\d+-candidate\.\d+$/);
+// Also exercise unpublished support integration builds; this does not publish a release.
+assert.match(current.version,/^\d+\.\d+\.\d+-candidate\.\d+(?:-support\.[1-9]\d*)?$/);
 const run=(args,cwd,env=process.env)=>{
  const result=spawnSync(process.execPath,args,{cwd,env,encoding:'utf8',timeout:180000});
  if(result.status!==0)throw Error(result.stderr||result.stdout||String(result.error));return result.stdout;

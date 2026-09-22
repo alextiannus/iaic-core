@@ -1055,3 +1055,7 @@ platform allowance behavior. Role boundaries remain unchanged.
 This is a deterministic execution demonstration, not real-model/12Eat integration
 acceptance or a finished companion UI. No schema/API change to the Core engine.
 The separate public TypeScript declarations work remains pending.
+
+## 2026-09-22 — Support issue lifecycle, local candidate
+
+`support/` adds scoped user reports, immutable issue events, revision-fenced engineering status, trusted deployment/regression resolution and idempotent original-recipient notification admission. It composes existing CapabilityDispatcher and Notifications rather than adding an Agent, scheduler or deployment engine. Candidate `0.1.0-candidate.108-support.2` is a local unpubished integration candidate, not a released replacement for candidate.108. Node 20 + isolated PostgreSQL: 397 module tests passed without skips. 12Eat independently installed the packed archive and passed 258 tests plus desktop/mobile feedback browser tests. Production identity, trusted release evidence, engineering task scheduling and notification-channel delivery remain host integrations. See `support/README.md` and Obsidian `48 - User Issue Resolution Basic Framework.md`.
