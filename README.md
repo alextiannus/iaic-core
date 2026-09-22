@@ -230,3 +230,7 @@ and reciprocal reviews. It accepts work requests from either member and retains
 requester/executor provenance. A real system-model/Codex review, correction and
 reciprocal-review loop has also completed; see the host evidence below. Arbitrary
 external takeover of an interrupted native Task remains unfinished.
+
+### User issue resolution
+
+The additive [Support issue lifecycle](support/README.md) connects authenticated user feedback, engineering status, verified release evidence and notification admission. It is a Basic framework mechanism with application-owned capture, permissions, release verification and notification delivery adapters. The current support candidate is local and unpublished.
