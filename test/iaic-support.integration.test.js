@@ -73,3 +73,20 @@ test('support notification rechecks revoked authority after resolving the sender
  const service=new SupportIssues({store:{get:async()=>({id,scopeId:'a',reporterId:'alice'}),history:async()=>[{revision:1,state:'received',message:'Received'}]},resolveIdentity:a=>a,authorize:()=>!revoked,notificationActor:async()=>{revoked=true;return actor},notifications:{enqueue:async()=>{enqueued=true}}});
  await assert.rejects(service.notify(actor,{id,revision:1}),{code:'SUPPORT_ACCESS_DENIED'});assert.equal(enqueued,false);
 });
+
+test('support event consumer retries interrupted delivery and isolates consumer acknowledgements',{skip:!url},async()=>{
+ const {SupportEventConsumer}=await import('../support/consumer.js');
+ const pool=new pg.Pool({connectionString:url}),ns='support-events-'+randomUUID();
+ const store=new PostgresSupportStore({pool,namespace:ns});await store.initialize();
+ try{
+  const issue=await store.create('a','alice',{requestKey:'one',report:{summary:'failure'}});
+  let fail=true;const effects=new Set();
+  const consumer=new SupportEventConsumer({store,consumerId:'inbox',deliver:async e=>{effects.add(e.requestKey);if(fail)throw Error('Lost acknowledgement');}});
+  assert.equal((await consumer.tick()).failed.length,1);assert.equal((await store.pendingEvents('inbox')).length,1);
+  fail=false;assert.equal((await consumer.tick()).acknowledged,1);assert.equal(effects.size,1);
+  assert.equal((await consumer.tick()).acknowledged,0);assert.equal((await store.pendingEvents('engineering')).length,1);
+  await store.change('a',issue.id,{expectedRevision:1,state:'triaged',message:'Investigating',actorId:'engineer'});
+  assert.equal((await store.pendingEvents('inbox'))[0].revision,2);
+  await assert.rejects(store.pendingEvents('inbox',{limit:101}),{code:'SUPPORT_INVALID_LIMIT'});
+ }finally{await pool.query('DELETE FROM iaic_support_event_receipts WHERE namespace=$1',[ns]);await pool.query('DELETE FROM iaic_support_events WHERE namespace=$1',[ns]);await pool.query('DELETE FROM iaic_support_issues WHERE namespace=$1',[ns]);await pool.end();}
+});

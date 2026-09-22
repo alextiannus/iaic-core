@@ -26,6 +26,26 @@ export class PostgresSupportStore {
   if(afterId!==undefined&&(typeof afterId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(afterId)))throw fail('SUPPORT_INVALID_ID');
   return (await this.pool.query('SELECT * FROM iaic_support_issues WHERE namespace=$1 AND scope_id=$2 AND ($3::text IS NULL OR reporter_id=$3) AND ($5::uuid IS NULL OR id>$5) ORDER BY id LIMIT $4',[this.namespace,scope,reporterId??null,limit,afterId??null])).rows.map(view);
  }
+ // Trusted host worker port; never expose without restoring consumer authority.
+ async scopes({limit=100,afterScope}={}){
+  if(!Number.isInteger(limit)||limit<1||limit>100)throw fail('SUPPORT_INVALID_LIMIT');
+  if(afterScope!==undefined)text(afterScope);
+  return (await this.pool.query(`SELECT DISTINCT scope_id FROM iaic_support_issues WHERE namespace=$1
+   AND ($2::text IS NULL OR scope_id>$2) ORDER BY scope_id LIMIT $3`,[this.namespace,afterScope??null,limit])).rows.map(r=>r.scope_id);
+ }
+ async pendingEvents(consumerId,{limit=50}={}){
+  text(consumerId);if(!Number.isInteger(limit)||limit<1||limit>100)throw fail('SUPPORT_INVALID_LIMIT');
+  return (await this.pool.query(`SELECT e.scope_id AS "scopeId",e.issue_id AS "issueId",e.revision,e.state
+   FROM iaic_support_events e WHERE e.namespace=$1 AND NOT EXISTS (
+    SELECT 1 FROM iaic_support_event_receipts r WHERE r.namespace=e.namespace AND r.consumer_id=$2
+    AND r.scope_id=e.scope_id AND r.issue_id=e.issue_id AND r.revision=e.revision)
+   ORDER BY e.created_at,e.issue_id,e.revision LIMIT $3`,[this.namespace,consumerId,limit])).rows;
+ }
+ async acknowledgeEvent(consumerId,{scopeId,issueId,revision}){
+  text(consumerId);text(scopeId);
+  await this.pool.query(`INSERT INTO iaic_support_event_receipts(namespace,consumer_id,scope_id,issue_id,revision)
+   VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,[this.namespace,consumerId,scopeId,issueId,revision]);
+ }
  async history(scope,id){return (await this.pool.query('SELECT revision,state,message,evidence,created_at AS "createdAt" FROM iaic_support_events WHERE namespace=$1 AND scope_id=$2 AND issue_id=$3 ORDER BY revision',[this.namespace,scope,id])).rows;}
  async change(scope,id,{expectedRevision,state,message,evidence=null,actorId}){
   return this.transaction(async c=>{
