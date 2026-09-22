@@ -15,3 +15,5 @@ Resolution accepts an evidence ID, never a caller verdict. Trusted `resolveResol
 Initialize the additive PostgreSQL schema through the host's migration lifecycle. `createSupportCapabilities` provides report/get/list/queue/update/notify via the normal dispatcher with input schemas and read-history authority revalidation. No table in the existing task, notification or observation modules is changed.
 
 Remaining scope: host capture/UI, trusted Platform Agent identity, engineering-task linking/claiming, automatic event collection, cross-reporter deduplication, notification scheduling, deployed release adapter and actual user acceptance. This module does not claim these are configured in 12Eat.
+
+`list` and `queue` return bounded pages (default 50, maximum 100). Pass the last issue's `id` as `afterId` until an empty/short page; ordering is stable by UUID, not creation time. Restart a scan to discover concurrent reports inserted before the cursor. Tenant/reporter authorization applies independently to every page. Notification admission rechecks the caller after the asynchronous sender resolver.

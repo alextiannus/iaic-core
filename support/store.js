@@ -21,7 +21,11 @@ export class PostgresSupportStore {
   });
  }
  async get(scope,id){return view((await this.pool.query('SELECT * FROM iaic_support_issues WHERE namespace=$1 AND scope_id=$2 AND id=$3',[this.namespace,scope,id])).rows[0]);}
- async list(scope,{reporterId,limit=50}={}){if(!Number.isInteger(limit)||limit<1||limit>100)throw fail('SUPPORT_INVALID_LIMIT');return (await this.pool.query('SELECT * FROM iaic_support_issues WHERE namespace=$1 AND scope_id=$2 AND ($3::text IS NULL OR reporter_id=$3) ORDER BY id LIMIT $4',[this.namespace,scope,reporterId??null,limit])).rows.map(view);}
+ async list(scope,{reporterId,limit=50,afterId}={}){
+  if(!Number.isInteger(limit)||limit<1||limit>100)throw fail('SUPPORT_INVALID_LIMIT');
+  if(afterId!==undefined&&(typeof afterId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(afterId)))throw fail('SUPPORT_INVALID_ID');
+  return (await this.pool.query('SELECT * FROM iaic_support_issues WHERE namespace=$1 AND scope_id=$2 AND ($3::text IS NULL OR reporter_id=$3) AND ($5::uuid IS NULL OR id>$5) ORDER BY id LIMIT $4',[this.namespace,scope,reporterId??null,limit,afterId??null])).rows.map(view);
+ }
  async history(scope,id){return (await this.pool.query('SELECT revision,state,message,evidence,created_at AS "createdAt" FROM iaic_support_events WHERE namespace=$1 AND scope_id=$2 AND issue_id=$3 ORDER BY revision',[this.namespace,scope,id])).rows;}
  async change(scope,id,{expectedRevision,state,message,evidence=null,actorId}){
   return this.transaction(async c=>{

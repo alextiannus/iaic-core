@@ -51,3 +51,25 @@ test('support capabilities reject caller supplied principals and resolution verd
  await assert.rejects(dispatcher.invoke('support.report',{requestKey:'x',summary:'x',reporterId:'victim'},{actor:{scopeId:'a',subjectId:'b'}}));
  await assert.rejects(dispatcher.invoke('support.update',{id:randomUUID(),expectedRevision:1,state:'resolved',message:'fixed',confirmed:true},{actor:{scopeId:'a',subjectId:'b'}}));assert.equal(called,false);
 });
+
+test('support pagination reaches every report without widening reporter or tenant scope',{skip:!url},async()=>{
+ const pool=new pg.Pool({connectionString:url}),ns='support-pages-'+randomUUID();
+ const store=new PostgresSupportStore({pool,namespace:ns});await store.initialize();
+ const service=new SupportIssues({store,resolveIdentity:a=>a,authorize:(a,{action})=>action!=='manage'||a.engineer===true});
+ const alice={scopeId:'a',subjectId:'alice'},bob={scopeId:'a',subjectId:'bob'},engineer={scopeId:'a',subjectId:'engineer',engineer:true};
+ try{
+  const expected=[];for(let i=0;i<105;i++)expected.push((await service.report(alice,{requestKey:String(i),summary:'Problem '+i})).id);
+  const other=await service.report(bob,{requestKey:'other',summary:'Private report'});
+  await service.report({...alice,scopeId:'b'},{requestKey:'other',summary:'Other tenant'});
+  const scan=async(actor,operation)=>{const ids=[];let afterId;for(;;){const page=await service[operation](actor,{limit:50,afterId});ids.push(...page.map(x=>x.id));if(page.length<50)return ids;afterId=page.at(-1).id;}};
+  assert.deepEqual((await scan(alice,'list')).sort(),expected.sort());
+  assert.deepEqual((await scan(engineer,'queue')).sort(),[...expected,other.id].sort());
+  await assert.rejects(service.list(alice,{afterId:'invalid'}),{code:'SUPPORT_INVALID_ID'});
+  await assert.rejects(service.queue(alice,{afterId:other.id}),{code:'SUPPORT_ACCESS_DENIED'});
+ }finally{await pool.query('DELETE FROM iaic_support_events WHERE namespace=$1',[ns]);await pool.query('DELETE FROM iaic_support_issues WHERE namespace=$1',[ns]);await pool.end();}
+});
+test('support notification rechecks revoked authority after resolving the sender',async()=>{
+ const actor={scopeId:'a',subjectId:'engineer'},id=randomUUID();let revoked=false,enqueued=false;
+ const service=new SupportIssues({store:{get:async()=>({id,scopeId:'a',reporterId:'alice'}),history:async()=>[{revision:1,state:'received',message:'Received'}]},resolveIdentity:a=>a,authorize:()=>!revoked,notificationActor:async()=>{revoked=true;return actor},notifications:{enqueue:async()=>{enqueued=true}}});
+ await assert.rejects(service.notify(actor,{id,revision:1}),{code:'SUPPORT_ACCESS_DENIED'});assert.equal(enqueued,false);
+});
