@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {createRequire} from 'node:module';
+import {randomUUID} from 'node:crypto';
+import {Pool} from 'pg';
+import {openDemo,actor} from './application.mjs';
+import {serveDemo} from './http.mjs';
+const {IAIC_BROWSER_HOST_PACKAGE:hostPackage,IAIC_BROWSER_EXECUTABLE:executablePath,IAIC_BROWSER_EVIDENCE:directory,SUBMISSION_TEST_DATABASE_URL:connectionString}=process.env;
+if(!hostPackage||!executablePath||!directory||!connectionString||!['localhost','127.0.0.1'].includes(new URL(connectionString).hostname))throw Error('Explicit browser package/executable, fresh evidence path and local isolated PostgreSQL required');
+const puppeteer=createRequire(hostPackage)('puppeteer-core');await fs.mkdir(directory,{recursive:false});
+const schema='inbox_browser_'+randomUUID().replaceAll('-','');const admin=new Pool({connectionString});await admin.query(`CREATE SCHEMA ${schema}`);
+const pool=new Pool({connectionString,options:`-c search_path=${schema}`});let browser,server;
+try {
+ const app=await openDemo(pool);await app.seed();server=await serveDemo(app);
+ browser=await puppeteer.launch({executablePath,headless:true});const page=await browser.newPage();await page.setViewport({width:1200,height:900});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.setRequestInterception(true);page.on('request',req=>req.url().startsWith(server.origin+'/')?req.continue():req.abort());
+ await page.goto(server.origin);await page.waitForFunction(()=>window.fixtureReady===true);assert.equal(await page.$eval('#badge',e=>e.textContent),'2');
+ await page.click('.item');await page.waitForSelector('#task');await page.click('#task');await page.waitForFunction(()=>document.querySelector('#messages').textContent.includes('Review task delivered'));
+ await page.click('#task');await page.waitForFunction(()=>document.querySelectorAll('.message').length>=4);assert.equal((await app.tasks.list(actor)).length,1);
+ await page.click('#mark');await page.waitForFunction(()=>document.querySelector('#badge').textContent==='1');
+ await page.click('#mark');await page.waitForFunction(()=>document.querySelector('#badge').textContent==='2');
+ await page.screenshot({path:path.join(directory,'inbox.png'),fullPage:true});
+ await page.click('[data-prompt="Help me set up"]');
+ const say=async(text,expected)=>{await page.type('#prompt',text);await page.click('#chat button');await page.waitForFunction(t=>document.querySelector('#messages').textContent.includes(t),{},expected);};
+ await say('Example provider','Now describe');await say('I offer scheduled service visits.','Please review this description');await say('Publish','is published');
+ assert.equal((await app.readProfile()).published,true);
+ await page.click('#archive');await page.waitForFunction(()=>document.querySelector('#badge').textContent==='1');assert.equal((await app.inbox.list(actor,{archived:true})).items.length,1);
+ await page.click('.item');await page.waitForSelector('#order');await page.click('#order');await page.waitForFunction(()=>document.querySelector('#messages').textContent.includes('fixture-1: submitted'));
+ await page.screenshot({path:path.join(directory,'workspace.png'),fullPage:true});
+ await page.reload();await page.waitForFunction(()=>window.fixtureReady===true);assert.equal(await page.$eval('#badge',e=>e.textContent),'1');
+ await page.click('#archive-toggle');await page.waitForFunction(()=>document.querySelector('#items').textContent.includes('Complete your workspace'));
+ assert.deepEqual(errors,[]);assert.equal(await page.$eval('#status',e=>e.textContent),'');
+ const result={example:'core-inbox-ui',status:'passed',browser:await browser.version(),readUnreadArchive:true,reloadPersists:true,oneCoreTask:true,hostProfileDescriptionReviewPublish:true,orderRead:true,model:'deterministic-host-fixture',production:false};
+ await fs.writeFile(path.join(directory,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
+} finally {await browser?.close();await server?.close();await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}

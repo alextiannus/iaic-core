@@ -75,3 +75,12 @@ optional personal credential ports/table; no automatic issuance or application d
 The Host explicitly wires authentication and per-execution credential checks. Disable
 new credential routes before rollback, retain metadata/unknown issuance receipts and do
 not run credential-bound Tasks on older Hosts that discard their credential binding.
+
+## Candidate.110 — recipient Inbox
+
+Prepared 2026-09-25. Publication requires a verified GitHub asset. Upon publication,
+candidate.109 support ends 2026-10-09 23:59 UTC. New optional Inbox tables and the
+SessionStore resource_ref kind require compatible initialization. Stop old session
+initializers before enabling references. Rollback must preserve original Inbox,
+projection receipts, unknown outcomes and session references; disable new routes,
+retain a compatible reader and explicitly migrate any consumers. See inbox/README.md.

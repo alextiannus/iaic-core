@@ -1,5 +1,13 @@
 # Candidate status and practical limits
 
+Inbox update (2026-09-25): candidate.110 adds an optional scoped recipient Inbox,
+read/unread/archive, live pagination/counts, and stable-key conversation/Task
+projection with unknown-outcome reconciliation. Sessions adds generic resource
+references resolved with current access. The optional service-provider UI uses
+deterministic Host business fixtures, not a live model or production integration.
+See inbox/README.md and examples/core-inbox. Note43.2 general durable wake remains
+separate; application adoption and real-model interaction acceptance remain pending.
+
 Catalog validation fix (2026-09-19 UTC): candidate.108 rejects sparse catalog
 arrays instead of incorrectly passing an empty expectation. Sparse matrix
 configuration is rejected before any reader runs. No authorization/runtime changes.
