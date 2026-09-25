@@ -1,5 +1,13 @@
 # Candidate status and practical limits
 
+Dashboard update (2026-09-26): candidate.113 adds a mountable read-only Node HTTP
+operations dashboard with Workspace cards/list, Agent detail and source evidence.
+Its page, assets and API require a current Host-authorized platform operator;
+organization administrators are not implicitly operators. Login remains Host-owned.
+A local real TaskStore fixture is provided, not a production deployment or live
+external telemetry. Full Task trace navigation remains future work. See
+operations/DASHBOARD.md.
+
 Operations update (2026-09-25): candidate.112 adds the first read-only Agent
 operations projection: scoped roster/detail/page overview, separate lifecycle,
 activity and runtime evidence, model binding versus actual model, and explicit

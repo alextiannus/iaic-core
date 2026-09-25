@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Agent 运行看板 · IAiC</title><link rel="stylesheet" href="__BASE__/style.css"><script defer src="__BASE__/app.js"></script></head>
+<body><header><div><span class="eyebrow">IAiC · 平台运维</span><h1>Agent 运行看板</h1></div><button id="refresh" type="button">刷新</button></header>
+<main><div class="toolbar"><p id="status" role="status" aria-live="polite">正在读取当前授权范围…</p><label>视图 <select id="view"><option value="space">工作空间</option><option value="list">列表</option></select></label></div>
+<div class="layout"><section aria-label="获授权 Agent"><div id="agents"></div><nav aria-label="Agent 分页"><button id="previous" disabled type="button">上一页</button><span id="page">第 1 页</span><button id="next" disabled type="button">下一页</button></nav></section>
+<aside id="detail" aria-label="Agent 工作详情" aria-live="polite"><p>选择一个 Agent，查看当前工作和运行依据。</p></aside></div>
+<p class="footnote">只读运行视图 · 每 30 秒刷新 · 数量仅代表当前页 · 未上报不表示正常</p></main></body></html>

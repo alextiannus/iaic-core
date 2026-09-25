@@ -1,0 +1,15 @@
+{
+  "realBrowser": "Chrome",
+  "realTaskStore": true,
+  "operatorCards": 2,
+  "selectedTask": true,
+  "modelBindingVisible": true,
+  "actualModelUnknown": true,
+  "healthUnknown": true,
+  "listSwitch": true,
+  "narrow375NoOverflow": true,
+  "revocationClearsContent": true,
+  "taskMutated": false,
+  "externalAgent": "Host fixture only",
+  "pageErrors": []
+}

@@ -1,5 +1,14 @@
 # Core candidate lifetime and migration policy
 
+## candidate.113 — operator dashboard (2026-09-26)
+
+Adds an optional Node HTTP/UI mount over Operations. No SQL migration; keep the
+existing session and Operations current-authorization ports. Persist cursorKey.
+Rollback by removing the new mount; no Task/Agent execution state changes.
+Candidate.112 support ends 2026-10-10 23:59 UTC after verified .113 publication.
+The local fixture uses demo authentication and must not be exposed as production.
+
+
 Effective 2026-09-14. Platform AI Team members maintain this file when publishing
 or retiring a version, together with its release notes and migration evidence.
 
