@@ -65,3 +65,13 @@ continued execution or indefinite compatibility support.
 ImmediToday was last verified on candidate.81. Its migration is **not verified by
 this document** and remains required work before the above support deadline. No
 production configuration or runtime is changed by adopting this policy.
+
+## Candidate.109 — personal application credentials
+
+Prepared 2026-09-25. Publication is determined by the verified GitHub asset.
+Upon publication, candidate.108 and its support.3 integration successor have support
+through 2026-10-09 23:59 UTC. Candidate.109 retains support-module behavior and adds
+optional personal credential ports/table; no automatic issuance or application deployment.
+The Host explicitly wires authentication and per-execution credential checks. Disable
+new credential routes before rollback, retain metadata/unknown issuance receipts and do
+not run credential-bound Tasks on older Hosts that discard their credential binding.
