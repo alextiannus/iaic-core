@@ -3,8 +3,9 @@
 Optional `Operations` composes existing module reads and Host signals into a
 currently authorized Agent roster, detail and overview. It owns no Task, identity,
 model, budget, collaboration or execution state. There is no new database table,
-Worker, scheduler or UI. The API is a foundation for the note49 dashboard design;
-it is not the completed dashboard or a real monitoring deployment.
+Worker or scheduler. The service API is a foundation for the note49 dashboard design;
+the optional dashboard mount is documented separately below. Neither is a real
+monitoring deployment without Host integration.
 
 Import `operations/service.js` and `operations/capabilities.js`. Public TypeScript
 contracts are colocated. `createOperationsCapabilities({operations})` exposes
@@ -111,8 +112,11 @@ retention, private title policy and current authorization belong to the Host. A
 rollout that changes visibility policy should change resolveScope's revision binding.
 Candidate.111 support ends 2026-10-09 23:59 UTC on verified successor publication.
 
-Remaining work: a default two-dimensional dashboard, full independently paginated
+Remaining work: full independently paginated
 Task traces/interactions, first-party source adapters, actual external Agent signals,
 real model/Provider evidence, model/allowance/cost aggregate views and application
 acceptance. The example proves actual TaskStore reads plus explicitly labelled Host
 fixtures; it does not claim real Worker/Connector monitoring or a verified peer Review.
+
+Default platform-operator UI is available separately via `dashboard.js`; see
+[DASHBOARD.md](DASHBOARD.md). The service itself remains independent of HTTP/UI.
