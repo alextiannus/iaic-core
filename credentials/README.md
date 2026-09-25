@@ -13,3 +13,9 @@ Public methods:
 The host controls which HTTPS endpoints may be used, obtains user authorization for saving/testing a credential and authenticates calls to this module. Provider redirects are disabled. Raw keys are not returned in list/resolve metadata. Missing/revoked credentials fail rather than falling back to a platform-paid key.
 
 AssistantModels composes this port with settings and the allowance ledger. BYOK calls use zero platform allowance charge; provider use remains separately recorded. The host owns key management, configuration UI and credential-owner mapping. This module supplies no password manager, OAuth flow, global backup erasure or automatic encryption-key rotation.
+
+## Application access credentials
+
+Personal application API keys are separate from the provider credentials above.
+See [PERSONAL_KEYS.md](PERSONAL_KEYS.md) for user/organization-bound issuance,
+expiry, revocation, atomic rotation and authenticated HTTP/MCP composition.
