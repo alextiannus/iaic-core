@@ -1,5 +1,9 @@
 # Core candidate lifetime and migration policy
 
+## candidate.114 — live Agent observation (2026-09-26)
+
+Adds two operations-owned tables, initialized through OperationsRegistry.initialize(). Existing identity/Task schemas and execution authority remain unchanged. Candidate.113 support ends 2026-10-10 23:59 UTC after verified .114 publication. Hosts choose authorized registration, executor IDs, feedback and polling configuration; existing dashboard mounts retain their defaults.
+
 ## candidate.113 — operator dashboard (2026-09-26)
 
 Adds an optional Node HTTP/UI mount over Operations. No SQL migration; keep the

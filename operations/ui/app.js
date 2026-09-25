@@ -2,6 +2,8 @@
 const base=new URL(document.currentScript.src).pathname.replace(/\/app\.js$/,'');
 const $=id=>document.getElementById(id),roster=$('agents'),detail=$('detail');
 const health={healthy:'运行正常',degraded:'运行受限',unavailable:'运行不可用',unknown:'健康未知'},activity={working:'工作中',waiting:'等待中',queued:'任务排队',idle:'空闲',unknown:'活动未知'},life={active:'启用',paused:'暂停接新工作',retired:'已退役'},role={platform:'Platform AI','user-assistant':'User Assistant',business:'Business AI'};
+let refreshMs=30000,feedbackEnabled=false;
+const drafts=new Map();
 const state={cursors:[null],page:0,next:null,selected:null,serial:0,controller:null,stopped:false};
 function el(tag,text,cls){const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n;}
 function field(parent,label,value){const dl=el('dl'),dt=el('dt',label),dd=el('dd',value??'未上报');dl.append(dt,dd);parent.append(dl);}
@@ -19,6 +21,28 @@ function renderDetail(view){detail.replaceChildren(el('h2',view.agent.name));fie
  detail.append(el('h3','协作'));if(!view.interactions.length)detail.append(el('p','暂无协作记录'));for(const edge of view.interactions){const card=el('div',null,'entry');card.append(el('p',`${edge.from} → ${edge.to}`),el('p',`${edge.type} · ${edge.stage} · ${edge.basis}`));field(card,'Task',edge.taskId);reference(card,edge.reference);detail.append(card);}
  const evidence=el('details');evidence.append(el('summary','来源与运行信号'));for(const [name,source] of Object.entries(view.sources)){const entry=el('div',null,'entry');entry.append(el('p',`${name} · ${source.state} · ${source.complete?'完整':'不完整'}`));field(entry,'观测时间',source.observedAt);field(entry,'有效期',source.validUntil);reference(entry,source.reference);evidence.append(entry);}for(const signal of view.signals){const entry=el('div',null,'entry');entry.append(el('p',`${signal.kind} · ${signal.state} · ${signal.freshness} · ${signal.basis}`),el('p',signal.reason));reference(entry,signal.reference);evidence.append(entry);}detail.append(evidence);
 }
-async function refresh(){if(state.stopped)return;const serial=++state.serial;state.controller?.abort();state.controller=new AbortController();const signal=state.controller.signal;$('status').textContent='正在刷新…';empty();try{const params=new URLSearchParams({limit:'20'});if(state.cursors[state.page])params.set('cursor',state.cursors[state.page]);const view=await read('overview?'+params,signal);if(serial!==state.serial)return;renderOverview(view);if(state.selected&&!view.items.some(x=>x.agent.id===state.selected))state.selected=null;if(state.selected){const item=await read('agent?'+new URLSearchParams({id:state.selected}),signal);if(serial!==state.serial)return;renderDetail(item);}else detail.append(el('p','选择一个 Agent，查看当前工作和运行依据。'));}catch(error){if(serial!==state.serial||error.name==='AbortError')return;empty();if(error.status===401||error.status===403){state.stopped=true;$('refresh').disabled=true;$('status').textContent=error.status===401?'登录已失效，请通过应用重新登录后刷新页面。':'当前没有平台运维看板权限，已清除显示内容。';}else{$('status').textContent='暂时无法读取运行状态。请稍后刷新；不能据此判断 Agent 已停止。';}}}
+async function renderFeedback(id,signal){
+ if(!feedbackEnabled)return;
+ const rows=await read('feedback?id='+encodeURIComponent(id),signal);
+ if(state.selected!==id||signal.aborted)return;
+ const section=el('section');section.append(el('h3','观测反馈'));
+ for(const row of rows) section.append(el('p',row.id+' · '+row.state+' · '+row.summary));
+ const form=el('form'),input=el('textarea'),button=el('button','提交反馈'),status=el('p');
+ input.required=true;input.maxLength=2000;input.setAttribute('aria-label','反馈内容');button.type='submit';form.append(input,button,status);section.append(form);detail.append(section);
+ const draft=drafts.get(id)??{requestKey:crypto.randomUUID(),summary:'',receipt:''};drafts.set(id,draft);input.value=draft.summary;status.textContent=draft.receipt;input.oninput=()=>{if(draft.summary!==input.value){draft.requestKey=crypto.randomUUID();draft.summary=input.value;}};
+ form.onsubmit=async event=>{
+  event.preventDefault();button.disabled=true;
+  const requestKey=draft.requestKey,pendingSummary=draft.summary;
+  try{
+   const response=await fetch(base+'/api/feedback?id='+encodeURIComponent(id),{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-IAIC-Operations':'1'},body:JSON.stringify({requestKey,summary:pendingSummary})});
+   if(!response.ok){if([401,403].includes(response.status))await refresh();throw Error('feedback unavailable');}
+   const receipt=await response.json();status.textContent='已记录：'+receipt.id+' · '+receipt.state;input.value='';draft.summary='';draft.receipt=status.textContent;draft.requestKey=crypto.randomUUID();
+  }catch{status.textContent='提交结果未确认，请保留内容重试。相同内容重试使用原请求编号。';}
+  finally{button.disabled=false;}
+ };
+}
+async function refresh(){if(state.stopped)return;const editing=document.activeElement?.getAttribute('aria-label')==='反馈内容',selection=editing?document.activeElement.selectionStart:null;const serial=++state.serial;state.controller?.abort();state.controller=new AbortController();const signal=state.controller.signal;$('status').textContent='正在刷新…';empty();try{const params=new URLSearchParams({limit:'20'});if(state.cursors[state.page])params.set('cursor',state.cursors[state.page]);const view=await read('overview?'+params,signal);if(serial!==state.serial)return;renderOverview(view);if(state.selected&&!view.items.some(x=>x.agent.id===state.selected))state.selected=null;if(state.selected){const item=await read('agent?'+new URLSearchParams({id:state.selected}),signal);if(serial!==state.serial)return;renderDetail(item);await renderFeedback(state.selected,signal);if(editing){const input=detail.querySelector('textarea');input?.focus();input?.setSelectionRange(selection,selection);}}else detail.append(el('p','选择一个 Agent，查看当前工作和运行依据。'));}catch(error){if(serial!==state.serial||error.name==='AbortError')return;empty();if(error.status===401||error.status===403){state.stopped=true;$('refresh').disabled=true;$('status').textContent=error.status===401?'登录已失效，请通过应用重新登录后刷新页面。':'当前没有平台运维看板权限，已清除显示内容。';}else{$('status').textContent='暂时无法读取运行状态。请稍后刷新；不能据此判断 Agent 已停止。';}}}
 $('refresh').onclick=refresh;$('next').onclick=()=>{if(!state.next)return;state.cursors=state.cursors.slice(0,state.page+1);state.cursors.push(state.next);state.page++;state.selected=null;refresh();};$('previous').onclick=()=>{if(!state.page)return;state.page--;state.selected=null;refresh();};$('view').onchange=()=>{roster.dataset.view=$('view').value;};
-setInterval(()=>{if(!document.hidden)refresh();},30000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});refresh();
+async function poll(){if(!document.hidden)await refresh();setTimeout(poll,refreshMs);}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
+(async()=>{try{const config=await read('config');refreshMs=config.refreshMs;feedbackEnabled=config.feedback;}catch{}await poll();})();

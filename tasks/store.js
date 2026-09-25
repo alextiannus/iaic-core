@@ -55,6 +55,17 @@ export class TaskStore {
       AND ($5::timestamptz IS NULL OR (created_at,id)<($5::timestamptz,$6::uuid)) ORDER BY created_at DESC,id DESC LIMIT $7`,[...this.identity(actor),capability,status,position?.createdAt??null,position?.id??null,limit+1])).rows;
     return {items:rows.slice(0,limit),hasMore:rows.length>limit};
   }
+  /** Trusted Host metadata projection; no prompts, results, call arguments or credentials. */
+  async agentSummary(actor,instanceId,{limit=50}={}) {
+    if(typeof instanceId!=='string'||!instanceId||instanceId.length>500||!Number.isInteger(limit)||limit<1||limit>50)throw conflict('Invalid Agent Task summary');
+    const rows=(await this.pool.query(`SELECT t.id,t.status,t.waiting_reason,t.model,t.updated_at,
+      e.data->>'model' AS requested_model,
+      EXISTS(SELECT 1 FROM iaic_calls c WHERE c.task_id=t.id AND c.status='unknown') AS unknown_result
+      FROM iaic_tasks t LEFT JOIN LATERAL(SELECT data FROM iaic_task_events WHERE task_id=t.id AND kind='model_requested' ORDER BY seq DESC LIMIT 1) e ON true
+      WHERE t.employee_id=$1 AND t.erp_user=$2 AND t.agent->>'instanceId'=$3
+      ORDER BY CASE WHEN t.status IN ('running','waiting','queued') THEN 0 ELSE 1 END,t.updated_at DESC,t.id LIMIT $4`,[...this.identity(actor),instanceId,limit+1])).rows;
+    return {items:rows.slice(0,limit),complete:rows.length<=limit};
+  }
   async list(actor) {
     return (await this.pool.query('SELECT * FROM iaic_tasks WHERE employee_id=$1 AND erp_user=$2 ORDER BY created_at DESC LIMIT 50',[...this.identity(actor)])).rows;
   }

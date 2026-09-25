@@ -120,3 +120,5 @@ fixtures; it does not claim real Worker/Connector monitoring or a verified peer 
 
 Default platform-operator UI is available separately via `dashboard.js`; see
 [DASHBOARD.md](DASHBOARD.md). The service itself remains independent of HTTP/UI.
+
+See [registration, presence and feedback](REGISTRATION.md) for the optional durable Host adapters and near-real-time dashboard composition.

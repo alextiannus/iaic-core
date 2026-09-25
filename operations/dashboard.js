@@ -2,9 +2,11 @@ import {readFile} from 'node:fs/promises';
 const fail=statusCode=>Object.assign(Error('Dashboard request rejected'),{statusCode});
 const headers={'Cache-Control':'no-store, private','Vary':'Cookie, Authorization','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"};
 /** Optional Node HTTP mount. Host supplies current session/operator authority. */
-export function createOperationsDashboard({operations,resolveObserver,authorizeOperator,basePath='/admin/agents'}) {
+export function createOperationsDashboard({operations,resolveObserver,authorizeOperator,basePath='/admin/agents',refreshMs=30000,feedback=null,authorizeMutation=null}) {
  if(!operations||typeof operations.overview!=='function'||typeof operations.agent!=='function'||typeof resolveObserver!=='function'||typeof authorizeOperator!=='function')throw Error('Dashboard requires Operations and trusted current observer/operator ports');
  if(typeof basePath!=='string'||!/^\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+$/.test(basePath))throw Error('Invalid dashboard basePath');
+ if(!Number.isInteger(refreshMs)||refreshMs<2000||refreshMs>60000)throw Error('Invalid dashboard refresh interval');
+ if(feedback!==null&&(typeof feedback.list!=='function'||typeof feedback.report!=='function'||typeof authorizeMutation!=='function'))throw Error('Feedback requires current mutation authorization and list/report ports');
  const assets=new Map([['/app.js',['app.js','text/javascript; charset=utf-8']],['/style.css',['style.css','text/css; charset=utf-8']]]);
  const guard=async request=>{const observer=await resolveObserver(request);if(!observer||observer.actor==null)throw fail(401);if(typeof observer.binding!=='string'||!observer.binding||observer.binding.length>2000)throw fail(403);if(await authorizeOperator({actor:observer.actor,request})!==true)throw fail(403);return observer;};
  return async function dashboard(request,response) {
@@ -13,9 +15,24 @@ export function createOperationsDashboard({operations,resolveObserver,authorizeO
   const send=(status,type,body)=>{response.writeHead(status,{...headers,'Content-Type':type});response.end(body);};
   try {
    const observer=await guard(request);
-   if(request.method!=='GET')throw fail(405);
+   if(request.method!=='GET'&&!(feedback&&request.method==='POST'&&url.pathname===basePath+'/api/feedback'))throw fail(405);
    const path=url.pathname.slice(basePath.length);let body,type='application/json; charset=utf-8';
-   if(path===''||path==='/') {type='text/html; charset=utf-8';body=(await readFile(new URL('./ui/index.html',import.meta.url),'utf8')).replaceAll('__BASE__',basePath);}
+   if(path==='/api/config') {body=JSON.stringify({refreshMs,feedback:feedback!==null});}
+   else if(path==='/api/feedback'&&feedback) {
+    const id=url.searchParams.get('id');
+    if([...url.searchParams.keys()].some(k=>k!=='id')||url.searchParams.getAll('id').length!==1||!id)throw fail(400);
+    await operations.agent(observer.actor,id);
+    if(request.method==='POST'){
+     if(await authorizeMutation({actor:observer.actor,request})!==true)throw fail(403);
+     let raw='',size=0;
+     for await(const chunk of request){size+=Buffer.byteLength(chunk);if(size>8192)throw fail(400);raw+=chunk;}
+     let input;try{input=JSON.parse(raw);}catch{throw fail(400);}
+     if(!input||Object.keys(input).sort().join(',')!=='requestKey,summary'||typeof input.requestKey!=='string'||!/^[a-zA-Z0-9_-]{16,100}$/.test(input.requestKey)||typeof input.summary!=='string'||!input.summary.trim()||input.summary.length>2000)throw fail(400);
+     const current=await guard(request);if(current.binding!==observer.binding)throw fail(403);
+     body=JSON.stringify(await feedback.report(observer.actor,{id,...input}));
+    }else body=JSON.stringify(await feedback.list(observer.actor,{id}));
+   }
+   else if(path===''||path==='/') {type='text/html; charset=utf-8';body=(await readFile(new URL('./ui/index.html',import.meta.url),'utf8')).replaceAll('__BASE__',basePath);}
    else if(assets.has(path)){const [file,mime]=assets.get(path);type=mime;body=await readFile(new URL('./ui/'+file,import.meta.url));}
    else if(path==='/api/overview') {
     for(const key of url.searchParams.keys())if(!['cursor','limit'].includes(key)||url.searchParams.getAll(key).length!==1)throw fail(400);

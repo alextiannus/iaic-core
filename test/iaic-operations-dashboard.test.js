@@ -30,3 +30,16 @@ test('dashboard reports source errors without private exception text',async()=>{
  let status,body;await handler({url:'/admin/agents/api/overview',method:'GET'},{writeHead:s=>{status=s;},end:s=>{body=s;}});assert.equal(status,500);assert.doesNotMatch(body,/credential-secret/);
  assert.throws(()=>createOperationsDashboard({basePath:'/bad"',operations:{overview(){},agent(){}},resolveObserver:async()=>null,authorizeOperator:()=>true}));
 });
+test('optional feedback needs mutation authority, bounded input and existing Agent access',async()=>{
+ let allowed=true,writes=0;
+ const handler=createOperationsDashboard({refreshMs:5000,resolveObserver:async()=>({actor:{},binding:'session'}),authorizeOperator:()=>allowed,authorizeMutation:({request})=>request.headers['x-iaic-operations']==='1',operations:{overview:async()=>({}),agent:async(_a,id)=>{if(id!=='a')throw Object.assign(Error('hidden'),{statusCode:403});return {};}},
+ feedback:{list:async()=>[],report:async(_a,input)=>{writes++;return{id:input.requestKey,state:'reported',summary:input.summary};}}});
+ const server=createServer((req,res)=>handler(req,res));await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port+'/admin/agents/api/';
+ try{
+  assert.deepEqual(await(await fetch(base+'config')).json(),{refreshMs:5000,feedback:true});
+  const input={requestKey:'1234567890123456',summary:'executor stale'},post=(id,headers={})=>fetch(base+'feedback?id='+id,{method:'POST',headers,body:JSON.stringify(input)});
+  assert.equal((await post('a')).status,403);assert.equal((await post('hidden',{'x-iaic-operations':'1'})).status,403);assert.equal(writes,0);
+  assert.equal((await post('a',{'x-iaic-operations':'1'})).status,200);assert.equal(writes,1);
+  allowed=false;assert.equal((await post('a',{'x-iaic-operations':'1'})).status,403);assert.equal(writes,1);
+ }finally{server.closeAllConnections();await new Promise(r=>server.close(r));}
+});
