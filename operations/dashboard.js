@@ -24,9 +24,9 @@ export function createOperationsDashboard({operations,resolveObserver,authorizeO
     await operations.agent(observer.actor,id);
     if(request.method==='POST'){
      if(await authorizeMutation({actor:observer.actor,request})!==true)throw fail(403);
-     let raw='',size=0;
-     for await(const chunk of request){size+=Buffer.byteLength(chunk);if(size>8192)throw fail(400);raw+=chunk;}
-     let input;try{input=JSON.parse(raw);}catch{throw fail(400);}
+     const chunks=[];let size=0;
+     for await(const chunk of request){size+=Buffer.byteLength(chunk);if(size>8192)throw fail(400);chunks.push(Buffer.from(chunk));}
+     let input;try{input=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw fail(400);}
      if(!input||Object.keys(input).sort().join(',')!=='requestKey,summary'||typeof input.requestKey!=='string'||!/^[a-zA-Z0-9_-]{16,100}$/.test(input.requestKey)||typeof input.summary!=='string'||!input.summary.trim()||input.summary.length>2000)throw fail(400);
      const current=await guard(request);if(current.binding!==observer.binding)throw fail(403);
      body=JSON.stringify(await feedback.report(observer.actor,{id,...input}));

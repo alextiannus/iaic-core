@@ -36,7 +36,7 @@ async function renderFeedback(id,signal){
   try{
    const response=await fetch(base+'/api/feedback?id='+encodeURIComponent(id),{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-IAIC-Operations':'1'},body:JSON.stringify({requestKey,summary:pendingSummary})});
    if(!response.ok){if([401,403].includes(response.status))await refresh();throw Error('feedback unavailable');}
-   const receipt=await response.json();status.textContent='已记录：'+receipt.id+' · '+receipt.state;input.value='';draft.summary='';draft.receipt=status.textContent;draft.requestKey=crypto.randomUUID();
+   const receipt=await response.json();status.textContent='已记录：'+receipt.id+' · '+receipt.state;draft.receipt=status.textContent;if(draft.requestKey===requestKey){input.value='';draft.summary='';draft.requestKey=crypto.randomUUID();}
   }catch{status.textContent='提交结果未确认，请保留内容重试。相同内容重试使用原请求编号。';}
   finally{button.disabled=false;}
  };
