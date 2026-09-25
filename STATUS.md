@@ -1,5 +1,13 @@
 # Candidate status and practical limits
 
+Operations update (2026-09-25): candidate.112 adds the first read-only Agent
+operations projection: scoped roster/detail/page overview, separate lifecycle,
+activity and runtime evidence, model binding versus actual model, and explicit
+partial/stale/unknown source coverage. It composes Host ports without owning Task
+state or adding a database/Worker. The actual TaskStore example deliberately leaves
+missing Worker and external telemetry unknown. This is not the default dashboard,
+full trace browser or real Platform Team monitoring. See operations/README.md.
+
 Task wake update (2026-09-25): candidate.111 adds a trusted Host harness over the
 existing Notifications queue. It persists target/context/task key, separates new
 admission from historical reconciliation, validates original Task receipts and
