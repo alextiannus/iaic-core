@@ -6,6 +6,6 @@ export class Notifications {
  history(actor:any,input:{requestKey:string}):Promise<any[]>;
  retry(actor:any,input:{requestKey:string}):Promise<NotificationJob>;
  cancel(actor:any,input:{requestKey:string}):Promise<NotificationJob>;
- tick(input?:{leaseSeconds?:number;signal?:AbortSignal}):Promise<NotificationJob|null>;
+ tick(input?:{leaseSeconds?:number;signal?:AbortSignal;channel?:string|null;id?:string|null}):Promise<NotificationJob|null>;
  reconcile(actor:any,input:{requestKey:string}):Promise<NotificationJob>;
 }

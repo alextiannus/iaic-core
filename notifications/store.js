@@ -22,24 +22,34 @@ export class PostgresNotificationStore {
     return view(row);
   }
   async get(scopeId, requestKey) {return view((await this.pool.query('SELECT * FROM iaic_notifications WHERE namespace=$1 AND scope_id=$2 AND request_key=$3', [this.namespace, text(scopeId), text(requestKey)])).rows[0]);}
-  async claim({leaseSeconds = 60} = {}) {
+  async claim({leaseSeconds = 60, channel = null, id = null} = {}) {
     if (!Number.isInteger(leaseSeconds) || leaseSeconds < 1 || leaseSeconds > 3600) throw fail('Invalid notification lease');
+    if(channel !== null)text(channel);
+    if(id !== null && !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id))throw fail('Invalid notification ID');
     const attempt = randomUUID();
     return view((await this.pool.query(`WITH chosen AS (
-      SELECT id FROM iaic_notifications WHERE namespace=$1 AND state='pending' ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1
+      SELECT id FROM iaic_notifications WHERE namespace=$1 AND state='pending' AND ($4::text IS NULL OR channel=$4) AND ($5::uuid IS NULL OR id=$5) ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1
     ), claimed AS (
       UPDATE iaic_notifications SET state='sending',attempt=$2,lease_until=now()+$3*interval '1 second',updated_at=now() WHERE id IN(SELECT id FROM chosen) RETURNING *
     ), recorded AS (
       INSERT INTO iaic_notification_attempts(attempt,notification_id,state) SELECT attempt,id,'sending' FROM claimed
-    ) SELECT * FROM claimed`, [this.namespace, attempt, leaseSeconds])).rows[0]);
+    ) SELECT * FROM claimed`, [this.namespace, attempt, leaseSeconds, channel, id])).rows[0]);
   }
-  async recoverExpired() {
+  async recoverExpired({channel = null} = {}) {
+    if(channel !== null)text(channel);
     return (await this.pool.query(`WITH changed AS (
       UPDATE iaic_notifications SET state='unknown',result='{"reason":"worker-lease-expired"}',updated_at=now()
-      WHERE namespace=$1 AND state='sending' AND lease_until<=now() RETURNING id,attempt,result
+      WHERE namespace=$1 AND state='sending' AND lease_until<=now() AND ($2::text IS NULL OR channel=$2) RETURNING id,attempt,result
     ), recorded AS (
       UPDATE iaic_notification_attempts SET state='unknown',result=changed.result FROM changed WHERE iaic_notification_attempts.attempt=changed.attempt
-    ) SELECT count(*)::integer AS count FROM changed`, [this.namespace])).rows[0].count;
+    ) SELECT count(*)::integer AS count FROM changed`, [this.namespace, channel])).rows[0].count;
+  }
+  async recoveryPage({channel, after = null, limit = 20}) {
+    text(channel);
+    if(!Number.isInteger(limit)||limit<1||limit>100||(after!==null&&!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(after)))throw fail('Invalid notification recovery page');
+    const rows=(await this.pool.query(`SELECT * FROM iaic_notifications WHERE namespace=$1 AND channel=$2
+      AND state IN('pending','unknown','failed') AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`,[this.namespace,channel,after,limit+1])).rows;
+    const items=rows.slice(0,limit).map(view);return {items,next:rows.length>limit?items.at(-1).id:null};
   }
   async canSend(job) {
     return (await this.pool.query("SELECT 1 FROM iaic_notifications WHERE namespace=$1 AND id=$2 AND attempt=$3 AND state='sending' AND lease_until>now()", [this.namespace, job.id, job.attempt])).rowCount === 1;

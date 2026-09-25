@@ -103,5 +103,6 @@ reader until it has an explicit preservation/migration path. Candidate.109's sup
 ends 2026-10-09 23:59 UTC after candidate.110 publication.
 
 Limits: no per-item retained-title policy, provider channels, retention purge,
-read receipts from IM, real-model UI acceptance, or generic cross-store durable-wake
-binding adapter. Host/application integration is separate from Core publication.
+read receipts from IM or real-model UI acceptance. For a separate Task/context
+binding wake harness, see notifications/TASK_WAKE.md (candidate.111). Host/application
+integration is separate from Core publication.

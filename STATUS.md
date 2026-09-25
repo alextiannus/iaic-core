@@ -1,12 +1,19 @@
 # Candidate status and practical limits
 
+Task wake update (2026-09-25): candidate.111 adds a trusted Host harness over the
+existing Notifications queue. It persists target/context/task key, separates new
+admission from historical reconciliation, validates original Task receipts and
+repairs application-owned Context links before delivered. Recovery uses bounded
+attempts, explicit topic/channel ownership and poison-isolated cursor pages.
+The real TaskStore + application SQL-link failure window is tested; actual demo
+adapters and production scheduling remain unverified. See notifications/TASK_WAKE.md.
+
 Inbox update (2026-09-25): candidate.110 adds an optional scoped recipient Inbox,
 read/unread/archive, live pagination/counts, and stable-key conversation/Task
 projection with unknown-outcome reconciliation. Sessions adds generic resource
 references resolved with current access. The optional service-provider UI uses
 deterministic Host business fixtures, not a live model or production integration.
-See inbox/README.md and examples/core-inbox. Note43.2 general durable wake remains
-separate; application adoption and real-model interaction acceptance remain pending.
+See inbox/README.md and examples/core-inbox. Application adoption and real-model interaction acceptance remain pending.
 
 Catalog validation fix (2026-09-19 UTC): candidate.108 rejects sparse catalog
 arrays instead of incorrectly passing an empty expectation. Sparse matrix

@@ -13,9 +13,9 @@ export class Notifications {
   async history(actor, input) {return this.store.history(await this.scope(actor, 'read', input), input.requestKey);}
   async retry(actor, input) {return this.store.control(await this.scope(actor, 'retry', input), input.requestKey, 'retry');}
   async cancel(actor, input) {return this.store.control(await this.scope(actor, 'cancel', input), input.requestKey, 'cancel');}
-  async tick({leaseSeconds = 60, signal} = {}) {
-    await this.store.recoverExpired();
-    const job = await this.store.claim({leaseSeconds});
+  async tick({leaseSeconds = 60, signal, channel = null, id = null} = {}) {
+    await this.store.recoverExpired({channel});
+    const job = await this.store.claim({leaseSeconds,channel,id});
     if (!job) return null;
     let delivery;
     try {
