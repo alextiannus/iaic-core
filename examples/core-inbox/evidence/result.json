@@ -1,0 +1,12 @@
+{
+  "example": "core-inbox-ui",
+  "status": "passed",
+  "browser": "Chrome/153.0.8010.53",
+  "readUnreadArchive": true,
+  "reloadPersists": true,
+  "oneCoreTask": true,
+  "hostProfileDescriptionReviewPublish": true,
+  "orderRead": true,
+  "model": "deterministic-host-fixture",
+  "production": false
+}

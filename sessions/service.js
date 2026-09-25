@@ -1,7 +1,7 @@
 // Session owns an append-only conversation/reference timeline. Task state and
 // business/artifact data stay in their owning modules, resolved through ports.
 export class AssistantSessions{
- constructor({store,resolveScope,taskView=null,maxContextEvents=20,maxContextBytes=24000}){if(!Number.isInteger(maxContextEvents)||maxContextEvents<1||maxContextEvents>50)throw new Error('Invalid session context window');Object.assign(this,{store,resolveScope,taskView,maxContextEvents,maxContextBytes});}
+ constructor({store,resolveScope,taskView=null,resourceView=null,maxContextEvents=20,maxContextBytes=24000}){if(!Number.isInteger(maxContextEvents)||maxContextEvents<1||maxContextEvents>50)throw new Error('Invalid session context window');Object.assign(this,{store,resolveScope,taskView,resourceView,maxContextEvents,maxContextBytes});}
  async create(actor,input){return this.store.create(await this.resolveScope(actor),input);}
  async list(actor,input){return this.store.list(await this.resolveScope(actor),input);}
  async read(actor,{sessionId,...range}){return this.store.read(await this.resolveScope(actor),sessionId,range);}
@@ -27,6 +27,10 @@ export class AssistantSessions{
    if(event.kind==='task_ref'){
     if(!this.taskView)data={taskId:data.taskId,unavailable:true};
     else try{data=await this.taskView(actor,{sessionId:reference.id,taskId:data.taskId});}catch(e){if(![403,404,409].includes(e.statusCode))throw e;data={taskId:data.taskId,unavailable:true};}
+   }
+   if(event.kind==='resource_ref'){
+    if(!this.resourceView)data={...data,unavailable:true};
+    else try{data=await this.resourceView(actor,event.data);}catch(e){if(![403,404,409].includes(e.statusCode))throw e;data={...event.data,unavailable:true};}
    }
    events.push({sequence:event.sequence,kind:event.kind,data});
   }

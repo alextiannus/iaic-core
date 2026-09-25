@@ -14,13 +14,14 @@ try{
  await fs.copyFile(path.join(root,'examples/core-types-consumer/model-readiness.mts'),path.join(consumer,'model-readiness.mts'));
  await fs.copyFile(path.join(root,'examples/core-types-consumer/access-matrix.mts'),path.join(consumer,'access-matrix.mts'));
  await fs.copyFile(path.join(root,'examples/core-types-consumer/personal-keys.mts'),path.join(consumer,'personal-keys.mts'));
+ await fs.copyFile(path.join(root,'examples/core-types-consumer/inbox.mts'),path.join(consumer,'inbox.mts'));
  // Declarations must also resolve after the CLI copies the starter outside Core.
  for(const name of ['app.mjs','app.d.mts'])await fs.copyFile(path.join(installed,'developer/templates/agent',name),path.join(consumer,name));
  await fs.writeFile(path.join(consumer,'copied.mts'),"import {openApplication} from './app.mjs'; import type {ApplicationOptions} from './app.mjs'; export const open = (options:ApplicationOptions) => openApplication(options);\n");
- run([path.join(consumer,'node_modules/typescript/bin/tsc'),'--strict','--noEmitOnError','--target','es2022','--lib','es2022,dom','--module','nodenext','--moduleResolution','nodenext','--outDir','built','consumer.mts','starter.mts','copied.mts','http-results.mts','model-readiness.mts','access-matrix.mts','personal-keys.mts'],consumer);
+ run([path.join(consumer,'node_modules/typescript/bin/tsc'),'--strict','--noEmitOnError','--target','es2022','--lib','es2022,dom','--module','nodenext','--moduleResolution','nodenext','--outDir','built','consumer.mts','starter.mts','copied.mts','http-results.mts','model-readiness.mts','access-matrix.mts','personal-keys.mts','inbox.mts'],consumer);
  // The base MCP declaration must compile exact-optional without HTTP's defects.
  await fs.writeFile(path.join(consumer,'mcp-base.mts'),"export {createCapabilityMcpServer} from '@immedi/iaic-core/mcp/server.js';\n");
- run([path.join(consumer,'node_modules/typescript/bin/tsc'),'--strict','--exactOptionalPropertyTypes','--noEmit','--target','es2022','--module','nodenext','--moduleResolution','nodenext','mcp-base.mts','model-readiness.mts','access-matrix.mts','personal-keys.mts'],consumer);
+ run([path.join(consumer,'node_modules/typescript/bin/tsc'),'--strict','--exactOptionalPropertyTypes','--noEmit','--target','es2022','--module','nodenext','--moduleResolution','nodenext','mcp-base.mts','model-readiness.mts','access-matrix.mts','personal-keys.mts','inbox.mts'],consumer);
  // Check every declaration; tolerate only the two independently reproduced SDK
  // 1.30.0 TS2420 defects, never errors in Core or in the application consumer.
  const exact=[path.join(consumer,'node_modules/typescript/bin/tsc'),'--strict','--exactOptionalPropertyTypes','--target','es2022','--module','nodenext','--moduleResolution','nodenext'];
@@ -38,5 +39,6 @@ try{
  process.stdout.write(run(['built/model-readiness.mjs'],consumer));
  process.stdout.write(run(['built/access-matrix.mjs'],consumer));
  process.stdout.write(run(['built/personal-keys.mjs'],consumer));
+ process.stdout.write(run(['built/inbox.mjs'],consumer));
  console.log(JSON.stringify({strictTypes:true,mcpExactOptionalLibraryCheck:"two-known-upstream-diagnostics",independentTarball:true,ambientShim:false,emittedProgramExecuted:true}));
 }finally{await fs.rm(temp,{recursive:true,force:true});}

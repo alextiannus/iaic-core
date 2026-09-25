@@ -13,4 +13,4 @@ CREATE TABLE IF NOT EXISTS iaic_session_events (
 
 ALTER TABLE iaic_sessions ADD COLUMN IF NOT EXISTS state text NOT NULL DEFAULT 'open' CHECK(state IN ('open','closed'));
 ALTER TABLE iaic_session_events DROP CONSTRAINT IF EXISTS iaic_session_events_kind_check;
-ALTER TABLE iaic_session_events ADD CONSTRAINT iaic_session_events_kind_check CHECK(kind IN ('user_message','task_ref','session_state'));
+ALTER TABLE iaic_session_events ADD CONSTRAINT iaic_session_events_kind_check CHECK(kind IN ('user_message','task_ref','session_state','resource_ref'));

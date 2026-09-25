@@ -27,10 +27,11 @@ export class SessionStore{
   const items=rows.slice(0,limit).map(header);return {items,nextCursor:rows.length>limit?items.at(-1).id:null};
  }
  async append(scope,{sessionId,requestKey,expectedSequence,kind,data}){
-  if(!text(requestKey)||!['user_message','task_ref','session_state'].includes(kind)||!data||typeof data!=='object'||Array.isArray(data))throw fail('Invalid session event');
+  if(!text(requestKey)||!['user_message','task_ref','session_state','resource_ref'].includes(kind)||!data||typeof data!=='object'||Array.isArray(data))throw fail('Invalid session event');
   if(kind==='user_message'&&(!sequence(expectedSequence)||typeof data.text!=='string'||!data.text.trim()||data.text.length>8000||Object.keys(data).length!==1))throw fail('Message and expected sequence required');
   if(kind==='task_ref'&&(expectedSequence!==null||!uuid(data.taskId)||Object.keys(data).length!==1))throw fail('Invalid task reference');
   if(kind==='session_state'&&(!sequence(expectedSequence)||!['open','closed'].includes(data.state)||Object.keys(data).length!==1))throw fail('State and expected sequence required');
+  if(kind==='resource_ref'&&(expectedSequence!==null||!text(data.type)||!text(data.id)||Object.keys(data).length!==2))throw fail('Invalid resource reference');
   return this.transaction(async c=>{
    const row=await this.owned(c,scope,sessionId,{lock:true});
    const prior=(await c.query('SELECT * FROM iaic_session_events WHERE session_id=$1 AND request_key=$2',[sessionId,requestKey])).rows[0];
@@ -42,6 +43,10 @@ export class SessionStore{
    const next=row.sequence+1;await c.query('UPDATE iaic_sessions SET sequence=$2,state=$3 WHERE id=$1',[sessionId,next,kind==='session_state'?data.state:row.state]);
    return (await c.query('INSERT INTO iaic_session_events(session_id,sequence,request_key,expected_sequence,kind,data) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[sessionId,next,requestKey,expectedSequence,kind,data])).rows[0];
   });
+ }
+ async findEvent(scope,sessionId,requestKey){
+  await this.owned(this.pool,scope,sessionId);if(!text(requestKey))throw fail('Event request key required');
+  return (await this.pool.query('SELECT * FROM iaic_session_events WHERE session_id=$1 AND request_key=$2',[sessionId,requestKey])).rows[0]??null;
  }
  async read(scope,id,{after=0,throughSequence=null,limit=50}={}){
   if(!sequence(after)||(throughSequence!==null&&!sequence(throughSequence))||!Number.isInteger(limit)||limit<1||limit>50)throw fail('Invalid session range');

@@ -33,3 +33,13 @@ Closed means no new user_message events. Existing identical message requests may
 External personal MCP exposes `my_set_assistant_session_state`; ImmediToday exposes authenticated POST `/api/assistant-sessions/state`. The Assistant's own internal tool catalog does not gain this control. No UI. Deploy all writers with this version before enabling lifecycle operations: old writers do not check closed state. Rollback to an older writer requires stopping session writes until compatible code returns; do not describe an old writer as lifecycle-compatible.
 
 Focused lifecycle coverage lives in `test/iaic-sessions.integration.test.js`, including concurrent state/message changes, old-key replay after reopen, closed snapshot use by an existing Task and independent task-reference recovery. The installed core-sessions example checks close/reopen without ERP or inference.
+
+### Generic resource references (candidate.110)
+
+A trusted Host can append `resource_ref` with `{type,id}`, `expectedSequence:null`
+and a stable request key, then query `findEvent(scope,sessionId,requestKey)` after
+a lost response. `AssistantSessions({resourceView})` resolves reference data with
+current authorization for context assembly; missing/denied data is unavailable.
+Raw timeline reads expose only the opaque reference, never a copied private payload.
+Enable the expanded event-kind constraint with a compatible initializer; older
+initializers must not run once resource references exist. See inbox/README.md.
