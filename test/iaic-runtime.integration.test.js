@@ -227,9 +227,12 @@ test('IAiC model-loop controls with deterministic model and real persistence',{s
    }
   });
   await t.test('cancellation during rate-limit backoff prevents another model request',async()=>{
-   let requests=0;let task;
-   task=await setup({rateLimitDelayMs:30,actions:[()=>{requests++;setTimeout(()=>runtime.transition(actor,task.id,{action:'cancel'}),5);throw Object.assign(new Error('rate limited'),{providerStatus:429});},()=>{requests++;return {type:'finish',result:{report:'evidenced'}};}]});
-   assert.equal((await runtime.tick()).status,'cancelled');assert.equal(requests,1);await reset();
+   let requests=0;let task;let cancellation=Promise.resolve();
+   task=await setup({rateLimitDelayMs:30,actions:[()=>{requests++;cancellation=new Promise(resolve=>setTimeout(resolve,5)).then(()=>runtime.transition(actor,task.id,{action:'cancel'}));cancellation.catch(()=>{});throw Object.assign(new Error('rate limited'),{providerStatus:429});},()=>{requests++;return {type:'finish',result:{report:'evidenced'}};}]});
+   // The tick may observe the persisted cancellation before transition finishes
+   // its final Task read. Join that operation before deleting fixture rows.
+   let outcome;try{outcome=await runtime.tick();}finally{await cancellation;}
+   assert.equal(outcome.status,'cancelled');assert.equal(requests,1);await reset();
   });
   await t.test('rate-limit backoff stays inside the original task deadline',async()=>{
    // Leave CI enough time to claim/read the Task before entering the backoff being tested.

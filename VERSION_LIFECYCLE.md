@@ -84,3 +84,12 @@ SessionStore resource_ref kind require compatible initialization. Stop old sessi
 initializers before enabling references. Rollback must preserve original Inbox,
 projection receipts, unknown outcomes and session references; disable new routes,
 retain a compatible reader and explicitly migrate any consumers. See inbox/README.md.
+
+## Candidate.111 — durable Task wake harness
+
+Prepared 2026-09-25. Verify the GitHub package before adoption. Upon publication,
+candidate.110 support ends 2026-10-09 23:59 UTC. No SQL migration is added. Use an
+explicit dedicated channel and compatible worker ownership; older unfiltered
+notification workers must not claim wake jobs. Pause wake workers on rollback,
+retain immutable intents, original Task keys, Context snapshots/links and unknown
+receipts. See notifications/TASK_WAKE.md; application integration remains separate.
