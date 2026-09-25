@@ -93,3 +93,11 @@ explicit dedicated channel and compatible worker ownership; older unfiltered
 notification workers must not claim wake jobs. Pause wake workers on rollback,
 retain immutable intents, original Task keys, Context snapshots/links and unknown
 receipts. See notifications/TASK_WAKE.md; application integration remains separate.
+
+## Candidate.112 — read-only Agent operations foundation
+
+Prepared 2026-09-25. Verify the published asset before adoption. Upon publication,
+candidate.111 support ends 2026-10-09 23:59 UTC. No SQL migration or Runtime change.
+Persist the operations cursor key and bind visibility revisions to trusted scopes.
+On rollback stop/remove the new read routes; existing authoritative module data
+is unchanged. A default UI and live external adapters remain separate delivery.

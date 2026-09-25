@@ -1,0 +1,16 @@
+export const text = {type:'string',minLength:1,maxLength:500};
+export const nullableText = {anyOf:[text,{type:'null'}]};
+const object = properties => ({type:'object',properties,required:Object.keys(properties),additionalProperties:false});
+const array = items => ({type:'array',items,maxItems:50});
+export const reference = object({source:text,id:text,revision:nullableText});
+const time = {...text,pattern:'^\\d{4}-\\d{2}-\\d{2}T.*Z$'};
+export const descriptor = object({id:text,name:text,role:{enum:['platform','user-assistant','business',null]},location:{enum:['internal','external']},lifecycle:{enum:['active','paused','retired']},workspaceId:text,principalId:text,reference});
+export const task = object({id:text,status:{enum:['queued','running','waiting','succeeded','failed','cancelled']},waitingReason:nullableText,resultState:{enum:['pending','known','unknown']},reference});
+export const signal = object({id:text,kind:{enum:['executor','model','connector']},state:{enum:['healthy','degraded','unavailable','unknown']},basis:{enum:['reported','observed','verified']},observedAt:time,validUntil:time,reason:text,reference});
+export const model = object({taskId:text,configuredProfileRef:nullableText,boundModel:nullableText,requestedModel:nullableText,actualModel:nullableText,provider:nullableText,basis:{enum:['reported','observed','verified']},reference});
+export const interaction = object({id:text,type:{enum:['request','message','delegation','review','result','dependency']},from:text,to:text,taskId:nullableText,stage:{enum:['requested','received','admitted','running','result-recorded','verified','unknown']},basis:{enum:['reported','observed','verified']},reference});
+export const envelope = item => object({items:array(item),complete:{type:'boolean'},observedAt:time,validUntil:time,reference});
+export const contracts = {tasks:envelope(task),signals:envelope(signal),models:envelope(model),interactions:envelope(interaction)};
+export const roster = object({items:array(descriptor),next:nullableText,complete:{type:'boolean'}});
+export const pageInput = {type:'object',properties:{limit:{type:'integer',minimum:1,maximum:20},cursor:{type:'string',minLength:1,maxLength:4096}},additionalProperties:false};
+export const agentInput = object({id:text});
