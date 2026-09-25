@@ -1,0 +1,2 @@
+import type {Envelope,TaskSummary,ModelUse,Interaction} from './service.js';
+export function readAgentTaskSources<A extends {subjectId:string}>(input:{tasks:{agentSummary(actor:A,id:string):Promise<{items:Array<{id:string;status:TaskSummary['status'];waiting_reason:string|null;model:string;requested_model:string|null;unknown_result:boolean}>;complete:boolean}>};actor:A;instanceId:string;configuredProfileRef?:string|null;provider?:string|null;clock?:()=>number}):Promise<{tasks:Envelope<TaskSummary>;models:Envelope<ModelUse>;interactions:Envelope<Interaction>}>;

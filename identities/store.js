@@ -10,6 +10,16 @@ const visible=row=>row?{id:row.id,state:row.state,revision:row.revision,createdA
 export class AgentIdentityStore {
  constructor({pool}){this.pool=pool;}
  async initialize(){await this.pool.query(await fs.readFile(new URL('./schema.sql',import.meta.url),'utf8'));}
+ // Trusted Host inventory: authorization/filtering belongs to the caller, never an Agent tool.
+ async page({definitionId,after=null,limit=50}){
+  if(typeof definitionId!=='string'||!definitionId||definitionId.length>500||!Number.isInteger(limit)||limit<1||limit>100||after!==null&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(after))throw fail('Invalid identity inventory page');
+  const rows=(await this.pool.query('SELECT id,application_id AS "applicationId",definition_id AS "definitionId",subject_id AS "subjectId",state,revision FROM iaic_agent_identities WHERE definition_id=$1 AND ($2::uuid IS NULL OR id>$2) ORDER BY id LIMIT $3',[definitionId,after,limit+1])).rows;
+  return {items:rows.slice(0,limit),next:rows.length>limit?rows[limit-1].id:null};
+ }
+ async find({id,definitionId}){
+  if(typeof id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)||typeof definitionId!=='string'||!definitionId||definitionId.length>500)throw fail('Invalid identity lookup');
+  return (await this.pool.query('SELECT id,application_id AS "applicationId",definition_id AS "definitionId",subject_id AS "subjectId",state,revision FROM iaic_agent_identities WHERE id=$1 AND definition_id=$2',[id,definitionId])).rows[0]??null;
+ }
  async get(scope){return visible((await this.pool.query('SELECT * FROM iaic_agent_identities WHERE application_id=$1 AND definition_id=$2 AND subject_id=$3',identity(scope))).rows[0]);}
  async ensure(scope){
   const values=identity(scope);

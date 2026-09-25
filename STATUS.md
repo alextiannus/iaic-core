@@ -1,5 +1,7 @@
 # Candidate status and practical limits
 
+Candidate.114 (2026-09-26): adds durable observation registration, fenced executor presence, trusted identity inventory and bounded Task/model/request-edge projections. The optional dashboard supports Host-configured polling and Support-backed feedback. These ports do not grant authority or certify full Agent health. See operations/REGISTRATION.md.
+
 Dashboard update (2026-09-26): candidate.113 adds a mountable read-only Node HTTP
 operations dashboard with Workspace cards/list, Agent detail and source evidence.
 Its page, assets and API require a current Host-authorized platform operator;
