@@ -1,3 +1,4 @@
+import {capabilityExecutionLimits} from './execution-limits.js';
 import {usageDiagnostic} from './usage-diagnostic.js';
 import {verificationResult} from './verification.js';
 import {remainingToolAttempts} from './tool-limits.js';
@@ -10,12 +11,13 @@ import {setTimeout as delay} from 'node:timers/promises';
 const fail=(message,statusCode=409)=>Object.assign(new Error(message),{statusCode});
 
 export class AgentRuntime {
-  constructor({store,dispatcher,model,context,version,maxTurns=20,maxCalls=30,modelTimeoutMs=120000,maxOutputBytes=32000,taskTimeoutMs=300000,rateLimitDelayMs=60000,maxBatchCalls=1,resolveModel=null,agentIdentity=null,mandates=null,handoffs=null,authority=null}) {
+  constructor({store,dispatcher,model,context,version,maxTurns=20,maxCalls=30,capabilityLimits={},modelTimeoutMs=120000,maxOutputBytes=32000,taskTimeoutMs=300000,rateLimitDelayMs=60000,maxBatchCalls=1,resolveModel=null,agentIdentity=null,mandates=null,handoffs=null,authority=null}) {
     if(!Number.isInteger(maxBatchCalls)||maxBatchCalls<1||maxBatchCalls>8)throw new Error('Batch bound must be 1..8');
     if(maxBatchCalls>1&&typeof context?.revalidateHistory!=='function')throw new Error('Batch execution requires current history revalidation');
     if(!version||!model?.name)throw new Error('Runtime requires a code/Skill version and configured model');
     if(!Number.isFinite(rateLimitDelayMs)||rateLimitDelayMs<0||rateLimitDelayMs>60000)throw new Error('Rate-limit delay must be between zero and 60000 ms');
     Object.assign(this,{store,dispatcher,model,context,version,maxTurns,maxCalls,modelTimeoutMs,maxOutputBytes,taskTimeoutMs,rateLimitDelayMs,maxBatchCalls,resolveModel,agentIdentity,mandates,handoffs,authority});
+    this.capabilityLimits=capabilityExecutionLimits(dispatcher,capabilityLimits);
     this.resultWaits=new ResultWaits({store,dispatcher,version,authorizeTask:(actor,task,name)=>this.checkResultWait(actor,task,name),admitRead:async(actor,task,action)=>{if(!task.authority)return null;const callId=randomUUID();await this.authority.admitTool({actor,task,action,callId});return callId;},settleRead:async(task,callId,outcome)=>{if(task.authority)await this.authority.settleTool({task,callId,outcome});}});
     this.delegations=new Delegations({store,handoffs,version,authorizeTask:async(actor,task)=>{await this.state(actor,task.id);await this.checkMandate(actor,task);if(task.agent&&!this.agentIdentity)throw fail('Agent resolver unavailable',503);if(this.agentIdentity)await this.agentIdentity.check({actor,task,binding:task.agent});}});
     this.executor=null;this.running=null;this.timer=null;
@@ -134,6 +136,7 @@ export class AgentRuntime {
     const capability=this.dispatcher.capabilities.get(task.capability);
     try{
       if(!capability||capability.implementation.kind!=='agent')throw fail('Task capability unavailable',503);
+      const {maxCalls,maxTurns}={maxCalls:this.maxCalls,maxTurns:this.maxTurns,...this.capabilityLimits[capability.name]};
       await this.checkExecution(actor,task);
       let model=this.resolveModel?await this.resolveModel({actor,agent:task.agent,modelIdentity:task.model}):this.model;
       if(task.authority)model=await this.authority.model({actor,task,model});
@@ -152,15 +155,15 @@ export class AgentRuntime {
         const allowedTools=this.taskTools(capability,task.input);
         const remainingByTool=remainingToolAttempts(capability.implementation.toolCallLimits,history.calls,allowedTools);
         const turns=history.events.filter(e=>e.kind==='model_requested').length;
-        const remainingToolCalls=Math.max(0,this.maxCalls-history.calls.length);
+        const remainingToolCalls=Math.max(0,maxCalls-history.calls.length);
         const completionOnly=remainingToolCalls===0;
         const invocationBatchBound=completionOnly?1:Math.min(this.maxBatchCalls,remainingToolCalls);
         if(batch&&completionOnly){await this.executor.finish(task.id,{status:'waiting',reason:'limit'});break;}
         if(!batch){
-        if(turns>=this.maxTurns||(completionOnly&&history.events.some(event=>event.kind==='model_requested'&&event.data.completionOnly===true))){await this.executor.finish(task.id,{status:'waiting',reason:'limit'});break;}
+        if(turns>=maxTurns||(completionOnly&&history.events.some(event=>event.kind==='model_requested'&&event.data.completionOnly===true))){await this.executor.finish(task.id,{status:'waiting',reason:'limit'});break;}
         if(task.authority)await this.authority.checkContext({actor,task,history});
         const messages=await this.context.assemble({task,capability,history,actor,dispatcher:this.dispatcher});
-        messages.push({role:'system',content:JSON.stringify({executionBudget:{remainingToolCalls,remainingModelTurns:this.maxTurns-turns,maxBatchCalls:completionOnly?0:invocationBatchBound,completionOnly}})+'\nThese are current execution limits, not additional authority. Remaining model turns include this invocation. Reserve enough work to verify results and submit completion; avoid repeating unchanged successful operations.'});
+        messages.push({role:'system',content:JSON.stringify({executionBudget:{remainingToolCalls,remainingModelTurns:maxTurns-turns,maxBatchCalls:completionOnly?0:invocationBatchBound,completionOnly}})+'\nThese are current execution limits, not additional authority. Remaining model turns include this invocation. Reserve enough work to verify results and submit completion; avoid repeating unchanged successful operations.'});
         if(completionOnly)messages.push({role:'system',content:'The tool-call budget is exhausted. No further tools or delegation are available. Use the existing evidence to submit iaic_finish for application verification, or iaic_wait if essential user input is missing. This is the final completion opportunity; do not claim unfinished work is complete.'});
         if(Object.keys(remainingByTool).length)messages.push({role:'system',content:JSON.stringify({remainingToolAttempts:remainingByTool})+'\nThese per-Task ceilings count all prepared attempts, including failures and unknown outcomes. Exhausted tools cannot be called again in this Task. Use retained evidence, another permitted capability, or request help; do not repeat the mutation or claim it succeeded.'});
         const tools=(completionOnly?[]:allowedTools.filter(name=>remainingByTool[name]!==0)).map(name=>{
@@ -184,7 +187,7 @@ export class AgentRuntime {
           modelSignal.throwIfAborted();
           if(error.providerStatus===429){
             const waitMs=Math.max(this.rateLimitDelayMs,Number.isFinite(error.retryAfterMs)?error.retryAfterMs:0);
-            const eligible=waitMs<=60000&&turns+1<this.maxTurns&&!history.events.some(event=>event.kind==='model_retry');
+            const eligible=waitMs<=60000&&turns+1<maxTurns&&!history.events.some(event=>event.kind==='model_retry');
             await this.executor.append(task.id,'model_provider_error',{providerStatus:429,retryScheduled:eligible,...(Number.isFinite(error.retryAfterMs)?{retryAfterMs:error.retryAfterMs}:{})});
             if(eligible){
               await this.executor.append(task.id,'model_retry',{providerStatus:429,delayMs:waitMs});
@@ -210,7 +213,7 @@ export class AgentRuntime {
         if(Buffer.byteLength(JSON.stringify(response))>this.maxOutputBytes)throw Object.assign(new Error('Model output limit reached'),{limitReached:true});
         action=normalizeAction(response);
         if(action.type==='batch'){
-          if(completionOnly||action.actions.length>this.maxBatchCalls||action.actions.length>this.maxCalls-history.calls.length){await this.executor.append(task.id,'feedback',{error:'Batch exceeds the current action budget; propose fewer calls.'});continue;}
+          if(completionOnly||action.actions.length>this.maxBatchCalls||action.actions.length>maxCalls-history.calls.length){await this.executor.append(task.id,'feedback',{error:'Batch exceeds the current action budget; propose fewer calls.'});continue;}
           await this.executor.append(task.id,'action_batch',{id:randomUUID(),actions:action.actions});continue;
         }
         await this.executor.append(task.id,'model_response',{...action,usage:response.usage??null});

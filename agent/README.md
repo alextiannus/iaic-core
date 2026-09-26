@@ -141,3 +141,18 @@ retry or submit completion, including a provider resolving during cancellation.
 Ordinary provider errors without a Runtime abort remain interrupted. These limits
 bound execution; they do not prove that a remote provider stopped or billed zero.
 `taskTimeoutMs` applies to an active execution interval, not lifetime across waits.
+
+## Host-selected capability execution budgets
+
+`AgentRuntime` accepts an optional trusted `capabilityLimits` map, for example
+`{'app.bulk_work': {maxCalls: 64, maxTurns: 64}}`. Only registered Agent capabilities
+may be named; allowed fields are positive integer maxCalls/maxTurns up to 1000.
+The constructor validates and freezes a private copy. Omitted bounds use the
+Runtime defaults, and unlisted capabilities retain their existing limits. These
+are host configuration, never Agent request or model-output parameters.
+
+The selected bounds apply to durable history, batch admission, completion-only
+handling and the model's remaining-budget projection. Reconstruction does not
+reset consumed calls/turns. Hosts must bind policy changes to their code/config
+version fence. This does not change current permissions, tool-specific limits,
+provider/output/time budgets, monetary allowance or unknown-effect handling.
