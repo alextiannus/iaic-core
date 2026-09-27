@@ -1,5 +1,27 @@
 # Core candidate lifetime and migration policy
 
+## candidate.114-support.2 — trusted executor usage projection (2026-09-27)
+
+Adds optional host-bound executorId to meteredModel and a redacted accountUsage
+read port grouped by executor and explicit request-admission interval. No schema
+migration or historical attribution rewrite. Unknown holds remain incomplete;
+provider Tokens and charged allowance remain separate. Existing calls without a
+trusted executor remain unattributed; existing budget executors are retained.
+This compatibility branch still includes support.1 and is not an official release.
+
+## candidate.114-support.1 — application compatibility candidate (2026-09-27)
+
+Forward-ports the host-selected per-capability maxCalls/maxTurns contract from
+2a5fded onto candidate.114. ImmediToday's existing 50-task project creation needs
+its original 64-call/turn ceiling; silently ignoring this host configuration
+regresses that workflow. Current context binding, failure diagnostics and executor
+ownership remain intact. No new schema is introduced by this delta. This is an
+application compatibility candidate, not a claim that candidate.115 was released.
+The candidate.114 installation/cutover requirements still apply; validate existing
+application workflows and preserve original Task version bindings. Replace this
+pin with a verified mainline release incorporating the fix within 14 days of that
+release. ImmediToday integration and real-model Platform AI acceptance are separate.
+
 ## candidate.114 — live Agent observation (2026-09-26)
 
 Adds two operations-owned tables, initialized through OperationsRegistry.initialize(). Existing identity/Task schemas and execution authority remain unchanged. Candidate.113 support ends 2026-10-10 23:59 UTC after verified .114 publication. Hosts choose authorized registration, executor IDs, feedback and polling configuration; existing dashboard mounts retain their defaults.
