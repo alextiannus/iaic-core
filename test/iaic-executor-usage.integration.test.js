@@ -13,6 +13,7 @@ test('trusted executor usage is independent of budgets and unknown attribution i
  const now=new Date(),from=new Date(now.getTime()-60000).toISOString(),until=new Date(now.getTime()+60000).toISOString();
  const usage=await ledger.accountUsage(scope,{from,until});assert.equal(usage.complete,false);assert.equal(usage.groups.length,2);
  const alpha=usage.groups.find(g=>g.executorId==='host:alpha'),legacy=usage.groups.find(g=>g.executorId===null);
+ assert.equal((await ledger.entries(scope)).find(e=>e.kind==='settlement'&&e.evidence.executorId==='host:alpha').delta,'-29');
  assert.equal(alpha.providerTokens,'14');assert.equal(alpha.inputTokens,'10');assert.equal(alpha.cachedInputTokens,'3');assert.equal(alpha.platformUnits,'29');assert.equal(alpha.held,'100');assert.equal(alpha.pending,'1');assert.equal(legacy.providerTokens,'14');assert.equal(legacy.platformUnits,'0');
  assert.doesNotMatch(JSON.stringify(usage),/forged|secret|rawUsage/);assert.equal((await ledger.accountUsage(other,{from,until})).groups.length,0);
  assert.equal((await ledger.accountUsage(scope,{from:new Date(now.getTime()+120000).toISOString(),until:new Date(now.getTime()+180000).toISOString()})).groups.length,0);

@@ -163,7 +163,7 @@ export class TokenLedger {
   // usage and rated units while capping this call's platform charge to its hold.
   const charged=call.budget&&uncapped>BigInt(call.reserved)?BigInt(call.reserved):uncapped;
   if(charged>=10n**30n||ratedCredits>=10n**30n)throw fail('Usage cost exceeds ledger range');
-  const evidence={usage:raw,providerReference,failed,mode:call.mode,price:call.price,ratedCredits:String(ratedCredits),reservationExceeded:uncapped>BigInt(call.reserved),...(call.budget?{budget:call.budget,platformAbsorbedUnits:String(uncapped-charged)}:{}),...(reconciliation?{reconciliation}:{})};
+  const evidence={...(call.attribution.executorId?{executorId:call.attribution.executorId}:{}),usage:raw,providerReference,failed,mode:call.mode,price:call.price,ratedCredits:String(ratedCredits),reservationExceeded:uncapped>BigInt(call.reserved),...(call.budget?{budget:call.budget,platformAbsorbedUnits:String(uncapped-charged)}:{}),...(reconciliation?{reconciliation}:{})};
   const receipt=await this.entry(client,account,'settlement',requestId,String(-charged),evidence);
   await client.query("UPDATE iaic_token_calls SET state='settled' WHERE application_id=$1 AND subject_id=$2 AND request_id=$3",[...account,requestId]);
   // Ordinary calls preserve actual-usage debt; budgeted calls preserve overflow
