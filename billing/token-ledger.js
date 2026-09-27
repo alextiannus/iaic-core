@@ -56,6 +56,27 @@ export class TokenLedger {
    WHERE c.application_id=$1 AND c.subject_id=$2 AND c.attribution->>'taskId'=$3`,[...identity(scope),taskId])).rows[0];
   return {...row,complete:row.pending==='0'};
  }
+ async accountUsage(scope,{from,until}={}){
+  const iso=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString()===value;
+  if(!iso(from)||!iso(until)||Date.parse(until)<=Date.parse(from)||Date.parse(until)-Date.parse(from)>366*86400000)throw fail('Explicit UTC usage interval of at most 366 days required');
+  const rows=(await this.pool.query(`SELECT
+   COALESCE(NULLIF(c.attribution->>'executorId',''),c.budget->>'executor') AS "executorId",
+   count(*)::text AS requests,
+   count(*) FILTER(WHERE c.state IN('reserved','unknown') OR (c.state='settled' AND e.id IS NULL))::text AS pending,
+   COALESCE(sum(CASE WHEN c.state IN('reserved','unknown') THEN c.reserved ELSE 0 END),0)::text AS held,
+   COALESCE(sum(-e.delta),0)::text AS "platformUnits",
+   COALESCE(sum((e.evidence->'usage'->>'input_tokens')::numeric),0)::text AS "inputTokens",
+   COALESCE(sum((e.evidence->'usage'->>'output_tokens')::numeric),0)::text AS "outputTokens",
+   COALESCE(sum((e.evidence->'usage'->'input_tokens_details'->>'cached_tokens')::numeric),0)::text AS "cachedInputTokens",
+   count(*) FILTER(WHERE c.state='settled' AND e.evidence->'usage'->'input_tokens_details'->>'cached_tokens' IS NULL)::text AS "cacheBreakdownMissing",
+   statement_timestamp() AS "observedAt"
+   FROM iaic_token_calls c LEFT JOIN iaic_token_entries e ON e.application_id=c.application_id AND e.subject_id=c.subject_id AND e.kind='settlement' AND e.reference=c.request_id
+   WHERE c.application_id=$1 AND c.subject_id=$2 AND c.created_at >= $3::timestamptz AND c.created_at < $4::timestamptz
+   GROUP BY COALESCE(NULLIF(c.attribution->>'executorId',''),c.budget->>'executor')
+   ORDER BY "executorId" NULLS LAST LIMIT 1001`,[...identity(scope),from,until])).rows;
+  if(rows.length>1000)throw fail('Usage projection exceeds executor limit',413);
+  return {from,until,basis:'request_admission_time',groups:rows.map(row=>({...row,complete:row.pending==='0',providerTokens:String(BigInt(row.inputTokens)+BigInt(row.outputTokens))})),complete:rows.every(row=>row.pending==='0')};
+ }
  async costCalls(scope,taskId){
   if(!text(taskId))throw fail('Task identity required');
   const rows=(await this.pool.query(`SELECT c.request_id AS "requestId",c.mode,c.state,c.cost_basis AS "costBasis",e.id::text AS "entryId",

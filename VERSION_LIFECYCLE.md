@@ -1,5 +1,14 @@
 # Core candidate lifetime and migration policy
 
+## candidate.114-support.2 — trusted executor usage projection (2026-09-27)
+
+Adds optional host-bound executorId to meteredModel and a redacted accountUsage
+read port grouped by executor and explicit request-admission interval. No schema
+migration or historical attribution rewrite. Unknown holds remain incomplete;
+provider Tokens and charged allowance remain separate. Existing calls without a
+trusted executor remain unattributed; existing budget executors are retained.
+This compatibility branch still includes support.1 and is not an official release.
+
 ## candidate.114-support.1 — application compatibility candidate (2026-09-27)
 
 Forward-ports the host-selected per-capability maxCalls/maxTurns contract from

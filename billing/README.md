@@ -43,3 +43,26 @@ Runtime's unmetered-provider retry path. Older unknown entries cannot recover
 provider information that was discarded at the time. If a timeout wins before
 metering returns, its later ledger evidence remains authoritative for the hold;
 no new Task event is promised after the Task's original timeout transition.
+
+
+`meteredModel({..., executorId})` optionally pins a trusted host-issued executor
+identity independently of any budget. A call cannot override it via billingContext;
+if both are configured, budget.executor must match. Account selection and personal
+credential ownership are unchanged. Do not use model-generated executor IDs.
+
+`accountUsage(scope,{from,until})` groups all calls admitted in the half-open UTC
+interval by this trusted executor (falling back to an existing budget executor).
+Use canonical ISO timestamps with milliseconds and Z, at most 366 days. Null
+executor means unattributed history, never guessed ownership. One SQL snapshot
+returns aggregate settled input/output/provider Tokens, known cached input subset,
+cache-breakdown missing count, platformUnits, held units and pending counts.
+Unknown/reserved or inconsistent settlement receipts make completeness false;
+reported Tokens are known measured usage, not an estimate for pending calls.
+Cached input is part of input, never extra provider Tokens. Failed calls with
+measured usage count. Late reconciliation updates the original admission cohort,
+not the settlement-month cohort. Account balance includes older unresolved holds
+outside the chosen cohort. This does not calculate supplier money/invoices.
+
+At most 1,000 executor groups are returned, otherwise 413 rather than partial totals.
+No prompts, credentials, provider references or raw evidence are returned. The host
+must enforce current authorization and trusted account resolution before this port.
