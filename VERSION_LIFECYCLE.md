@@ -1,6 +1,6 @@
 # Core candidate lifetime and migration policy
 
-## candidate.114-immeditoday.1 — application compatibility candidate (2026-09-27)
+## candidate.114-support.1 — application compatibility candidate (2026-09-27)
 
 Forward-ports the host-selected per-capability maxCalls/maxTurns contract from
 2a5fded onto candidate.114. ImmediToday's existing 50-task project creation needs
