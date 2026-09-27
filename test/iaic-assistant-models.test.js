@@ -14,3 +14,13 @@ test('headless model module supports a non-ERP actor, pinned tasks and zero-debi
  revoked=true;await assert.rejects(module.resolve({actor:owner}),{statusCode:409});assert.equal(systemCalls,0);
  await assert.rejects(module.snapshot({uid:'other'}),{statusCode:403});
 });
+test('trusted billing resolver binds payer and executor without moving settings or permitting request spoofing',async()=>{
+ const owner={uid:'p'},personal={applicationId:'app',subjectId:'p'},payer={applicationId:'app',subjectId:'usd-p'};let seen,admitted,denied=false,pending=false;
+ const provider={name:'pinned',model:'m',profileId:'s',next:async()=>({type:'wait',question:'Next',usage:{inputTokens:1,outputTokens:1}})};
+ const ledger={hasPendingTask:async()=>false,reserve:async(scope,call)=>{admitted={scope,call};},settle:async()=>({receipt:{id:'1',delta:'-3'}})};
+ const models=new AssistantModels({settings:{get:async scope=>{assert.equal(scope,personal);return null;}},profiles:{list:()=>[{id:'s',modelIdentity:'pinned'}],resolve:async()=>provider},ledger,resolveScope:async()=>personal,resolveBilling:async ctx=>{if(denied)throw Error('Not approved');seen=ctx;return {scope:payer,executorId:'trusted-worker',beforeCall:async()=>{if(pending)throw Error('Old payer unresolved');},policy:{maximum:10,price:{revision:'usd',input:1,cachedInput:1,output:2}}};}});
+ const agent={definitionId:'worker'},model=await models.resolve({actor:owner,agent,modelIdentity:'pinned'});assert.equal(seen.actor,owner);assert.equal(seen.agent,agent);assert.deepEqual(Object.keys(seen.model).sort(),['model','name','profileId']);
+ await model.next({billingContext:{taskId:'task',turn:1,executorId:'spoof'}});assert.equal(admitted.scope,payer);assert.equal(admitted.call.attribution.executorId,'trusted-worker');
+ pending=true;admitted=null;await assert.rejects(model.next({billingContext:{taskId:'old',turn:2}}),/Old payer unresolved/);assert.equal(admitted,null);
+ denied=true;await assert.rejects(models.resolve({actor:owner}),/Not approved/);await assert.rejects(models.target(owner,'s'),/Not approved/);
+});
