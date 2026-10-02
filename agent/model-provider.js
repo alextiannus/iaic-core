@@ -1,3 +1,4 @@
+import {chatContent} from '../context/attachments.js';
 import {invocationConfig} from './invocation.js';
 import {OpenAIProvider,readBoundedResponse} from './openai-provider.js';
 
@@ -15,7 +16,7 @@ export function createModelProvider({apiKey,model,provider='openai',baseUrl='',f
  endpoint.pathname=endpoint.pathname.replace(/\/$/,'')+'/chat/completions';
  const transport=async(_url,options)=>{
   const request=JSON.parse(options.body);
-  const response=await fetchImpl(endpoint.href,{...options,body:JSON.stringify({model:request.model,messages:request.input,
+  const response=await fetchImpl(endpoint.href,{...options,body:JSON.stringify({model:request.model,messages:chatContent(request.input),
    tools:request.tools.map(({type,name,description,parameters})=>({type,function:{name,description,parameters}})),
    tool_choice:request.tool_choice,parallel_tool_calls:request.parallel_tool_calls,temperature:0,
    ...(policy?.reasoningEffort===undefined?{}:{reasoning_effort:policy.reasoningEffort}),

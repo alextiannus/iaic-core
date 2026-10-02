@@ -67,3 +67,24 @@ Optional `planProvider({actor,task})` supplies current-authorized working progre
 on each assembly. `TaskPlans.read` is a Workspace-backed implementation. The plan
 is retained under the ordinary context size limit and is not an authorization or
 completion verdict. See [Task plans](../workspace/PLANS.md).
+
+## Optional attachment context (support.4)
+
+ContextAssembler accepts a trusted `attachmentProvider({actor,task})` which must
+recheck access and resolve immutable bytes on every assembly. It emits bounded
+Responses-format content parts; `attachmentContent` composes scoped ObjectStorage
+reads for UTF-8 text, PDF and PNG/JPEG/WebP. The chat-completions adapter maps these
+parts to its own wire format. Hosts select a model supporting the requested media;
+an incompatible provider must fail visibly, never silently omit attachments.
+No extra model call, hidden OCR service, credential or billing bypass is added.
+`createAgentTaskCapabilities({readAttachment})` enables bounded attachment refs
+in Task admission and rechecks each read. Hosts own upload/type validation and UI.
+Official wire references: https://developers.openai.com/api/docs/guides/file-inputs
+and https://developers.openai.com/api/docs/guides/images-vision .
+
+Support.5 adds `attachmentContent(...,{pdfMode:'text'})` for models without native
+PDF input. Optional PDF.js parsing runs locally in a bounded worker (4 MiB,
+40 pages, 80k characters, 12 seconds; no evaluation/network font fetching).
+Scanned PDFs with no extractable text explicitly ask for page images; no OCR or
+successful image interpretation is fabricated. Invalid/encrypted/oversized files
+fail clearly. Native PDF mode remains available to compatible providers.

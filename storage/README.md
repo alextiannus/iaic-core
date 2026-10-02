@@ -9,3 +9,9 @@
 Object references identify bytes, not permissions or business truth. Deletion makes the object unavailable in this scope; a later explicitly authorized put of identical bytes can recreate it. This differs from Workspace's logical-path tombstones. Retention policies, shared reference counts, media metadata, signed URLs, S3-specific adapters and deletion of already downloaded copies are not supplied here.
 
 The filesystem root is trusted server-owned storage, not an untrusted process workspace or sandbox. Applications manage filesystem access and lifecycle. No files are executed and no browser content type is inferred from bytes. See `examples/core-objects` and the release resource loader for independent composition.
+
+`PostgresObjectStore` in `storage/postgres.js` is an optional durable replacement
+for filesystem objects. It verifies hashes/length, scopes every query, deduplicates
+identical bytes and serializes per-scope quota admission (defaults 4 MiB/object,
+100 MiB/scope). Initialize its optional `iaic_objects` table before use. No TTL,
+public URLs, aggregate tenant quota or physical backup erasure is implied.
