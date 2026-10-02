@@ -136,3 +136,10 @@ candidate.111 support ends 2026-10-09 23:59 UTC. No SQL migration or Runtime cha
 Persist the operations cursor key and bind visibility revisions to trusted scopes.
 On rollback stop/remove the new read routes; existing authoritative module data
 is unchanged. A default UI and live external adapters remain separate delivery.
+
+## 0.1.0-candidate.114-support.4 — 2026-10-02
+
+IT-F23 adds optional PostgresObjectStore and bounded attachment context.
+Existing Inbox, Notifications, Sessions, Runtime and billing are reused.
+Only optional iaic_objects storage is new; stop attachment intake before rollback.
+Support.3 dynamic billing and execution limits remain. Modules: 432 passed / 0 failed.
