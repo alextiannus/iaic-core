@@ -143,3 +143,10 @@ IT-F23 adds optional PostgresObjectStore and bounded attachment context.
 Existing Inbox, Notifications, Sessions, Runtime and billing are reused.
 Only optional iaic_objects storage is new; stop attachment intake before rollback.
 Support.3 dynamic billing and execution limits remain. Modules: 432 passed / 0 failed.
+
+## 0.1.0-candidate.114-support.5 — 2026-10-02
+
+Adds bounded local PDF text extraction for Host-selected models without native
+PDF input. Support.4 application deployment was stopped before rollout to include
+this compatibility path. No schema migration beyond support.4. PDF.js 5.4.624 is
+pinned for Node 20 compatibility; dependency audit is part of acceptance.

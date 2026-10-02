@@ -1,6 +1,6 @@
 {
   "name": "@immedi/iaic-core",
-  "version": "0.1.0-candidate.114-support.4",
+  "version": "0.1.0-candidate.114-support.5",
   "private": true,
   "type": "module",
   "description": "Headless modular IAiC capabilities, durable agents, memory, models and platform allowance rules.",
@@ -108,6 +108,7 @@
   ],
   "dependencies": {
     "ajv": "8.20.0",
+    "pdfjs-dist": "5.4.624",
     "yaml": "2.9.1"
   },
   "peerDependencies": {

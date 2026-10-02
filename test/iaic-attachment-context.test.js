@@ -10,3 +10,13 @@ test('Postgres objects retain immutable data, reject cross-owner reads and seria
 test('Attachment context re-resolves bytes, maps images/PDF for both providers and bounds transfer',async()=>{
  let reads=0;const refs=[{mediaType:'image/png',filename:'photo.png'},{mediaType:'application/pdf',filename:'brief.pdf'},{mediaType:'text/plain',filename:'note.txt'}];const parts=await attachmentContent(refs,async()=>{reads++;return Buffer.from('fixture');});assert.equal(reads,3);assert.equal(parts[0].type,'input_image');assert.equal(parts[1].filename,'brief.pdf');assert.match(parts[2].text,/fixture/);const chat=chatContent([{role:'user',content:parts}])[0].content;assert.equal(chat[0].type,'image_url');assert.equal(chat[1].file.filename,'brief.pdf');await assert.rejects(attachmentContent(refs,async()=>Buffer.alloc(20),{maxBytes:10}),{statusCode:413});await assert.rejects(attachmentContent(refs,async()=>{throw Object.assign(Error('Revoked'),{statusCode:403});}),{statusCode:403});
 });
+
+test('PDF text fallback extracts actual content and rejects invalid/encrypted files without model calls',async()=>{
+ const {extractPdfText}=await import('../context/pdf-text.js');
+ const stream='BT /F1 12 Tf 30 70 Td (Invoice TEST-529 amount SGD 5200) Tj ET';
+ const objects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids [3 0 R] /Count 1 >>','<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 100] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`];
+ let pdf='%PDF-1.4\n',offsets=[0];for(let i=0;i<objects.length;i++){offsets.push(Buffer.byteLength(pdf));pdf+=`${i+1} 0 obj\n${objects[i]}\nendobj\n`;}const xref=Buffer.byteLength(pdf);pdf+=`xref\n0 6\n0000000000 65535 f \n`+offsets.slice(1).map(n=>String(n).padStart(10,'0')+' 00000 n \n').join('')+`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+ const result=await extractPdfText(Buffer.from(pdf));assert.equal(result.hasText,true);assert.match(result.text,/TEST-529/);assert.match(result.text,/5200/);
+ const parts=await attachmentContent([{filename:'invoice.pdf',mediaType:'application/pdf'}],async()=>Buffer.from(pdf),{pdfMode:'text'});assert.equal(parts[0].type,'input_text');assert.match(parts[0].text,/TEST-529/);
+ await assert.rejects(extractPdfText(Buffer.from('%PDF-broken')),{statusCode:400});
+});

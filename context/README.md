@@ -81,3 +81,10 @@ No extra model call, hidden OCR service, credential or billing bypass is added.
 in Task admission and rechecks each read. Hosts own upload/type validation and UI.
 Official wire references: https://developers.openai.com/api/docs/guides/file-inputs
 and https://developers.openai.com/api/docs/guides/images-vision .
+
+Support.5 adds `attachmentContent(...,{pdfMode:'text'})` for models without native
+PDF input. Optional PDF.js parsing runs locally in a bounded worker (4 MiB,
+40 pages, 80k characters, 12 seconds; no evaluation/network font fetching).
+Scanned PDFs with no extractable text explicitly ask for page images; no OCR or
+successful image interpretation is fabricated. Invalid/encrypted/oversized files
+fail clearly. Native PDF mode remains available to compatible providers.
