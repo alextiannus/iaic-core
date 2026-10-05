@@ -38,6 +38,20 @@ test('feedback entry point gives human and AI developers a complete safe quick s
   await fs.access(new URL('../feedback/examples/unsafe-raw-log.md',import.meta.url));
 });
 
+test('package manifest includes repository feedback materials',async()=>{
+  const pkg=JSON.parse(await read('package.json'));
+  for(const entry of ['FRAMEWORK_FEEDBACK.md','feedback','framework-feedback']){
+    assert.equal(pkg.files.includes(entry),true,entry+' missing from package files');
+  }
+  assert.equal(pkg.scripts['feedback:verify'],'node scripts/verify-framework-feedback.mjs');
+});
+
+test('package verification executes feedback verification from the installed package root',async()=>{
+  const verifier=await read('scripts/verify-package.mjs');
+  assert.match(verifier,/run\(\[path\.join\(installed,'scripts\/verify-framework-feedback\.mjs'\)\],installed/);
+  assert.doesNotMatch(verifier,/run\(\[path\.join\(root,'scripts\/verify-framework-feedback\.mjs'\)/);
+});
+
 test('valid record parses required contract and headings',async()=>{
   const markdown=await fs.readFile(new URL('./fixtures/framework-feedback/valid/feedback/inbox/IAIC-FB-20261005-ABC123.md',import.meta.url),'utf8');
   const record=parseFeedbackRecord(markdown,{filePath:'feedback/inbox/IAIC-FB-20261005-ABC123.md'});

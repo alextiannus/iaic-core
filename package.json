@@ -55,6 +55,9 @@
   "files": [
     "index.js",
     "README.md",
+    "FRAMEWORK_FEEDBACK.md",
+    "feedback",
+    "framework-feedback",
     "agent",
     "assistants",
     "billing",
