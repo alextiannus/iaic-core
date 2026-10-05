@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {execFile,spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
+import os from 'node:os';
 import path from 'node:path';
 import {promisify} from 'node:util';
 import {
@@ -111,8 +112,16 @@ test('released record keeps notification admission delivery and read distinct',a
   assert.equal(new Set(refs.map(item=>item.ref)).size,1);
 });
 
+test('released record requires a Core Task reference',async()=>{
+  const markdown=await fs.readFile(new URL('./fixtures/framework-feedback/released-valid/feedback/inbox/IAIC-FB-20261005-REL123.md',import.meta.url),'utf8');
+  const record=parseFeedbackRecord(markdown,{filePath:'feedback/inbox/IAIC-FB-20261005-REL123.md'});
+  record.frontmatter.core_task_refs=[];
+  const result=validateFeedbackRecord(record,{filePath:record.filePath,archived:false});
+  assert.deepEqual(result.errors.map(error=>error.code),['missing-core-task'],JSON.stringify(result.errors));
+});
+
 test('documented contributor commands work end to end in a temporary repository copy',async()=>{
-  const temporaryRoot=await fs.mkdtemp(path.join(root,'.tmp-framework-feedback-'));
+  const temporaryRoot=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'iaic-framework-feedback-')));
   const guidePrefix='# Temporary contributor guide\n\nBefore index.\n\n';
   const guideSuffix='\n\nAfter index.\n';
   const initialGuide=`${guidePrefix}<!-- feedback-index:start -->\nStale index.\n<!-- feedback-index:end -->${guideSuffix}`;
@@ -121,6 +130,7 @@ test('documented contributor commands work end to end in a temporary repository 
     await fs.cp(path.join(root,'framework-feedback'),path.join(temporaryRoot,'framework-feedback'),{recursive:true});
     await fs.mkdir(path.join(temporaryRoot,'scripts'),{recursive:true});
     await fs.copyFile(path.join(root,'scripts/framework-feedback.mjs'),path.join(temporaryRoot,'scripts/framework-feedback.mjs'));
+    await fs.symlink(path.join(root,'node_modules'),path.join(temporaryRoot,'node_modules'),'dir');
     await fs.writeFile(path.join(temporaryRoot,'FRAMEWORK_FEEDBACK.md'),initialGuide,'utf8');
 
     const cli=path.join(temporaryRoot,'scripts/framework-feedback.mjs');

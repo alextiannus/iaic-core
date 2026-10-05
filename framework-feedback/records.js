@@ -60,7 +60,7 @@ const CATEGORIES=new Set(['bug','framework-gap','improvement','demo-result']);
 const EVIDENCE_LEVELS=new Set(['design-feedback','observed','validated']);
 const REPORTERS=new Set(['application-developer','application-platform-ai','core-developer','core-platform-ai']);
 const NOTIFICATION_STATUSES=new Set(['admitted','delivered','read']);
-const TASK_REQUIRED_STATUSES=new Set(['planned','implementing','verifying']);
+const TASK_REQUIRED_STATUSES=new Set(['planned','implementing','verifying','released']);
 const STRING_FIELDS=['title','source_application','source_repository','source_revision'];
 const STRING_ARRAY_FIELDS=[
   'affected_modules',
