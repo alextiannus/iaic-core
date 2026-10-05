@@ -271,6 +271,31 @@ test('triage proposal reports bounded missing facts and candidate duplicates onl
   );
 });
 
+test('triage proposal is limited to initial triage statuses',async()=>{
+  const repository=await loadFeedbackRepository(new URL('./fixtures/framework-feedback/adversarial/',import.meta.url));
+  const submitted=repository.records[0];
+  assert.equal(createTriageProposal(submitted,{knownRecords:[]}).currentStatus,'submitted');
+
+  const needsInformation={
+    ...submitted,
+    frontmatter:{...submitted.frontmatter,status:'needs-information'}
+  };
+  assert.equal(createTriageProposal(needsInformation,{knownRecords:[]}).currentStatus,'needs-information');
+
+  for(const status of ['accepted','released']){
+    const ineligible={
+      ...submitted,
+      frontmatter:{...submitted.frontmatter,status}
+    };
+    assert.throws(
+      ()=>createTriageProposal(ineligible,{knownRecords:[]}),
+      error=>error instanceof FeedbackValidationError
+        &&error.errors.some(item=>item.code==='triage-status-ineligible'&&item.path==='frontmatter.status'),
+      status
+    );
+  }
+});
+
 test('triage-proposal CLI resolves only an exact validated inbox record path',async()=>{
   const fixture='test/fixtures/framework-feedback/adversarial/feedback/inbox/IAIC-FB-20261005-BAD999.md';
   let stdout='';

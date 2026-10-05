@@ -81,6 +81,7 @@ const INDEX_START='<!-- feedback-index:start -->';
 const INDEX_END='<!-- feedback-index:end -->';
 const TRIAGE_FACT_SECTIONS=Object.freeze(REQUIRED_SECTIONS.slice(0,6));
 const TRIAGE_PROPOSAL_STATUSES=new Set(['triaged','needs-information']);
+const TRIAGE_ELIGIBLE_STATUSES=new Set(['submitted','triaged','needs-information']);
 const MAX_AFFECTED_MODULES=64;
 const MAX_DUPLICATE_CANDIDATES=50;
 
@@ -187,6 +188,13 @@ function isArchivedRecord(record){
 }
 
 function validatedForProposal(record){
+  const status=record?.frontmatter?.status;
+  if(STATUSES.has(status)&&!TRIAGE_ELIGIBLE_STATUSES.has(status)){
+    throw new FeedbackValidationError(
+      'Triage proposals are limited to initial triage statuses.',
+      [makeError(record?.filePath??'unknown','triage-status-ineligible','frontmatter.status',`Status ${status} is not eligible for a triage proposal.`)]
+    );
+  }
   const result=validateFeedbackRecord(record,{
     filePath:record?.filePath??'unknown',
     archived:isArchivedRecord(record)
