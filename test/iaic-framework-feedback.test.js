@@ -1,11 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {
+  allocateFeedbackId,
   FeedbackValidationError,
   loadFeedbackRepository,
   parseFeedbackRecord,
+  renderActiveIndex,
+  replaceActiveIndex,
   validateFeedbackRecord
 } from '../framework-feedback/records.js';
 
@@ -116,4 +120,66 @@ test('validator rejects insecure external links but allows inert placeholders an
   const errors=validateFeedbackRecord(record,{archived:false}).errors;
   assert.equal(errors.filter(error=>error.code==='insecure-link').length,1);
   assert.equal(errors.some(error=>error.code==='likely-secret'),false);
+});
+
+test('ID allocation is collision resistant and retries a known collision',()=>{
+  const bytes=[Buffer.from([0,1,2,3]),Buffer.from([4,5,6,7])];
+  const first='IAIC-FB-20261005-000102';
+  const id=allocateFeedbackId({
+    date:new Date('2026-10-05T01:00:00Z'),
+    existingIds:new Set([first]),
+    randomBytes:()=>bytes.shift()
+  });
+  assert.equal(id,'IAIC-FB-20261005-040506');
+});
+
+test('active index is stable and excludes archived examples',async()=>{
+  const repository=await loadFeedbackRepository(new URL('./fixtures/framework-feedback/valid/',import.meta.url));
+  const base=repository.records[0];
+  const later={...base,filePath:'feedback/inbox/IAIC-FB-20261005-FFF999.md',frontmatter:{...base.frontmatter,id:'IAIC-FB-20261005-FFF999',updated_at:'2026-10-06T00:00:00Z'}};
+  const tied={...base,filePath:'feedback/inbox/IAIC-FB-20261005-AAA111.md',frontmatter:{...base.frontmatter,id:'IAIC-FB-20261005-AAA111'}};
+  const archived={...base,filePath:'feedback/archive/2026/IAIC-FB-20261005-ZZZ999.md',frontmatter:{...base.frontmatter,id:'IAIC-FB-20261005-ZZZ999',status:'released'}};
+  const records=[base,later,tied,archived];
+  const table=renderActiveIndex(records);
+  assert.match(table,/IAIC-FB-20261005-ABC123/);
+  assert.match(table,/\[IAIC-FB-20261005-ABC123\]\(feedback\/inbox\/IAIC-FB-20261005-ABC123\.md\)/);
+  assert.doesNotMatch(table,/IAIC-FB-20261005-ZZZ999/);
+  assert.ok(table.indexOf('IAIC-FB-20261005-FFF999')<table.indexOf('IAIC-FB-20261005-AAA111'));
+  assert.ok(table.indexOf('IAIC-FB-20261005-AAA111')<table.indexOf('IAIC-FB-20261005-ABC123'));
+  assert.equal(table,renderActiveIndex([...records].reverse()));
+});
+
+test('active index escapes cells and replacement preserves bytes outside exactly one marker pair',()=>{
+  const table=renderActiveIndex([{
+    filePath:'feedback/inbox/IAIC-FB-20261005-ABC123.md',
+    frontmatter:{
+      id:'IAIC-FB-20261005-ABC123',
+      title:'Title | with\na newline <!-- feedback-index:end -->',
+      category:'framework-gap',
+      status:'submitted',
+      source_application:'Example | app',
+      updated_at:'2026-10-05T00:00:00Z'
+    }
+  }]);
+  assert.match(table,/Title \\| with a newline/);
+  assert.match(table,/Example \\| app/);
+  assert.doesNotMatch(table,/<!-- feedback-index:end -->/);
+
+  const prefix='# Guide\r\n\r\n';
+  const suffix='\r\n\r\nTrailing bytes.\r\n';
+  const guide=`${prefix}<!-- feedback-index:start -->old<!-- feedback-index:end -->${suffix}`;
+  const replaced=replaceActiveIndex(guide,table);
+  assert.equal(replaced.slice(0,prefix.length),prefix);
+  assert.equal(replaced.slice(-suffix.length),suffix);
+  assert.throws(()=>replaceActiveIndex(`${guide}\n<!-- feedback-index:start -->x<!-- feedback-index:end -->`,table));
+});
+
+test('feedback CLI rejects unknown flags with usage and exit code 2',()=>{
+  const result=spawnSync(process.execPath,['scripts/framework-feedback.mjs','validate','--write'],{
+    cwd:root,
+    encoding:'utf8'
+  });
+  assert.equal(result.status,2,result.stderr);
+  assert.match(result.stderr,/Usage:/);
+  assert.equal(result.stdout,'');
 });

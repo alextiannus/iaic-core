@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {randomBytes as secureRandomBytes} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {parseDocument} from 'yaml';
 
@@ -75,6 +76,8 @@ const ID_PATTERN=/^IAIC-FB-[0-9]{8}-[A-Z0-9]{6}$/;
 const UTC_TIMESTAMP_PATTERN=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 const FRONTMATTER_PATTERN=/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 const parseMetadata=new WeakMap();
+const INDEX_START='<!-- feedback-index:start -->';
+const INDEX_END='<!-- feedback-index:end -->';
 
 const SECRET_PATTERNS=Object.freeze([
   ['pem-private-key',/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/gi],
@@ -106,6 +109,68 @@ export class FeedbackValidationError extends Error{
     this.name='FeedbackValidationError';
     this.errors=sorted([...errors]);
   }
+}
+
+export function allocateFeedbackId({date=new Date(),randomBytes=secureRandomBytes,existingIds=new Set()}={}){
+  if(!(date instanceof Date)||!Number.isFinite(date.getTime())){
+    throw new TypeError('date must be a valid Date.');
+  }
+  if(typeof randomBytes!=='function') throw new TypeError('randomBytes must be a function.');
+  const datePart=date.toISOString().slice(0,10).replaceAll('-','');
+  for(let attempt=0;attempt<1024;attempt+=1){
+    const bytes=randomBytes(3);
+    if(!Buffer.isBuffer(bytes)&&!(bytes instanceof Uint8Array)){
+      throw new TypeError('randomBytes must return bytes.');
+    }
+    if(bytes.length<3) throw new RangeError('randomBytes must return at least three bytes.');
+    const suffix=Buffer.from(bytes.subarray(0,3)).toString('hex').toUpperCase();
+    const id=`IAIC-FB-${datePart}-${suffix}`;
+    if(!existingIds.has(id)) return id;
+  }
+  throw new Error('Unable to allocate a unique feedback ID after 1024 attempts.');
+}
+
+function escapeIndexCell(value){
+  return String(value??'')
+    .replace(/\r?\n|\r/g,' ')
+    .replaceAll('|','\\|')
+    .replaceAll(INDEX_START,'&lt;!-- feedback-index:start -->')
+    .replaceAll(INDEX_END,'&lt;!-- feedback-index:end -->');
+}
+
+export function renderActiveIndex(records){
+  const active=records
+    .filter(record=>record?.filePath?.startsWith('feedback/inbox/')&&record.frontmatter?.status!=='archived')
+    .sort((left,right)=>{
+      const leftUpdated=String(left.frontmatter.updated_at);
+      const rightUpdated=String(right.frontmatter.updated_at);
+      if(leftUpdated!==rightUpdated) return leftUpdated>rightUpdated?-1:1;
+      const leftId=String(left.frontmatter.id);
+      const rightId=String(right.frontmatter.id);
+      return leftId<rightId?-1:leftId>rightId?1:0;
+    });
+  const lines=[
+    '| ID | Title | Category | Status | Source application | Updated |',
+    '| --- | --- | --- | --- | --- | --- |'
+  ];
+  for(const record of active){
+    const frontmatter=record.frontmatter;
+    const id=escapeIndexCell(frontmatter.id);
+    const link=record.filePath.split(path.sep).join('/');
+    lines.push(`| [${id}](${link}) | ${escapeIndexCell(frontmatter.title)} | ${escapeIndexCell(frontmatter.category)} | ${escapeIndexCell(frontmatter.status)} | ${escapeIndexCell(frontmatter.source_application)} | ${escapeIndexCell(frontmatter.updated_at)} |`);
+  }
+  return lines.join('\n');
+}
+
+export function replaceActiveIndex(guide,table){
+  if(typeof guide!=='string'||typeof table!=='string') throw new TypeError('guide and table must be strings.');
+  const start=guide.indexOf(INDEX_START);
+  const end=guide.indexOf(INDEX_END);
+  if(start===-1||end===-1||end<start||guide.indexOf(INDEX_START,start+INDEX_START.length)!==-1||guide.indexOf(INDEX_END,end+INDEX_END.length)!==-1){
+    throw new Error('FRAMEWORK_FEEDBACK.md must contain exactly one ordered feedback index marker pair.');
+  }
+  const contentStart=start+INDEX_START.length;
+  return `${guide.slice(0,contentStart)}\n${table}\n${guide.slice(end)}`;
 }
 
 function scanSections(body){

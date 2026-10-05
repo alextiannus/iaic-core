@@ -133,6 +133,9 @@
   "scripts": {
     "test": "npm run test:modules && node scripts/verify-examples.mjs",
     "example:jobs": "node examples/core-configurable-jobs/run.mjs",
+    "feedback:next-id": "node scripts/framework-feedback.mjs next-id",
+    "feedback:index": "node scripts/framework-feedback.mjs index --write",
+    "feedback:verify": "node scripts/verify-framework-feedback.mjs",
     "verify:core-package": "node scripts/verify-package.mjs",
     "test:modules": "node scripts/verify-modules.mjs",
     "verify:release-upgrade": "node scripts/verify-release-upgrade.mjs",
