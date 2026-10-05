@@ -111,6 +111,8 @@ been completed.
 
 ## Design responsibility and composition — Note 43 alignment
 
+The canonical conceptual contract is the [AI Native Application definition](AI_NATIVE_APPLICATION.md). This section retains the technical delivery requirements and composition consequences; it does not create a second definition.
+
 Start with whose responsibility the goal represents and what evidence establishes
 completion. Then compose capabilities, working methods, persistent resources and
 the execution/feedback loop. Task duration, complexity, business-object names and

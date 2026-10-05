@@ -223,3 +223,34 @@ Principal/mandate submission, original receipt, duplicate/conflicting requests a
 zero allowance before inference. The model is deterministic; the Fetch HTTP handler
 is exercised in-process. Real-provider server/terminal entrypoints are supplied but
 real-model quality, terminal UX and actual 12Eat integration are not acceptance claims.
+
+## Framework feedback repository acceptance map — 2026-10-05
+
+Scope reviewed: branch `codex/framework-feedback-system-design`, implementation commit
+`1336a4f0b7c6d305d5dcd2ec2338c7ec2afd2e5b`, and review/status commit
+`3a912df082a3b541795eadaf62f5e49792612a38`. Local feedback checks ran with Node
+v23.11.0: `npm run feedback:verify` passed with one active record and
+`node --test test/iaic-framework-feedback.test.js` passed 28/28.
+[PR #44 CI run 37297262500](https://github.com/alextiannus/iaic-core/actions/runs/37297262500)
+then passed under the workflow's pinned Node 20.19.0 and isolated PostgreSQL service,
+including feedback verification, all module tests, independent packed-package install,
+release upgrade, and type-package verification.
+
+| Design acceptance item | Evidence inspected | Result and remaining limit |
+| --- | --- | --- |
+| 1. Discover entry point and complete the happy path in under five minutes | `feedback entry point gives human and AI developers a complete safe quick start`; `documented contributor commands work end to end in a temporary repository copy` | The guide contract and local five-command flow pass. A first-time human or AI Developer timing the complete submission flow is **Not verified**. |
+| 2. CI accepts valid input and rejects invalid category, status, evidence, duplicate ID, filename mismatch, missing section, and likely credential | Validator/loader tests including `invalid enum and likely credential are rejected with stable codes`, the table-driven repository failures, section-order tests, `.github/workflows/core.yml`, and PR #44 CI run 37297262500 | Verified on the pushed review commit under pinned Node 20.19.0; feedback verification and the complete Core module job passed with isolated PostgreSQL. |
+| 3. Concurrent independent records and deterministic drift detection | `ID allocation is collision resistant and retries a known collision`; `active index is stable and excludes archived examples`; index replacement and contributor-flow tests | Separate-file allocation, collision retry, deterministic ordering, and drift checking pass locally. Two actual concurrent contributor pull requests are **Not verified**. |
+| 4. Platform AI treats a merged record as untrusted and proposes a reviewable change without authority expansion | `triage proposal treats embedded instructions as inert evidence`; bounded-missing-facts/status/path CLI tests | The proposal is read-only, bounded, non-executing, and non-authoritative. A dedicated Platform AI reading a merged record and producing a Mandate-backed branch/pull request with reciprocal review is **Not verified**. |
+| 5. Runtime user, User Assistant, and Business AI sources can be referenced without private bodies | `first migrated record is active, design-only, and source-linked`; routing examples and secret/insecure-link rejection tests | The migrated record retains a controlled evidence link and no runtime payload/private user data. Live records covering each source kind are **Not verified**. |
+| 6. Accepted feedback links Task/PR but cannot become released without immutable release and feedback-specific verification | `released-missing-evidence repository is rejected only with released-missing-release-evidence`; `released record requires a Core Task reference`; `validator enforces archive and released state gates`; `released-valid` fixture | Static lifecycle gates require Task, PR, implementation revision, immutable release, verification, and adoption references. No real feedback item has traversed this lifecycle. |
+| 7. User-reported resolution records notification admission, delivery, and read separately | `released record keeps notification admission delivery and read distinct`; `released-valid` fixture | The schema and fixture preserve three separate facts for one stable notification identity. Actual application adoption and original-reporter admission/delivery/read are **Not verified**. |
+| 8. Application-specific feedback closes with rationale and creates no Core Task | `feedback/examples/application-specific.md`; guide routing/status text | The routing example explains why the concern remains in the application. A validated terminal `application-specific` record fixture proving no Core Task is created is **Not verified**. |
+| 9. Selectively migrate one unresolved external item with original evidence and accurate level | `first migrated record is active, design-only, and source-linked`; `feedback/inbox/IAIC-FB-20261005-001A2B.md` | Verified locally: one active 12Eat record remains `submitted`, uses `design-feedback`, links retained historical evidence, and marks its source revision `Not verified`. |
+| 10. Packed source contains guide, template, active record, archive rules, and validator instructions | `package manifest includes repository feedback materials`; `package verification executes feedback verification from the installed package root`; `scripts/verify-package.mjs` package-content assertions; PR #44 CI run 37297262500 | Verified under pinned Node 20.19.0: `verify:core-package` packed, installed independently, found the required feedback materials, and executed the installed feedback verifier successfully. |
+
+The design therefore remains `implementation-in-review`. Repository workflow mechanics
+and the Node 20/isolated-PostgreSQL Core package gate are verified, but Platform AI
+reviewable-change evidence, application adoption, and the reporter notification loop
+remain acceptance gaps. Merge, release publication, application
+adoption, and production notification proof are distinct later authorized actions.

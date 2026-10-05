@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IAiC Framework Feedback Record",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "status",
+    "category",
+    "source_application",
+    "source_repository",
+    "source_revision",
+    "submitted_at",
+    "updated_at",
+    "evidence_level",
+    "reported_by",
+    "affected_modules",
+    "runtime_issue_refs",
+    "core_task_refs",
+    "core_pr_refs",
+    "core_release_refs",
+    "core_verification_refs",
+    "application_adoption_refs",
+    "reporter_notification_refs",
+    "supersedes",
+    "duplicate_of"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^IAIC-FB-[0-9]{8}-[A-Z0-9]{6}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 120
+    },
+    "status": {
+      "enum": [
+        "submitted",
+        "triaged",
+        "needs-information",
+        "application-specific",
+        "duplicate",
+        "rejected",
+        "accepted",
+        "planned",
+        "implementing",
+        "verifying",
+        "released",
+        "archived"
+      ]
+    },
+    "category": {
+      "enum": ["bug", "framework-gap", "improvement", "demo-result"]
+    },
+    "source_application": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_repository": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evidence_level": {
+      "enum": ["design-feedback", "observed", "validated"]
+    },
+    "reported_by": {
+      "enum": [
+        "application-developer",
+        "application-platform-ai",
+        "core-developer",
+        "core-platform-ai"
+      ]
+    },
+    "affected_modules": {
+      "$ref": "#/$defs/nonEmptyUniqueStrings"
+    },
+    "runtime_issue_refs": {
+      "$ref": "#/$defs/uniqueStrings"
+    },
+    "core_task_refs": {
+      "$ref": "#/$defs/uniqueStrings"
+    },
+    "core_pr_refs": {
+      "$ref": "#/$defs/uniqueStrings"
+    },
+    "core_release_refs": {
+      "$ref": "#/$defs/uniqueStrings"
+    },
+    "core_verification_refs": {
+      "$ref": "#/$defs/uniqueStrings"
+    },
+    "application_adoption_refs": {
+      "$ref": "#/$defs/uniqueStrings"
+    },
+    "reporter_notification_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": ["ref", "status"],
+        "properties": {
+          "ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "enum": ["admitted", "delivered", "read"]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "supersedes": {
+      "$ref": "#/$defs/uniqueStrings"
+    },
+    "duplicate_of": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^IAIC-FB-[0-9]{8}-[A-Z0-9]{6}$"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "uniqueStrings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "nonEmptyUniqueStrings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}

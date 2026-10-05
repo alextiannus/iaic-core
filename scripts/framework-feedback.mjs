@@ -1,0 +1,154 @@
+#!/usr/bin/env node
+
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {
+  allocateFeedbackId,
+  createTriageProposal,
+  loadFeedbackRepository,
+  renderActiveIndex,
+  replaceActiveIndex
+} from '../framework-feedback/records.js';
+
+const scriptPath=fileURLToPath(import.meta.url);
+const defaultRoot=path.resolve(path.dirname(scriptPath),'..');
+const usage=`Usage:
+  node scripts/framework-feedback.mjs next-id
+  node scripts/framework-feedback.mjs validate
+  node scripts/framework-feedback.mjs index --check
+  node scripts/framework-feedback.mjs index --write
+  node scripts/framework-feedback.mjs triage-proposal feedback/inbox/<id>.md`;
+
+function writeJson(stream,value){
+  stream.write(`${JSON.stringify(value)}\n`);
+}
+
+function usageError(stderr,message){
+  stderr.write(`${message}\n${usage}\n`);
+  return 2;
+}
+
+function validationFailure(stderr,errors){
+  for(const error of errors) writeJson(stderr,error);
+  return 1;
+}
+
+async function repositoryOrFail(root,stderr){
+  const repository=await loadFeedbackRepository(root);
+  if(repository.errors.length>0){
+    validationFailure(stderr,repository.errors);
+    return null;
+  }
+  return repository;
+}
+
+function isWithin(parent,candidate){
+  const relative=path.relative(parent,candidate);
+  return relative===''||(!relative.startsWith(`..${path.sep}`)&&relative!=='..'&&!path.isAbsolute(relative));
+}
+
+async function resolveTriageRecord({argument,root,stderr}){
+  if(path.isAbsolute(argument)||argument.includes('\\')){
+    validationFailure(stderr,[{filePath:argument,code:'invalid-triage-record-path',path:'command.record',message:'Triage record path must be repository-relative and use forward slashes.'}]);
+    return null;
+  }
+  const parts=argument.split('/');
+  if(parts.some(part=>part===''||part==='.'||part==='..')){
+    validationFailure(stderr,[{filePath:argument,code:'invalid-triage-record-path',path:'command.record',message:'Triage record path must not contain empty, current-directory, or parent-directory segments.'}]);
+    return null;
+  }
+  const feedbackIndex=parts.length-3;
+  const filename=parts.at(-1);
+  if(feedbackIndex<0||parts[feedbackIndex]!=='feedback'||parts[feedbackIndex+1]!=='inbox'||!/^IAIC-FB-[0-9]{8}-[A-Z0-9]{6}\.md$/.test(filename)){
+    validationFailure(stderr,[{filePath:argument,code:'invalid-triage-record-path',path:'command.record',message:'Triage record path must identify exactly feedback/inbox/<valid-id>.md.'}]);
+    return null;
+  }
+
+  const commandRoot=root instanceof URL?fileURLToPath(root):path.resolve(root);
+  const repositoryRoot=path.resolve(commandRoot,...parts.slice(0,feedbackIndex));
+  const realCommandRoot=await fs.realpath(commandRoot);
+  const realRepositoryRoot=await fs.realpath(repositoryRoot);
+  if(!isWithin(realCommandRoot,realRepositoryRoot)){
+    validationFailure(stderr,[{filePath:argument,code:'triage-record-outside-root',path:'command.record',message:'Triage record repository must remain inside the command root.'}]);
+    return null;
+  }
+  const realInboxRoot=await fs.realpath(path.join(realRepositoryRoot,'feedback','inbox'));
+  if(!isWithin(realRepositoryRoot,realInboxRoot)){
+    validationFailure(stderr,[{filePath:argument,code:'triage-record-outside-inbox',path:'command.record',message:'Triage record inbox must remain inside the selected repository.'}]);
+    return null;
+  }
+
+  const repository=await repositoryOrFail(realRepositoryRoot,stderr);
+  if(!repository) return null;
+  const recordPath=`feedback/inbox/${filename}`;
+  const record=repository.records.find(item=>item.filePath===recordPath);
+  if(!record){
+    validationFailure(stderr,[{filePath:argument,code:'triage-record-not-found',path:'command.record',message:'Triage record must exactly match a validated record in the selected repository inbox.'}]);
+    return null;
+  }
+  return {record,repository};
+}
+
+export async function runFeedbackCommand({args=[],root=defaultRoot,stdout=process.stdout,stderr=process.stderr}={}){
+  try{
+    const [command,...commandArgs]=args;
+    const guidePath=path.join(root,'FRAMEWORK_FEEDBACK.md');
+
+    if(command==='next-id'){
+      if(commandArgs.length!==0) return usageError(stderr,'next-id does not accept arguments or flags.');
+      const repository=await repositoryOrFail(root,stderr);
+      if(!repository) return 1;
+      const existingIds=new Set(repository.records.map(record=>record.frontmatter.id).filter(id=>typeof id==='string'));
+      const id=allocateFeedbackId({existingIds});
+      writeJson(stdout,{id,path:`feedback/inbox/${id}.md`});
+      return 0;
+    }
+
+    if(command==='validate'){
+      if(commandArgs.length!==0) return usageError(stderr,'validate does not accept arguments or flags.');
+      const repository=await repositoryOrFail(root,stderr);
+      if(!repository) return 1;
+      writeJson(stdout,{frameworkFeedback:'valid',records:repository.records.length});
+      return 0;
+    }
+
+    if(command==='index'){
+      if(commandArgs.length!==1||(commandArgs[0]!=='--check'&&commandArgs[0]!=='--write')){
+        return usageError(stderr,'index requires exactly one of --check or --write.');
+      }
+      const repository=await repositoryOrFail(root,stderr);
+      if(!repository) return 1;
+      const guide=await fs.readFile(guidePath,'utf8');
+      const table=renderActiveIndex(repository.records);
+      const expected=replaceActiveIndex(guide,table);
+      if(commandArgs[0]==='--check'){
+        if(expected!==guide){
+          return validationFailure(stderr,[{filePath:'FRAMEWORK_FEEDBACK.md',code:'index-drift',path:'feedback-index',message:'Active feedback index does not match feedback/inbox/. Run npm run feedback:index.'}]);
+        }
+        writeJson(stdout,{frameworkFeedback:'index-valid',activeRecords:repository.records.filter(record=>record.filePath.startsWith('feedback/inbox/')).length});
+        return 0;
+      }
+      if(expected!==guide) await fs.writeFile(guidePath,expected,'utf8');
+      writeJson(stdout,{frameworkFeedback:'index-written',activeRecords:repository.records.filter(record=>record.filePath.startsWith('feedback/inbox/')).length,changed:expected!==guide});
+      return 0;
+    }
+
+    if(command==='triage-proposal'){
+      if(commandArgs.length!==1||commandArgs[0].startsWith('-')) return usageError(stderr,'triage-proposal requires exactly one record path.');
+      const selection=await resolveTriageRecord({argument:commandArgs[0],root,stderr});
+      if(!selection) return 1;
+      writeJson(stdout,createTriageProposal(selection.record,{knownRecords:selection.repository.records}));
+      return 0;
+    }
+
+    return usageError(stderr,command?`Unknown command: ${command}`:'A command is required.');
+  }catch(error){
+    writeJson(stderr,{code:'feedback-command-failed',message:error.message});
+    return 1;
+  }
+}
+
+if(process.argv[1]&&path.resolve(process.argv[1])===scriptPath){
+  process.exitCode=await runFeedbackCommand({args:process.argv.slice(2)});
+}

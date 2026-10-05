@@ -129,6 +129,10 @@ This is the **0.1.0 public source candidate**, published at https://github.com/a
 
 ## Start here
 
+Read the [AI Native Application](AI_NATIVE_APPLICATION.md) definition before choosing Agent roles or composing capabilities. It is the canonical conceptual contract for represented responsibility, authority, deterministic Harness boundaries, evidence, and accountable evolution.
+
+Application developers and Core contributors submit reusable Framework findings through the [Framework feedback guide](FRAMEWORK_FEEDBACK.md). Runtime and private reports remain in the application's Support lifecycle until an authorized developer has redacted them and established a reusable Core concern.
+
 Requirements currently verified by this candidate: Node.js 20, npm, and an isolated PostgreSQL database for persistent examples. PostgreSQL connections belong to the host application; Core accepts an injected pool.
 
 ```sh

@@ -8,6 +8,8 @@ const packed=JSON.parse(run([npm,'pack','--json','--pack-destination',temp],root
 const consumer=path.join(temp,'consumer');await fs.mkdir(consumer);await fs.writeFile(path.join(consumer,'package.json'),JSON.stringify({private:true,type:'module'}));
 run([npm,'install','--ignore-scripts','--no-audit','--no-fund',path.join(temp,packed.filename),'pg@8.23.0','@modelcontextprotocol/sdk@1.30.0','@a2a-js/sdk@1.1.0','@larksuiteoapi/lark-mcp@0.5.1','@wecom/crypto@1.0.1','fast-xml-parser@5.11.1'],consumer);
 const installed=await fs.realpath(path.join(consumer,'node_modules/@immedi/iaic-core'));if(!installed.startsWith((await fs.realpath(consumer))+path.sep))throw new Error('Unexpected source link');
+for(const relative of ['AI_NATIVE_APPLICATION.md','FRAMEWORK_FEEDBACK.md','feedback/TEMPLATE.md','feedback/README.md','feedback/schema.json','feedback/inbox/IAIC-FB-20261005-001A2B.md','framework-feedback/README.md','framework-feedback/records.js','scripts/verify-framework-feedback.mjs'])await fs.access(path.join(installed,relative));
+process.stdout.write(run([path.join(installed,'scripts/verify-framework-feedback.mjs')],installed));
 await fs.cp(path.join(root,'examples'),path.join(consumer,'examples'),{recursive:true});await fs.mkdir(path.join(consumer,'scripts'));await fs.copyFile(path.join(root,'scripts/verify-examples.mjs'),path.join(consumer,'scripts/verify-examples.mjs'));
 const env={...process.env,DATABASE_URL:url,SUBMISSION_TEST_DATABASE_URL:url};delete env.DEMO_MODEL_API_KEY;
 process.stdout.write(run([path.join(consumer,'scripts/verify-examples.mjs')],consumer,env));
