@@ -15,6 +15,6 @@ Acceptance:
 
 Executable evidence: `test/iaic-support-observations.integration.test.js`, original `test/iaic-support.integration.test.js`, `examples/core-support-follow-up/run.mjs`, and `examples/core-types-consumer/support-follow-up.mts`. Synthetic Host resolvers and delivery/read fixtures use real isolated PostgreSQL; no production data, paid model, customer notification or business write is exercised.
 
-Initial local validation hit sandbox TCP restrictions, then a shared-schema parallel test initialization collision. The new fixture now creates/drops its own PostgreSQL schema; these setup failures were not counted as passing assertions.
+Initial local validation hit sandbox TCP restrictions, then a shared-schema parallel test initialization collision. The new fixture now creates/drops its own PostgreSQL schema; these setup failures were not counted as passing assertions. A subsequent full run exposed a feedback test that froze the real record at submitted with empty implementation references; it now validates the current lifecycle against the existing validator while preserving the original source-evidence assertions.
 
 Application owner next step: adopt the immutable candidate package, initialize the optional receipt table, supply source/read resolvers and current authority, schedule the resolution consumer with a persistent consumer ID, then validate the real application's original-user notification, delivery/read and reopen paths. Core release alone is not application acceptance.
