@@ -1147,3 +1147,11 @@ application adoption, notification delivery/read, or production use. Merge, immu
 Core release publication, application adoption, and production reporter notification
 proof remain separate authorized actions. Accordingly the design status is
 `implementation-in-review`, not `implemented`.
+
+## candidate.116 — recoverable feedback conversations
+
+Adds optional SupportConversations and PostgreSQL storage, typed capability tools
+and shared model instructions. Original authorized messages, suggested type and
+confidence, minimal missing fields, corrections and retry receipts survive restart
+on one Issue ID. Deterministic fixture validation is separate from live model
+interpretation and application adoption. See support/CONVERSATIONS.md.
