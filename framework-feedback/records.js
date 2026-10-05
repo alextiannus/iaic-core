@@ -370,6 +370,17 @@ export function validateFeedbackRecord(record,{filePath=record?.filePath??'unkno
   }
   const frontmatter=record.frontmatter;
 
+  const locationParts=filePath.split('/');
+  const expectedFilename=`${frontmatter.id}.md`;
+  const validLocation=archived
+    ? locationParts.length===4&&locationParts[0]==='feedback'&&locationParts[1]==='archive'&&/^\d{4}$/.test(locationParts[2])&&locationParts[3]===expectedFilename
+    : locationParts.length===3&&locationParts[0]==='feedback'&&locationParts[1]==='inbox'&&locationParts[2]===expectedFilename;
+  if(!validLocation){
+    errors.push(makeError(filePath,'invalid-record-location','filePath',archived
+      ? 'Archived records must be stored at feedback/archive/YYYY/<id>.md.'
+      : 'Active records must be stored at feedback/inbox/<id>.md.'));
+  }
+
   for(const field of REQUIRED_FIELDS){
     if(!Object.hasOwn(frontmatter,field)){
       errors.push(makeError(filePath,'missing-field',`frontmatter.${field}`,`Missing required field: ${field}.`));

@@ -12,6 +12,7 @@ import {
   replaceActiveIndex,
   validateFeedbackRecord
 } from '../framework-feedback/records.js';
+import {runFeedbackCommand} from '../scripts/framework-feedback.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const read=relative=>fs.readFile(new URL('../'+relative,import.meta.url),'utf8');
@@ -122,6 +123,14 @@ test('validator rejects insecure external links but allows inert placeholders an
   assert.equal(errors.some(error=>error.code==='likely-secret'),false);
 });
 
+test('validator rejects records outside exact inbox and archive locations',async()=>{
+  const markdown=await fs.readFile(new URL('./fixtures/framework-feedback/valid/feedback/inbox/IAIC-FB-20261005-ABC123.md',import.meta.url),'utf8');
+  const nested=parseFeedbackRecord(markdown,{filePath:'feedback/inbox/nested/IAIC-FB-20261005-ABC123.md'});
+  assert.equal(validateFeedbackRecord(nested,{archived:false}).errors.some(error=>error.code==='invalid-record-location'),true);
+  const wrongArchive=parseFeedbackRecord(markdown,{filePath:'feedback/archive/not-a-year/IAIC-FB-20261005-ABC123.md'});
+  assert.equal(validateFeedbackRecord(wrongArchive,{archived:true}).errors.some(error=>error.code==='invalid-record-location'),true);
+});
+
 test('ID allocation is collision resistant and retries a known collision',()=>{
   const bytes=[Buffer.from([0,1,2,3]),Buffer.from([4,5,6,7])];
   const first='IAIC-FB-20261005-000102';
@@ -182,4 +191,19 @@ test('feedback CLI rejects unknown flags with usage and exit code 2',()=>{
   assert.equal(result.status,2,result.stderr);
   assert.match(result.stderr,/Usage:/);
   assert.equal(result.stdout,'');
+});
+
+test('next-id fails closed with line-delimited JSON when repository records are invalid',async()=>{
+  let stdout='';
+  let stderr='';
+  const exitCode=await runFeedbackCommand({
+    args:['next-id'],
+    root:fileURLToPath(new URL('./fixtures/framework-feedback/invalid-category/',import.meta.url)),
+    stdout:{write:value=>{stdout+=value;}},
+    stderr:{write:value=>{stderr+=value;}}
+  });
+  assert.equal(exitCode,1);
+  assert.equal(stdout,'');
+  const lines=stderr.trim().split('\n').map(line=>JSON.parse(line));
+  assert.equal(lines.some(error=>error.code==='invalid-category'),true);
 });
