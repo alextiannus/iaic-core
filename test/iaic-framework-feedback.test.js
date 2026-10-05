@@ -66,22 +66,15 @@ test('valid record parses required contract and headings',async()=>{
   assert.equal(record.sections.get('Why this belongs in Core').includes('two applications'),true);
 });
 
-test('first migrated record is active, design-only, and source-linked',async()=>{
+test('first migrated record preserves source evidence while validating its current lifecycle',async()=>{
   const repository=await loadFeedbackRepository(root);
   const record=repository.records.find(item=>item.frontmatter.id==='IAIC-FB-20261005-001A2B');
   assert.ok(record);
-  assert.equal(record.frontmatter.status,'submitted');
+  assert.deepEqual(repository.errors,[]);
+  assert.equal(validateFeedbackRecord(record,{filePath:record.filePath,archived:record.filePath.startsWith('feedback/archive/')}).valid,true);
   assert.equal(record.frontmatter.evidence_level,'design-feedback');
   assert.equal(record.frontmatter.source_application,'12Eat.ai');
   assert.equal(record.frontmatter.source_revision,'Not verified');
-  for(const field of [
-    'core_task_refs',
-    'core_pr_refs',
-    'core_release_refs',
-    'core_verification_refs',
-    'application_adoption_refs',
-    'reporter_notification_refs'
-  ]) assert.deepEqual(record.frontmatter[field],[],field);
   assert.match(record.sections.get('Reproduction and evidence'),/Obsidian/);
 });
 

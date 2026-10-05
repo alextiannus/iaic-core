@@ -114,3 +114,7 @@ candidate.111 support ends 2026-10-09 23:59 UTC. No SQL migration or Runtime cha
 Persist the operations cursor key and bind visibility revisions to trusted scopes.
 On rollback stop/remove the new read routes; existing authoritative module data
 is unchanged. A default UI and live external adapters remain separate delivery.
+
+## candidate.115 — agent observations and reporter follow-up (2026-10-05)
+
+Adds optional Support read-evidence and per-consumer retry tables; original issue/event and Notification schemas remain compatible. Host source-kind mapping, immutable observation resolver, resolution-event consumer scheduling, current engineering authority and trusted receiving-channel read evidence are required for adoption. Stop old user-only Support workers before admitting machine reports; rollback disables the new entrypoints/consumer and preserves all evidence and pending notifications. Candidate.114 support ends 2026-10-19 23:59 UTC after verified .115 publication. Source preparation is not a published release or application acceptance.

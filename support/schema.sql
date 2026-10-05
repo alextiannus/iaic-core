@@ -21,3 +21,22 @@ CREATE TABLE IF NOT EXISTS iaic_support_event_receipts (
  FOREIGN KEY(namespace,scope_id,issue_id,revision)
  REFERENCES iaic_support_events(namespace,scope_id,issue_id,revision)
 );
+-- Read evidence is separate from notification admission and delivery.
+CREATE TABLE IF NOT EXISTS iaic_support_read_receipts (
+ namespace text NOT NULL, scope_id text NOT NULL, issue_id uuid NOT NULL,
+ revision integer NOT NULL, receipt jsonb NOT NULL,
+ recorded_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(namespace,scope_id,issue_id,revision),
+ FOREIGN KEY(namespace,scope_id,issue_id,revision)
+ REFERENCES iaic_support_events(namespace,scope_id,issue_id,revision)
+);
+
+-- Durable per-consumer backoff: failures are neither acknowledged nor a queue barrier.
+CREATE TABLE IF NOT EXISTS iaic_support_event_retries (
+ namespace text NOT NULL, consumer_id text NOT NULL, scope_id text NOT NULL,
+ issue_id uuid NOT NULL, revision integer NOT NULL,
+ retry_after timestamptz NOT NULL, last_attempted_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(namespace,consumer_id,scope_id,issue_id,revision),
+ FOREIGN KEY(namespace,scope_id,issue_id,revision)
+ REFERENCES iaic_support_events(namespace,scope_id,issue_id,revision)
+);

@@ -4,7 +4,7 @@ import {isDeepStrictEqual} from 'node:util';
 export const fail=(code,statusCode=400)=>Object.assign(new Error(code),{code,statusCode});
 export function text(v,max=500){if(typeof v!=='string'||!v.trim()||v.length>max)throw fail('SUPPORT_INVALID_TEXT');return v;}
 export const transitions=Object.freeze({received:['triaged'],triaged:['fixing'],fixing:['verifying'],verifying:['fixing','resolved'],resolved:['closed','reopened'],closed:['reopened'],reopened:['triaged']});
-const view=r=>r?{id:r.id,scopeId:r.scope_id,reporterId:r.reporter_id,report:r.report,state:r.state,revision:r.revision}:null;
+const view=r=>r?{id:r.id,scopeId:r.scope_id,reporterId:r.reporter_id,report:r.report,sourceKind:r.report.sourceKind??'end_user_reported',state:r.state,revision:r.revision}:null;
 export class PostgresSupportStore {
  constructor({pool,namespace}){this.pool=pool;this.namespace=text(namespace);}
  async initialize(){await this.pool.query(await readFile(new URL('./schema.sql',import.meta.url),'utf8'));}
@@ -36,10 +36,20 @@ export class PostgresSupportStore {
  async pendingEvents(consumerId,{limit=50}={}){
   text(consumerId);if(!Number.isInteger(limit)||limit<1||limit>100)throw fail('SUPPORT_INVALID_LIMIT');
   return (await this.pool.query(`SELECT e.scope_id AS "scopeId",e.issue_id AS "issueId",e.revision,e.state
-   FROM iaic_support_events e WHERE e.namespace=$1 AND NOT EXISTS (
+   FROM iaic_support_events e LEFT JOIN iaic_support_event_retries d
+   ON d.namespace=e.namespace AND d.consumer_id=$2 AND d.scope_id=e.scope_id AND d.issue_id=e.issue_id AND d.revision=e.revision
+   WHERE e.namespace=$1 AND (d.retry_after IS NULL OR d.retry_after<=now()) AND NOT EXISTS (
     SELECT 1 FROM iaic_support_event_receipts r WHERE r.namespace=e.namespace AND r.consumer_id=$2
     AND r.scope_id=e.scope_id AND r.issue_id=e.issue_id AND r.revision=e.revision)
-   ORDER BY e.created_at,e.issue_id,e.revision LIMIT $3`,[this.namespace,consumerId,limit])).rows;
+   ORDER BY COALESCE(d.last_attempted_at,e.created_at),e.created_at,e.issue_id,e.revision LIMIT $3`,[this.namespace,consumerId,limit])).rows;
+ }
+ async deferEvent(consumerId,{scopeId,issueId,revision},{delaySeconds=30}={}){
+  text(consumerId);text(scopeId);
+  if(!Number.isInteger(delaySeconds)||delaySeconds<1||delaySeconds>3600)throw fail('SUPPORT_INVALID_RETRY_DELAY');
+  await this.pool.query(`INSERT INTO iaic_support_event_retries(namespace,consumer_id,scope_id,issue_id,revision,retry_after)
+   VALUES($1,$2,$3,$4,$5,now()+$6*interval '1 second')
+   ON CONFLICT(namespace,consumer_id,scope_id,issue_id,revision)
+   DO UPDATE SET retry_after=EXCLUDED.retry_after,last_attempted_at=now()`,[this.namespace,consumerId,scopeId,issueId,revision,delaySeconds]);
  }
  async acknowledgeEvent(consumerId,{scopeId,issueId,revision}){
   text(consumerId);text(scopeId);
@@ -47,6 +57,18 @@ export class PostgresSupportStore {
    VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,[this.namespace,consumerId,scopeId,issueId,revision]);
  }
  async history(scope,id){return (await this.pool.query('SELECT revision,state,message,evidence,created_at AS "createdAt" FROM iaic_support_events WHERE namespace=$1 AND scope_id=$2 AND issue_id=$3 ORDER BY revision',[this.namespace,scope,id])).rows;}
+ async readReceipt(scope,id,revision){
+  return (await this.pool.query('SELECT receipt FROM iaic_support_read_receipts WHERE namespace=$1 AND scope_id=$2 AND issue_id=$3 AND revision=$4',[this.namespace,scope,id,revision])).rows[0]?.receipt??null;
+ }
+ async recordRead(scope,id,revision,receipt){
+  return this.transaction(async c=>{
+   const args=[this.namespace,scope,id,revision];
+   const inserted=(await c.query('INSERT INTO iaic_support_read_receipts(namespace,scope_id,issue_id,revision,receipt) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING receipt',[...args,receipt])).rows[0];
+   const row=inserted??(await c.query('SELECT receipt FROM iaic_support_read_receipts WHERE namespace=$1 AND scope_id=$2 AND issue_id=$3 AND revision=$4',args)).rows[0];
+   if(!row||!isDeepStrictEqual(row.receipt,receipt))throw fail('SUPPORT_READ_RECEIPT_CONFLICT',409);
+   return row.receipt;
+  });
+ }
  async change(scope,id,{expectedRevision,state,message,evidence=null,actorId}){
   return this.transaction(async c=>{
    const row=(await c.query('SELECT * FROM iaic_support_issues WHERE namespace=$1 AND scope_id=$2 AND id=$3 FOR UPDATE',[this.namespace,scope,id])).rows[0];
