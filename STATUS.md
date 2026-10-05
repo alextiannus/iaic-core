@@ -1,6 +1,6 @@
 # Candidate status and practical limits
 
-Candidate.115 (2026-10-05, prepared pending verified publication): implements IAIC-FB-20261005-001A2B with Host-bound candidate observations and original-reporter notification/read evidence. Source kinds do not grant authority; the scheduled resolution consumer recovers admission, while Notifications and receiving-channel evidence remain the delivery/read authorities. See support/README.md and support/IMPLEMENTATION-001A2B.md. 12Eat adoption is separate; no autonomous engineering or broader conversational-classifier completion is claimed.
+Candidate.115 (2026-10-05, released and redownload-verified): implements IAIC-FB-20261005-001A2B with Host-bound candidate observations and original-reporter notification/read evidence. Source kinds do not grant authority; the scheduled resolution consumer recovers admission, while Notifications and receiving-channel evidence remain the delivery/read authorities. See support/README.md and support/IMPLEMENTATION-001A2B.md. 12Eat adoption is separate; no autonomous engineering or broader conversational-classifier completion is claimed.
 
 Candidate.114 (2026-09-26): adds durable observation registration, fenced executor presence, trusted identity inventory and bounded Task/model/request-edge projections. The optional dashboard supports Host-configured polling and Support-backed feedback. These ports do not grant authority or certify full Agent health. See operations/REGISTRATION.md.
 
