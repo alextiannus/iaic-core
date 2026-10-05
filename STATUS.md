@@ -1123,9 +1123,14 @@ Validation was run in the implementation plan's required order. Under the local
   `Isolated PostgreSQL URL required`.
 - `git diff --check` passed with no output before these documentation edits.
 
-Required Node 20.19.0 execution is **Not verified** locally because the available Node
-runtime is v23.11.0. CI is configured for Node 20.19.0 and isolated PostgreSQL, but no
-exact-source CI result for this branch/commit was inspected in this review. The static
+The local database-dependent outcomes above remain an accurate record of the local run.
+After the branch was pushed, [PR #44 CI run 37297262500](https://github.com/alextiannus/iaic-core/actions/runs/37297262500)
+completed successfully on review/status commit `3a912df082a3b541795eadaf62f5e49792612a38`.
+The workflow used pinned Node 20.19.0 and isolated PostgreSQL; feedback verification,
+module tests, the research fixture, strict TypeScript consumer, independent packed-package
+install, release-upgrade verification, and type-package verification all passed. This
+supersedes the earlier Node 20/database evidence gap without rewriting the local-run
+facts. The static
 released fixture verifies required reference shapes and separate notification admission,
 delivery, and read states; it is not evidence that an application adopted a Core release
 or that an original reporter notification completed. The triage tests verify a bounded,
