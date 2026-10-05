@@ -26,7 +26,7 @@ duplicate_of: null
 
 # Add reusable recoverable observation-to-support contract
 
-Replace every sample frontmatter value and title with facts for the allocated feedback ID; write `Not verified` for unknown facts rather than inferring them.
+Replace every sample frontmatter value and title with facts for the allocated feedback ID; write `Not verified` for unknown facts rather than inferring them. Keep reference arrays unique, use HTTPS for external evidence, and never paste secrets or unrestricted logs.
 
 ## Outcome needed
 
@@ -58,7 +58,7 @@ Leave the submitted decision as `Not verified`; the Core Platform AI Team record
 
 ## Implementation and release evidence
 
-Leave implementation and release evidence as `Not verified` until immutable release, exact revision, regression, and feedback-specific verification references exist.
+Leave implementation and release evidence as `Not verified` until immutable release, exact implementation revision, regression, and feedback-specific verification references exist. A released record labels the exact value as `Implementation revision:`.
 
 ## Application adoption and reporter follow-up
 

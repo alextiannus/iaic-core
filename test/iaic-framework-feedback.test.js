@@ -2,6 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
+import {
+  FeedbackValidationError,
+  loadFeedbackRepository,
+  parseFeedbackRecord,
+  validateFeedbackRecord
+} from '../framework-feedback/records.js';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const read=relative=>fs.readFile(new URL('../'+relative,import.meta.url),'utf8');
@@ -24,4 +30,90 @@ test('feedback entry point gives human and AI developers a complete safe quick s
   await fs.access(new URL('../feedback/examples/application-specific.md',import.meta.url));
   await fs.access(new URL('../feedback/examples/private-support.md',import.meta.url));
   await fs.access(new URL('../feedback/examples/unsafe-raw-log.md',import.meta.url));
+});
+
+test('valid record parses required contract and headings',async()=>{
+  const markdown=await fs.readFile(new URL('./fixtures/framework-feedback/valid/feedback/inbox/IAIC-FB-20261005-ABC123.md',import.meta.url),'utf8');
+  const record=parseFeedbackRecord(markdown,{filePath:'feedback/inbox/IAIC-FB-20261005-ABC123.md'});
+  const result=validateFeedbackRecord(record,{filePath:record.filePath,archived:false});
+  assert.equal(result.valid,true,JSON.stringify(result.errors));
+  assert.equal(record.frontmatter.id,'IAIC-FB-20261005-ABC123');
+  assert.equal(record.sections.get('Why this belongs in Core').includes('two applications'),true);
+});
+
+test('invalid enum and likely credential are rejected with stable codes',async()=>{
+  const invalid=await loadFeedbackRepository(new URL('./fixtures/framework-feedback/invalid-category/',import.meta.url));
+  assert.equal(invalid.errors.some(error=>error.code==='invalid-category'),true);
+  const unsafe=await loadFeedbackRepository(new URL('./fixtures/framework-feedback/unsafe-secret/',import.meta.url));
+  assert.equal(unsafe.errors.some(error=>error.code==='likely-secret'),true);
+});
+
+test('parser rejects missing frontmatter and duplicate YAML keys',()=>{
+  assert.throws(
+    ()=>parseFeedbackRecord('# No frontmatter',{filePath:'feedback/inbox/no-frontmatter.md'}),
+    error=>error instanceof FeedbackValidationError&&error.errors[0].code==='missing-frontmatter'
+  );
+  assert.throws(
+    ()=>parseFeedbackRecord('---\nid: IAIC-FB-20261005-ABC123\nid: IAIC-FB-20261005-ABC124\n---\n',{filePath:'feedback/inbox/duplicate.md'}),
+    error=>error instanceof FeedbackValidationError&&error.errors.some(item=>item.code==='invalid-frontmatter')
+  );
+});
+
+test('validator reports deterministic contract, lifecycle, and reference errors',async()=>{
+  const markdown=await fs.readFile(new URL('./fixtures/framework-feedback/valid/feedback/inbox/IAIC-FB-20261005-ABC123.md',import.meta.url),'utf8');
+  const record=parseFeedbackRecord(markdown,{filePath:'feedback/inbox/wrong-name.md'});
+  record.frontmatter.status='planned';
+  record.frontmatter.submitted_at='2026-10-05T08:00:00+08:00';
+  record.frontmatter.runtime_issue_refs=['ISSUE-1','ISSUE-1'];
+  record.frontmatter.unexpected='value';
+  const result=validateFeedbackRecord(record,{filePath:record.filePath,archived:false});
+  for(const code of ['filename-mismatch','invalid-timestamp','duplicate-reference','unknown-field','missing-core-task']){
+    assert.equal(result.errors.some(error=>error.code===code),true,code);
+  }
+  assert.deepEqual(result.errors,[...result.errors].sort((left,right)=>
+    left.filePath.localeCompare(right.filePath)||left.path.localeCompare(right.path)||left.code.localeCompare(right.code)
+  ));
+});
+
+test('repository loader rejects duplicate IDs across inbox and archive',async()=>{
+  const repository=await loadFeedbackRepository(new URL('./fixtures/framework-feedback/duplicate-id/',import.meta.url));
+  assert.equal(repository.errors.filter(error=>error.code==='duplicate-id').length,2);
+});
+
+test('validator rejects duplicate or out-of-order required sections',async()=>{
+  const valid=await fs.readFile(new URL('./fixtures/framework-feedback/valid/feedback/inbox/IAIC-FB-20261005-ABC123.md',import.meta.url),'utf8');
+  const duplicate=parseFeedbackRecord(`${valid}\n## Outcome needed\nRepeated.\n`,{filePath:'feedback/inbox/IAIC-FB-20261005-ABC123.md'});
+  assert.equal(validateFeedbackRecord(duplicate,{archived:false}).errors.some(error=>error.code==='duplicate-section'),true);
+  const reordered=parseFeedbackRecord(
+    valid.replace('## Outcome needed\n\nDefine one reusable contract.\n\n','').replace('## Observed behavior or practice','## Observed behavior or practice\n\nFixture.\n\n## Outcome needed\n\nDefine one reusable contract.\n\n## Ignored extra heading'),
+    {filePath:'feedback/inbox/IAIC-FB-20261005-ABC123.md'}
+  );
+  assert.equal(validateFeedbackRecord(reordered,{archived:false}).errors.some(error=>error.code==='section-order'),true);
+});
+
+test('validator enforces archive and released state gates',async()=>{
+  const markdown=await fs.readFile(new URL('./fixtures/framework-feedback/valid/feedback/inbox/IAIC-FB-20261005-ABC123.md',import.meta.url),'utf8');
+  const active=parseFeedbackRecord(markdown,{filePath:'feedback/inbox/IAIC-FB-20261005-ABC123.md'});
+  active.frontmatter.status='archived';
+  assert.equal(validateFeedbackRecord(active,{archived:false}).errors.some(error=>error.code==='active-archived-status'),true);
+
+  const archived=parseFeedbackRecord(markdown,{filePath:'feedback/archive/2026/IAIC-FB-20261005-ABC123.md'});
+  assert.equal(validateFeedbackRecord(archived,{archived:true}).errors.some(error=>error.code==='non-terminal-archive-status'),true);
+
+  const released=parseFeedbackRecord(markdown,{filePath:'feedback/inbox/IAIC-FB-20261005-ABC123.md'});
+  released.frontmatter.status='released';
+  const codes=new Set(validateFeedbackRecord(released,{archived:false}).errors.map(error=>error.code));
+  for(const code of ['missing-core-release-refs','missing-core-pr-refs','missing-core-verification-refs','missing-implementation-revision','missing-application-adoption']){
+    assert.equal(codes.has(code),true,code);
+  }
+});
+
+test('validator rejects insecure external links but allows inert placeholders and loopback fixtures',async()=>{
+  const markdown=await fs.readFile(new URL('./fixtures/framework-feedback/valid/feedback/inbox/IAIC-FB-20261005-ABC123.md',import.meta.url),'utf8');
+  const record=parseFeedbackRecord(markdown,{filePath:'feedback/inbox/IAIC-FB-20261005-ABC123.md'});
+  record.frontmatter.source_repository='http://example.com/application';
+  record.body+='\nBearer example-token-placeholder\nhttp://127.0.0.1:3000/fixture\n';
+  const errors=validateFeedbackRecord(record,{archived:false}).errors;
+  assert.equal(errors.filter(error=>error.code==='insecure-link').length,1);
+  assert.equal(errors.some(error=>error.code==='likely-secret'),false);
 });
