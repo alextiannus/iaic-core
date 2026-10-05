@@ -36,10 +36,20 @@ export class PostgresSupportStore {
  async pendingEvents(consumerId,{limit=50}={}){
   text(consumerId);if(!Number.isInteger(limit)||limit<1||limit>100)throw fail('SUPPORT_INVALID_LIMIT');
   return (await this.pool.query(`SELECT e.scope_id AS "scopeId",e.issue_id AS "issueId",e.revision,e.state
-   FROM iaic_support_events e WHERE e.namespace=$1 AND NOT EXISTS (
+   FROM iaic_support_events e LEFT JOIN iaic_support_event_retries d
+   ON d.namespace=e.namespace AND d.consumer_id=$2 AND d.scope_id=e.scope_id AND d.issue_id=e.issue_id AND d.revision=e.revision
+   WHERE e.namespace=$1 AND (d.retry_after IS NULL OR d.retry_after<=now()) AND NOT EXISTS (
     SELECT 1 FROM iaic_support_event_receipts r WHERE r.namespace=e.namespace AND r.consumer_id=$2
     AND r.scope_id=e.scope_id AND r.issue_id=e.issue_id AND r.revision=e.revision)
-   ORDER BY e.created_at,e.issue_id,e.revision LIMIT $3`,[this.namespace,consumerId,limit])).rows;
+   ORDER BY COALESCE(d.last_attempted_at,e.created_at),e.created_at,e.issue_id,e.revision LIMIT $3`,[this.namespace,consumerId,limit])).rows;
+ }
+ async deferEvent(consumerId,{scopeId,issueId,revision},{delaySeconds=30}={}){
+  text(consumerId);text(scopeId);
+  if(!Number.isInteger(delaySeconds)||delaySeconds<1||delaySeconds>3600)throw fail('SUPPORT_INVALID_RETRY_DELAY');
+  await this.pool.query(`INSERT INTO iaic_support_event_retries(namespace,consumer_id,scope_id,issue_id,revision,retry_after)
+   VALUES($1,$2,$3,$4,$5,now()+$6*interval '1 second')
+   ON CONFLICT(namespace,consumer_id,scope_id,issue_id,revision)
+   DO UPDATE SET retry_after=EXCLUDED.retry_after,last_attempted_at=now()`,[this.namespace,consumerId,scopeId,issueId,revision,delaySeconds]);
  }
  async acknowledgeEvent(consumerId,{scopeId,issueId,revision}){
   text(consumerId);text(scopeId);

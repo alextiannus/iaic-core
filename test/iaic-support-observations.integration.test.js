@@ -31,7 +31,7 @@ async function fixture(run){
  try{await run({pool,namespace,store,notificationStore,user,engineer,service,follow,options,followOptions,notifications,resolve,
   control:{revoke:v=>revoked=v,verify:v=>verified=v,delivery:v=>delivery=v,readVerified:v=>readVerified=v,readOverride:v=>readOverride=v,observationOverride:v=>observationOverride=v,duringObservation:fn=>duringObservation=fn,duringRead:fn=>duringRead=fn},sends:()=>sends});}
  finally{
-  for(const table of ['iaic_support_read_receipts','iaic_support_event_receipts','iaic_support_events','iaic_support_issues'])await pool.query(`DELETE FROM ${table} WHERE namespace=$1`,[namespace]);
+  for(const table of ['iaic_support_read_receipts','iaic_support_event_retries','iaic_support_event_receipts','iaic_support_events','iaic_support_issues'])await pool.query(`DELETE FROM ${table} WHERE namespace=$1`,[namespace]);
   await pool.query('DELETE FROM iaic_notification_attempts WHERE notification_id IN(SELECT id FROM iaic_notifications WHERE namespace=$1)',[namespace]);
   await pool.query('DELETE FROM iaic_notifications WHERE namespace=$1',[namespace]);await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();
  }
@@ -120,3 +120,35 @@ test('public observation/follow-up schemas reject caller identity, facts and rea
  for(const forged of [{sourceKind:'end_user_reported'},{summary:'private dump'},{affectedSubjectId:'victim'},{confirmed:true}])await assert.rejects(dispatcher.invoke('support.observe',{sourceId:'source',...forged},{actor:{}}));
  await assert.rejects(dispatcher.invoke('support.record_read',{id:randomUUID(),revision:5,evidenceId:'e',read:true},{actor:{}}));assert.equal(called,false);
 });
+
+// Review regression: revoke precisely while the final status query is in flight.
+test('follow-up fails closed when authority changes during the final issue read',{skip:!url},()=>fixture(async f=>{
+ const issue=await f.resolve(await f.service.report(f.user,{requestKey:'read-race',summary:'private'}));
+ const original=f.store.get.bind(f.store);let reads=0;
+ f.store.get=async(...args)=>{const row=await original(...args);if(++reads===3)f.control.revoke(true);return row;};
+ await assert.rejects(f.follow.get(f.user,{id:issue.id,revision:5}),{code:'SUPPORT_ACCESS_DENIED'});
+}));
+// Review regression: a revoked scope must not monopolize every pending page.
+test('resolution consumer defers failed admissions durably so later authorized reports progress',{skip:!url},()=>fixture(async f=>{
+ const blocked=await f.resolve(await f.service.report(f.user,{requestKey:'blocked',summary:'blocked'}));
+ const good=await f.resolve(await f.service.report(f.user,{requestKey:'good',summary:'good'}));
+ const consumerId='fair-follow-up';
+ // Non-resolved history was already acknowledged by the same deployed consumer.
+ for(const event of await f.store.pendingEvents(consumerId,{limit:100}))if(event.state!=='resolved')await f.store.acknowledgeEvent(consumerId,event);
+ await f.pool.query("UPDATE iaic_support_events SET created_at=now()-interval '1 hour' WHERE namespace=$1 AND issue_id=$2",[f.namespace,blocked.id]);
+ let attempts=0;
+ const support=new SupportIssues({...f.options,notificationActor:async context=>{if(context.issue.id===blocked.id){attempts++;throw Error('scope temporarily unavailable')}return f.engineer;}});
+ const worker=()=>createSupportResolutionConsumer({support,store:f.store,consumerId,resolveActor:()=>f.engineer});
+ assert.equal((await worker().tick({limit:1})).failed.length,1);
+ // Backoff persists across restarts; even slower polling after expiry rotates failures.
+ assert.equal((await f.store.pendingEvents(consumerId,{limit:1}))[0].issueId,good.id);
+ await f.pool.query("UPDATE iaic_support_event_retries SET retry_after=now()-interval '1 second' WHERE namespace=$1",[f.namespace]);
+ assert.equal((await worker().tick({limit:1})).acknowledged,1);
+ assert.equal((await f.follow.get(f.user,{id:good.id,revision:5})).admission,'admitted');assert.equal(attempts,1);
+ assert.equal((await worker().tick({limit:1})).failed.length,1);assert.equal(attempts,2);
+ assert.equal((await worker().tick({limit:1})).acknowledged,0);
+ // A deferred event is not acknowledged or discarded; it becomes eligible again.
+ await f.pool.query("UPDATE iaic_support_event_retries SET retry_after=now()-interval '1 second' WHERE namespace=$1",[f.namespace]);
+ assert.equal((await worker().tick({limit:1})).failed.length,1);assert.equal(attempts,3);
+ assert.throws(()=>createSupportResolutionConsumer({support,store:f.store,consumerId,resolveActor:()=>f.engineer,retryDelaySeconds:0}),{code:'SUPPORT_INVALID_RETRY_DELAY'});
+}));

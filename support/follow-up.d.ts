@@ -17,4 +17,4 @@ export class SupportFollowUp {
  get(actor:any,input:{id:string;revision:number}):Promise<SupportFollowUpStatus>;
  recordRead(actor:any,input:{id:string;revision:number;evidenceId:string}):Promise<SupportFollowUpStatus>;
 }
-export function createSupportResolutionConsumer(options:{support:SupportIssues;store:SupportStore&{pendingEvents(consumerId:string,input:{limit:number}):Promise<PendingSupportEvent[]>;acknowledgeEvent(consumerId:string,event:PendingSupportEvent):Promise<void>};consumerId:string;resolveActor:(scopeId:string)=>any}):SupportEventConsumer;
+export function createSupportResolutionConsumer(options:{support:SupportIssues;store:SupportStore&{pendingEvents(consumerId:string,input:{limit:number}):Promise<PendingSupportEvent[]>;acknowledgeEvent(consumerId:string,event:PendingSupportEvent):Promise<void>;deferEvent(consumerId:string,event:PendingSupportEvent,input:{delaySeconds:number}):Promise<void>};consumerId:string;retryDelaySeconds?:number;resolveActor:(scopeId:string)=>any}):SupportEventConsumer;

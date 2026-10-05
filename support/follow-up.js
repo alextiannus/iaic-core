@@ -52,9 +52,10 @@ export class SupportFollowUp {
 
 // Schedule this trusted worker whenever the Host enables user-reported issue resolution.
 // A crash after enqueue leaves the event pending; notify uses the original stable key.
-export function createSupportResolutionConsumer({support,store,consumerId,resolveActor}){
+export function createSupportResolutionConsumer({support,store,consumerId,resolveActor,retryDelaySeconds=30}){
  if(typeof resolveActor!=='function')throw fail('SUPPORT_FOLLOW_UP_PORTS_REQUIRED');
- return new SupportEventConsumer({store,consumerId,deliver:async event=>{
+ if(!Number.isInteger(retryDelaySeconds)||retryDelaySeconds<1||retryDelaySeconds>3600)throw fail('SUPPORT_INVALID_RETRY_DELAY');
+ return new SupportEventConsumer({store,consumerId,retryDelaySeconds,deliver:async event=>{
   if(event.state!=='resolved')return;
   const actor=await resolveActor(event.scopeId);
   const {who,issue}=await support.owned(actor,{id:event.issueId},'notify');

@@ -29,10 +29,20 @@ export class SupportIssues {
   // Source identity, not a caller-chosen retry key, deduplicates repeated detection.
   return this.store.create(who.scopeId,who.subjectId,{requestKey:`observation:${input.sourceId}`,report});
  }
- async owned(actor,input,action){uuid(input.id);const who=await this.identity(actor,action,input);const issue=await this.store.get(who.scopeId,input.id);if(!issue)throw fail('SUPPORT_NOT_FOUND',404);if(issue.reporterId!==who.subjectId&&await this.authorize(actor,{action:'manage',input,identity:who,issue})!==true)throw fail('SUPPORT_NOT_FOUND',404);return {who,issue};}
- async get(actor,input){const {who,issue}=await this.owned(actor,input,'read');return {...issue,history:await this.store.history(who.scopeId,issue.id)};}
- async list(actor,input={}){const who=await this.identity(actor,'read',input);return this.store.list(who.scopeId,{reporterId:who.subjectId,limit:input.limit,afterId:input.afterId});}
- async queue(actor,input={}){const who=await this.identity(actor,'manage',input);return this.store.list(who.scopeId,{limit:input.limit,afterId:input.afterId});}
+ async revalidate(actor,input,action,who,issue){
+  const current=await this.identity(actor,action,input);
+  if(current.scopeId!==who.scopeId||current.subjectId!==who.subjectId||sourceKind(current)!==sourceKind(who))throw fail('SUPPORT_ACCESS_DENIED',403);
+  if(issue&&issue.reporterId!==current.subjectId&&await this.authorize(actor,{action:'manage',input,identity:current,issue})!==true)throw fail('SUPPORT_NOT_FOUND',404);
+ }
+ async owned(actor,input,action){
+  uuid(input.id);const who=await this.identity(actor,action,input);
+  const issue=await this.store.get(who.scopeId,input.id);if(!issue)throw fail('SUPPORT_NOT_FOUND',404);
+  // Revoke/switch while storage is in flight must not expose prepared data.
+  await this.revalidate(actor,input,action,who,issue);return {who,issue};
+ }
+ async get(actor,input){const {who,issue}=await this.owned(actor,input,'read');const history=await this.store.history(who.scopeId,issue.id);await this.revalidate(actor,input,'read',who,issue);return {...issue,history};}
+ async list(actor,input={}){const who=await this.identity(actor,'read',input);const result=await this.store.list(who.scopeId,{reporterId:who.subjectId,limit:input.limit,afterId:input.afterId});await this.revalidate(actor,input,'read',who);return result;}
+ async queue(actor,input={}){const who=await this.identity(actor,'manage',input);const result=await this.store.list(who.scopeId,{limit:input.limit,afterId:input.afterId});await this.revalidate(actor,input,'manage',who);return result;}
  async update(actor,input){
   const {who,issue}=await this.owned(actor,input,'update');
   if(!Number.isInteger(input.expectedRevision)||input.expectedRevision<1||!Object.hasOwn(transitions,input.state))throw fail('SUPPORT_INVALID_UPDATE');

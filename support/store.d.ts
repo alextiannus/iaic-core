@@ -6,6 +6,7 @@ export class PostgresSupportStore implements SupportStore {
  recordRead(scope:string,id:string,revision:number,receipt:SupportReadReceipt):Promise<SupportReadReceipt>;
  scopes(input?:{limit?:number;afterScope?:string}):Promise<string[]>;
  pendingEvents(consumerId:string,input?:{limit?:number}):Promise<Array<{scopeId:string;issueId:string;revision:number;state:string}>>;
+ deferEvent(consumerId:string,event:{scopeId:string;issueId:string;revision:number},input?:{delaySeconds?:number}):Promise<void>;
  acknowledgeEvent(consumerId:string,event:{scopeId:string;issueId:string;revision:number}):Promise<void>;
  create(scope:string,reporter:string,input:{requestKey:string;report:Record<string,string>}):Promise<SupportIssue>;
  get(scope:string,id:string):Promise<SupportIssue|null>;
