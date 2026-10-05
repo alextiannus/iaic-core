@@ -1,6 +1,9 @@
+import type {SupportReadReceipt} from './follow-up.js';
 import type {SupportStore,SupportIssue,SupportEvent} from './service.js';
 export class PostgresSupportStore implements SupportStore {
  constructor(options:{pool:any;namespace:string}); initialize():Promise<void>;
+ readReceipt(scope:string,id:string,revision:number):Promise<SupportReadReceipt|null>;
+ recordRead(scope:string,id:string,revision:number,receipt:SupportReadReceipt):Promise<SupportReadReceipt>;
  scopes(input?:{limit?:number;afterScope?:string}):Promise<string[]>;
  pendingEvents(consumerId:string,input?:{limit?:number}):Promise<Array<{scopeId:string;issueId:string;revision:number;state:string}>>;
  acknowledgeEvent(consumerId:string,event:{scopeId:string;issueId:string;revision:number}):Promise<void>;

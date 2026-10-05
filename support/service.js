@@ -1,18 +1,33 @@
 import {fail,text,transitions} from './store.js';
+import {sourceKind, observationReport} from './observations.js';
 const uuid=v=>{if(typeof v!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(v))throw fail('SUPPORT_INVALID_ID');return v;};
 // Ports restore current host authority. Report text never grants engineering access.
 export class SupportIssues {
- constructor({store,resolveIdentity,authorize,resolveResolution,notifications,notificationActor}){
+ constructor({store,resolveIdentity,authorize,resolveResolution,notifications,notificationActor,resolveObservation}){
   if(!store||typeof resolveIdentity!=='function'||typeof authorize!=='function')throw fail('SUPPORT_PORTS_REQUIRED');
-  Object.assign(this,{store,resolveIdentity,authorize,resolveResolution,notifications,notificationActor});
+  Object.assign(this,{store,resolveIdentity,authorize,resolveResolution,notifications,notificationActor,resolveObservation});
  }
- async identity(actor,action,input){const identity=await this.resolveIdentity(actor);text(identity.scopeId);text(identity.subjectId);if(await this.authorize(actor,{action,input,identity})!==true)throw fail('SUPPORT_ACCESS_DENIED',403);return identity;}
+ async identity(actor,action,input){const identity={...await this.resolveIdentity(actor)};text(identity.scopeId);text(identity.subjectId);if(await this.authorize(actor,{action,input,identity})!==true)throw fail('SUPPORT_ACCESS_DENIED',403);return identity;}
  async report(actor,input){
-  const who=await this.identity(actor,'report',input);text(input.requestKey);text(input.summary,2000);
+  const who=await this.identity(actor,'report',input);
+  if(sourceKind(who)!=='end_user_reported')throw fail('SUPPORT_OBSERVATION_REQUIRED',403);
+  text(input.requestKey);text(input.summary,2000);
   const report={summary:input.summary};
   // Only bounded references, never raw logs, headers, credentials or private conversations.
   for(const key of ['taskId','requestId','releaseId','errorCode'])if(input[key]!==undefined)report[key]=text(input[key]);
   return this.store.create(who.scopeId,who.subjectId,{requestKey:input.requestKey,report});
+ }
+ async observe(actor,input){
+  const who=await this.identity(actor,'observe',input);
+  if(sourceKind(who)==='end_user_reported')throw fail('SUPPORT_OBSERVER_REQUIRED',403);
+  text(input.sourceId,480);
+  if(typeof this.resolveObservation!=='function')throw fail('SUPPORT_OBSERVATION_PORT_REQUIRED',409);
+  const observation=await this.resolveObservation(input.sourceId,{actor,identity:who});
+  const report=observationReport(who,input.sourceId,observation);
+  const current=await this.identity(actor,'observe',input);
+  if(current.scopeId!==who.scopeId||current.subjectId!==who.subjectId||sourceKind(current)!==sourceKind(who))throw fail('SUPPORT_ACCESS_DENIED',403);
+  // Source identity, not a caller-chosen retry key, deduplicates repeated detection.
+  return this.store.create(who.scopeId,who.subjectId,{requestKey:`observation:${input.sourceId}`,report});
  }
  async owned(actor,input,action){uuid(input.id);const who=await this.identity(actor,action,input);const issue=await this.store.get(who.scopeId,input.id);if(!issue)throw fail('SUPPORT_NOT_FOUND',404);if(issue.reporterId!==who.subjectId&&await this.authorize(actor,{action:'manage',input,identity:who,issue})!==true)throw fail('SUPPORT_NOT_FOUND',404);return {who,issue};}
  async get(actor,input){const {who,issue}=await this.owned(actor,input,'read');return {...issue,history:await this.store.history(who.scopeId,issue.id)};}
@@ -39,6 +54,7 @@ export class SupportIssues {
  }
  async notify(actor,input){
   const {who,issue}=await this.owned(actor,input,'notify');
+  if((issue.report?.sourceKind??'end_user_reported')!=='end_user_reported')throw fail('SUPPORT_USER_FOLLOW_UP_NOT_APPLICABLE',409);
   if(await this.authorize(actor,{action:'manage',input,identity:who,issue})!==true)throw fail('SUPPORT_ACCESS_DENIED',403);
   if(!this.notifications||typeof this.notificationActor!=='function')throw fail('SUPPORT_NOTIFICATION_PORT_REQUIRED',409);
   const events=await this.store.history(who.scopeId,issue.id);const event=events.find(e=>e.revision===input.revision);

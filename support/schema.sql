@@ -21,3 +21,12 @@ CREATE TABLE IF NOT EXISTS iaic_support_event_receipts (
  FOREIGN KEY(namespace,scope_id,issue_id,revision)
  REFERENCES iaic_support_events(namespace,scope_id,issue_id,revision)
 );
+-- Read evidence is separate from notification admission and delivery.
+CREATE TABLE IF NOT EXISTS iaic_support_read_receipts (
+ namespace text NOT NULL, scope_id text NOT NULL, issue_id uuid NOT NULL,
+ revision integer NOT NULL, receipt jsonb NOT NULL,
+ recorded_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(namespace,scope_id,issue_id,revision),
+ FOREIGN KEY(namespace,scope_id,issue_id,revision)
+ REFERENCES iaic_support_events(namespace,scope_id,issue_id,revision)
+);

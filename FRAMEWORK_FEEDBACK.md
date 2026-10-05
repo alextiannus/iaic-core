@@ -90,5 +90,5 @@ Production application identities do not receive direct write access to this rep
 <!-- feedback-index:start -->
 | ID | Title | Category | Status | Source application | Updated |
 | --- | --- | --- | --- | --- | --- |
-| [IAIC-FB-20261005-001A2B](feedback/inbox/IAIC-FB-20261005-001A2B.md) | Standardize agent-discovered issues and trusted reporter follow-up | framework-gap | submitted | 12Eat.ai | 2026-10-05T00:00:00Z |
+| [IAIC-FB-20261005-001A2B](feedback/inbox/IAIC-FB-20261005-001A2B.md) | Standardize agent-discovered issues and trusted reporter follow-up | framework-gap | verifying | 12Eat.ai | 2026-10-05T12:30:00Z |
 <!-- feedback-index:end -->
