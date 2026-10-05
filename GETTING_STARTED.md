@@ -1,5 +1,7 @@
 # Build with IAiC Core
 
+First read the [AI Native Application definition](AI_NATIVE_APPLICATION.md). It explains how to identify the represented principal, separate Agent reasoning from deterministic Harness controls, and decide what belongs in a Skill, the application, or reusable Core. The examples below demonstrate composition; they do not replace that design responsibility.
+
 ## 1. Install the library or run the candidate
 
 For this source candidate, run `npm ci` with Node 20. Supply an isolated PostgreSQL URL through `SUBMISSION_TEST_DATABASE_URL` and run `npm run example:jobs`. Use `npm run verify:core-package` to verify the packed library from another directory.

@@ -1,5 +1,5 @@
 ---
-status: review-pending
+status: approved
 date: 2026-10-05
 lifecycle_class: fixed-reference
 owners:
@@ -18,6 +18,8 @@ audience:
 IAiC Core will publish one concise, authoritative definition of an AI Native Application at repository root: `AI_NATIVE_APPLICATION.md`. A first-time open-source contributor must be able to understand the governing design model without reading historical notes, application-specific PRDs, or the complete Core requirements.
 
 The document is a conceptual contract, not marketing copy and not a claim that every described capability is already complete. It defines how to reason about roles, interests, authority, capabilities, deterministic controls, evidence, and system evolution. `CORE_REQUIREMENTS.md`, `ACCEPTANCE.md`, and `STATUS.md` remain authoritative for delivery requirements, acceptance evidence, and current implementation state.
+
+The approved implementation uses GitHub-native Mermaid as the maintained visual format. It includes a system overview plus execution, reasoning-versus-Harness, placement, durable-responsibility, and accountable-evolution flows. The diagrams remain reviewable as text, render in the public repository, require no external asset host, and are always accompanied by normative prose.
 
 ## Source understanding to preserve
 
