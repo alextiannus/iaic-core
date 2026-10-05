@@ -1097,3 +1097,46 @@ Candidate.109 adds optional personal application API keys bound to account and o
 with explicit capability ceilings, expiry, hashed secrets, one-time issuance, revocation
 and atomic rotation. See credentials/PERSONAL_KEYS.md. Authentication/management UI,
 production integration and real-user acceptance remain Host-owned and unverified.
+
+## 2026-10-05 — Framework feedback repository implementation review
+
+Branch `codex/framework-feedback-system-design`, implementation commit under review
+`1336a4f0b7c6d305d5dcd2ec2338c7ec2afd2e5b`, supplies the repository-authoritative
+Framework feedback entry point, per-record schema and lifecycle validation,
+collision-resistant ID allocation, deterministic active index, inert read-only triage
+proposals, one selectively migrated 12Eat design-feedback record, CI wiring, package
+contents, and local lifecycle/contributor-flow fixtures. The active queue contains one
+record: `IAIC-FB-20261005-001A2B`, still `submitted` at `design-feedback`; it is not a
+released Framework change.
+
+Validation was run in the implementation plan's required order. Under the local
+`node v23.11.0` / `npm 10.9.2` environment:
+
+- `npm run feedback:verify` passed with
+  `{"frameworkFeedback":"passed","activeRecords":1}`.
+- `node --test test/iaic-framework-feedback.test.js` passed 28 tests with zero
+  failures, skips, cancellations, or todos.
+- `npm run test:modules` is **Not verified**: it stopped before module execution with
+  `Set SUBMISSION_TEST_DATABASE_URL to an isolated PostgreSQL database; do not silently
+  skip persistent module checks`.
+- `npm run verify:core-package` is **Not verified**: it stopped before packaging with
+  `Isolated PostgreSQL URL required`.
+- `git diff --check` passed with no output before these documentation edits.
+
+Required Node 20.19.0 execution is **Not verified** locally because the available Node
+runtime is v23.11.0. CI is configured for Node 20.19.0 and isolated PostgreSQL, but no
+exact-source CI result for this branch/commit was inspected in this review. The static
+released fixture verifies required reference shapes and separate notification admission,
+delivery, and read states; it is not evidence that an application adopted a Core release
+or that an original reporter notification completed. The triage tests verify a bounded,
+non-mutating proposal over untrusted content; no merged-record run by a dedicated
+Platform AI identity, Mandate-backed branch/pull request, or reciprocal reviewable change
+is verified. A first-time contributor's under-five-minute completion and a terminal
+application-specific record with no Core Task also lack direct acceptance evidence.
+
+This implementation gives no production-runtime identity Core Git write access, makes
+no unattended mutation of `main`, expands no authority, and does not establish release,
+application adoption, notification delivery/read, or production use. Merge, immutable
+Core release publication, application adoption, and production reporter notification
+proof remain separate authorized actions. Accordingly the design status is
+`implementation-in-review`, not `implemented`.

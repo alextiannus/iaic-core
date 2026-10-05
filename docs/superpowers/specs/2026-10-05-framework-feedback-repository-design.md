@@ -1,5 +1,5 @@
 ---
-status: approved
+status: implementation-in-review
 date: 2026-10-05
 lifecycle_class: fixed-reference
 owners:
