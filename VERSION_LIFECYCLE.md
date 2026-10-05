@@ -118,3 +118,11 @@ is unchanged. A default UI and live external adapters remain separate delivery.
 ## candidate.115 — agent observations and reporter follow-up (2026-10-05)
 
 Adds optional Support read-evidence and per-consumer retry tables; original issue/event and Notification schemas remain compatible. Host source-kind mapping, immutable observation resolver, resolution-event consumer scheduling, current engineering authority and trusted receiving-channel read evidence are required for adoption. Stop old user-only Support workers before admitting machine reports; rollback disables the new entrypoints/consumer and preserves all evidence and pending notifications. Candidate.114 support ends 2026-10-19 23:59 UTC after verified .115 publication. Source preparation is not a published release or application acceptance.
+
+## candidate.116 — feedback conversations (2026-10-05)
+
+Optional two-table conversation migration; same Support namespace and trusted
+message resolver required. Original Issue schema unchanged. Remove the optional
+tools to roll back and retain conversation/Issue evidence. After verified .116
+publication, candidate.115 support ends 2026-10-19 23:59 UTC. See
+support/CONVERSATIONS.md for bounded input, authorization and model boundaries.

@@ -16,3 +16,13 @@ export function createSupportFollowUpCapabilities({followUp,prefix='support'}){
   return defineCapability({name:`${prefix}.${operation}`,description:'Read original-reporter notification facts or record a trusted read-evidence reference. Admission, delivery and human reading are separate; historical revisions are not current resolution.',input,output:{type:'object'},effect:read?'read':'write',...(read?{revalidate:(value,_old,context)=>execute(value,context)}:{retry:'idempotent'}),authorize:()=>true,implementation:{kind:'function',execute}});
  });
 }
+
+export function createSupportConversationCapabilities({conversations,prefix='support.feedback'}){
+ const classification=object({type:{enum:['bug','issue','improvement','unknown']},confidence:{type:'number',minimum:0,maximum:1},reason:{type:'string',minLength:1,maxLength:1000}},['type','confidence','reason']);
+ const details=object(Object.fromEntries(['expected','steps','impact'].map(k=>[k,{type:'string',minLength:1,maxLength:2000}])),[]);
+ const schemas={review:object({id},['id']),start:object({messageId:key,classification,details},['messageId']),get:object({id},['id']),reply:object({id,requestKey:key,expectedRevision:{type:'integer',minimum:1},messageId:key,classification,details},['id','requestKey','expectedRevision'])};
+ return Object.entries(schemas).map(([operation,input])=>{
+  const execute=(value,{actor})=>conversations[operation](actor,value),read=['get','review'].includes(operation);
+  return defineCapability({name:`${prefix}.${operation}`,description:'Persistent feedback on one Issue. Original text comes from an authorized message reference. Classification is suggested, not verified. Ask only for missingFields; ready does not mean repaired.',input,output:{type:'object'},effect:read?'read':'write',...(read?{revalidate:(value,_old,context)=>execute(value,context)}:{retry:'idempotent'}),authorize:()=>true,implementation:{kind:'function',execute}});
+ });
+}
