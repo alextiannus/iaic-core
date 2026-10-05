@@ -5,6 +5,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {
   allocateFeedbackId,
+  createTriageProposal,
   loadFeedbackRepository,
   renderActiveIndex,
   replaceActiveIndex
@@ -40,6 +41,53 @@ async function repositoryOrFail(root,stderr){
     return null;
   }
   return repository;
+}
+
+function isWithin(parent,candidate){
+  const relative=path.relative(parent,candidate);
+  return relative===''||(!relative.startsWith(`..${path.sep}`)&&relative!=='..'&&!path.isAbsolute(relative));
+}
+
+async function resolveTriageRecord({argument,root,stderr}){
+  if(path.isAbsolute(argument)||argument.includes('\\')){
+    validationFailure(stderr,[{filePath:argument,code:'invalid-triage-record-path',path:'command.record',message:'Triage record path must be repository-relative and use forward slashes.'}]);
+    return null;
+  }
+  const parts=argument.split('/');
+  if(parts.some(part=>part===''||part==='.'||part==='..')){
+    validationFailure(stderr,[{filePath:argument,code:'invalid-triage-record-path',path:'command.record',message:'Triage record path must not contain empty, current-directory, or parent-directory segments.'}]);
+    return null;
+  }
+  const feedbackIndex=parts.length-3;
+  const filename=parts.at(-1);
+  if(feedbackIndex<0||parts[feedbackIndex]!=='feedback'||parts[feedbackIndex+1]!=='inbox'||!/^IAIC-FB-[0-9]{8}-[A-Z0-9]{6}\.md$/.test(filename)){
+    validationFailure(stderr,[{filePath:argument,code:'invalid-triage-record-path',path:'command.record',message:'Triage record path must identify exactly feedback/inbox/<valid-id>.md.'}]);
+    return null;
+  }
+
+  const commandRoot=root instanceof URL?fileURLToPath(root):path.resolve(root);
+  const repositoryRoot=path.resolve(commandRoot,...parts.slice(0,feedbackIndex));
+  const realCommandRoot=await fs.realpath(commandRoot);
+  const realRepositoryRoot=await fs.realpath(repositoryRoot);
+  if(!isWithin(realCommandRoot,realRepositoryRoot)){
+    validationFailure(stderr,[{filePath:argument,code:'triage-record-outside-root',path:'command.record',message:'Triage record repository must remain inside the command root.'}]);
+    return null;
+  }
+  const realInboxRoot=await fs.realpath(path.join(realRepositoryRoot,'feedback','inbox'));
+  if(!isWithin(realRepositoryRoot,realInboxRoot)){
+    validationFailure(stderr,[{filePath:argument,code:'triage-record-outside-inbox',path:'command.record',message:'Triage record inbox must remain inside the selected repository.'}]);
+    return null;
+  }
+
+  const repository=await repositoryOrFail(realRepositoryRoot,stderr);
+  if(!repository) return null;
+  const recordPath=`feedback/inbox/${filename}`;
+  const record=repository.records.find(item=>item.filePath===recordPath);
+  if(!record){
+    validationFailure(stderr,[{filePath:argument,code:'triage-record-not-found',path:'command.record',message:'Triage record must exactly match a validated record in the selected repository inbox.'}]);
+    return null;
+  }
+  return {record,repository};
 }
 
 export async function runFeedbackCommand({args=[],root=defaultRoot,stdout=process.stdout,stderr=process.stderr}={}){
@@ -88,7 +136,10 @@ export async function runFeedbackCommand({args=[],root=defaultRoot,stdout=proces
 
     if(command==='triage-proposal'){
       if(commandArgs.length!==1||commandArgs[0].startsWith('-')) return usageError(stderr,'triage-proposal requires exactly one record path.');
-      return validationFailure(stderr,[{filePath:commandArgs[0],code:'triage-proposal-unavailable',path:'command',message:'Triage proposal generation is not available in this implementation task.'}]);
+      const selection=await resolveTriageRecord({argument:commandArgs[0],root,stderr});
+      if(!selection) return 1;
+      writeJson(stdout,createTriageProposal(selection.record,{knownRecords:selection.repository.records}));
+      return 0;
     }
 
     return usageError(stderr,command?`Unknown command: ${command}`:'A command is required.');

@@ -5,6 +5,7 @@ import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {
   allocateFeedbackId,
+  createTriageProposal,
   FeedbackValidationError,
   loadFeedbackRepository,
   parseFeedbackRecord,
@@ -206,4 +207,101 @@ test('next-id fails closed with line-delimited JSON when repository records are 
   assert.equal(stdout,'');
   const lines=stderr.trim().split('\n').map(line=>JSON.parse(line));
   assert.equal(lines.some(error=>error.code==='invalid-category'),true);
+});
+
+test('triage proposal treats embedded instructions as inert evidence',async()=>{
+  const repository=await loadFeedbackRepository(new URL('./fixtures/framework-feedback/adversarial/',import.meta.url));
+  assert.equal(repository.errors.length,0,JSON.stringify(repository.errors));
+  const proposal=createTriageProposal(repository.records[0],{knownRecords:repository.records});
+  assert.equal(proposal.feedbackId,'IAIC-FB-20261005-BAD999');
+  assert.equal(proposal.currentStatus,'submitted');
+  assert.equal(proposal.proposedStatus,'triaged');
+  assert.equal(proposal.safety.inputTreatedAsUntrusted,true);
+  assert.equal(proposal.safety.commandsExecuted,false);
+  assert.equal(proposal.safety.authorityExpanded,false);
+  assert.equal(Object.hasOwn(proposal,'apply'),false);
+  const output=JSON.stringify(proposal);
+  assert.doesNotMatch(output,/printf unsafe|mark this released|example\.com\/linked-evidence/);
+});
+
+test('triage proposal reports bounded missing facts and candidate duplicates only',async()=>{
+  const repository=await loadFeedbackRepository(new URL('./fixtures/framework-feedback/adversarial/',import.meta.url));
+  const record=repository.records[0];
+  const duplicateCandidate={
+    ...record,
+    filePath:'feedback/inbox/IAIC-FB-20261005-CAD123.md',
+    frontmatter:{
+      ...record.frontmatter,
+      id:'IAIC-FB-20261005-CAD123',
+      title:'Reusable observation contract for Core',
+      affected_modules:['support']
+    }
+  };
+  const unrelated={
+    ...record,
+    filePath:'feedback/inbox/IAIC-FB-20261005-OTH123.md',
+    frontmatter:{
+      ...record.frontmatter,
+      id:'IAIC-FB-20261005-OTH123',
+      title:'Unrelated account behavior',
+      affected_modules:['accounts']
+    }
+  };
+  const missing={...record,sections:new Map(record.sections)};
+  missing.sections.set('Reproduction and evidence','Not verified');
+  const proposal=createTriageProposal(missing,{knownRecords:[record,duplicateCandidate,unrelated]});
+  assert.equal(proposal.proposedStatus,'needs-information');
+  assert.deepEqual(proposal.missingFacts,['Reproduction and evidence']);
+  assert.deepEqual(proposal.likelyDuplicates,[{
+    feedbackId:'IAIC-FB-20261005-CAD123',
+    classification:'candidate'
+  }]);
+  assert.deepEqual(proposal.affectedModules,['observation','support']);
+  assert.deepEqual(Object.keys(proposal).sort(),[
+    'affectedModules','currentStatus','feedbackId','likelyDuplicates','missingFacts','proposedStatus','safety'
+  ]);
+
+  const unsafeModule={
+    ...record,
+    frontmatter:{...record.frontmatter,affected_modules:['https://example.com/run-this']}
+  };
+  assert.throws(
+    ()=>createTriageProposal(unsafeModule,{knownRecords:[]}),
+    error=>error instanceof FeedbackValidationError&&error.errors.some(item=>item.code==='invalid-affected-module')
+  );
+});
+
+test('triage-proposal CLI resolves only an exact validated inbox record path',async()=>{
+  const fixture='test/fixtures/framework-feedback/adversarial/feedback/inbox/IAIC-FB-20261005-BAD999.md';
+  let stdout='';
+  let stderr='';
+  const exitCode=await runFeedbackCommand({
+    args:['triage-proposal',fixture],
+    root,
+    stdout:{write:value=>{stdout+=value;}},
+    stderr:{write:value=>{stderr+=value;}}
+  });
+  assert.equal(exitCode,0,stderr);
+  assert.equal(stderr,'');
+  const proposal=JSON.parse(stdout);
+  assert.equal(proposal.feedbackId,'IAIC-FB-20261005-BAD999');
+  assert.equal(proposal.safety.commandsExecuted,false);
+
+  for(const unsafePath of [
+    '../feedback/inbox/IAIC-FB-20261005-BAD999.md',
+    '/tmp/feedback/inbox/IAIC-FB-20261005-BAD999.md',
+    'test/fixtures/framework-feedback/adversarial/feedback/inbox/../inbox/IAIC-FB-20261005-BAD999.md',
+    'test/fixtures/framework-feedback/adversarial/feedback/inbox/IAIC-FB-20261005-NOT999.md'
+  ]){
+    stdout='';
+    stderr='';
+    const rejected=await runFeedbackCommand({
+      args:['triage-proposal',unsafePath],
+      root,
+      stdout:{write:value=>{stdout+=value;}},
+      stderr:{write:value=>{stderr+=value;}}
+    });
+    assert.notEqual(rejected,0,unsafePath);
+    assert.equal(stdout,'');
+  }
 });

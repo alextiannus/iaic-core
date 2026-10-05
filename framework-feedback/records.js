@@ -73,11 +73,16 @@ const STRING_ARRAY_FIELDS=[
   'supersedes'
 ];
 const ID_PATTERN=/^IAIC-FB-[0-9]{8}-[A-Z0-9]{6}$/;
+const AFFECTED_MODULE_PATTERN=/^[a-z0-9][a-z0-9._/-]{0,63}$/;
 const UTC_TIMESTAMP_PATTERN=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 const FRONTMATTER_PATTERN=/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 const parseMetadata=new WeakMap();
 const INDEX_START='<!-- feedback-index:start -->';
 const INDEX_END='<!-- feedback-index:end -->';
+const TRIAGE_FACT_SECTIONS=Object.freeze(REQUIRED_SECTIONS.slice(0,6));
+const TRIAGE_PROPOSAL_STATUSES=new Set(['triaged','needs-information']);
+const MAX_AFFECTED_MODULES=64;
+const MAX_DUPLICATE_CANDIDATES=50;
 
 const SECRET_PATTERNS=Object.freeze([
   ['pem-private-key',/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/gi],
@@ -171,6 +176,74 @@ export function replaceActiveIndex(guide,table){
   }
   const contentStart=start+INDEX_START.length;
   return `${guide.slice(0,contentStart)}\n${table}\n${guide.slice(end)}`;
+}
+
+function normalizedTitleTokens(title){
+  return new Set(String(title??'').toLocaleLowerCase('en-US').match(/[\p{L}\p{N}]+/gu)??[]);
+}
+
+function isArchivedRecord(record){
+  return /^feedback\/archive\/\d{4}\//.test(record?.filePath??'');
+}
+
+function validatedForProposal(record){
+  const result=validateFeedbackRecord(record,{
+    filePath:record?.filePath??'unknown',
+    archived:isArchivedRecord(record)
+  });
+  if(!result.valid){
+    throw new FeedbackValidationError('Triage proposals require a valid feedback record.',result.errors);
+  }
+  return record;
+}
+
+export function createTriageProposal(record,{knownRecords=[]}={}){
+  validatedForProposal(record);
+  if(!Array.isArray(knownRecords)) throw new TypeError('knownRecords must be an array.');
+
+  const affectedModules=[...record.frontmatter.affected_modules].sort((left,right)=>left.localeCompare(right));
+  const affectedModuleSet=new Set(affectedModules);
+  const titleTokens=normalizedTitleTokens(record.frontmatter.title);
+  const missingFacts=TRIAGE_FACT_SECTIONS.filter(section=>
+    record.sections.get(section)?.trim()==='Not verified'
+  );
+  const likelyDuplicates=[];
+
+  for(const candidate of knownRecords){
+    if(candidate===record||candidate?.frontmatter?.id===record.frontmatter.id) continue;
+    const validation=validateFeedbackRecord(candidate,{
+      filePath:candidate?.filePath??'unknown',
+      archived:isArchivedRecord(candidate)
+    });
+    if(!validation.valid) continue;
+    if(!candidate.frontmatter.affected_modules.some(module=>affectedModuleSet.has(module))) continue;
+    const candidateTokens=normalizedTitleTokens(candidate.frontmatter.title);
+    if(![...candidateTokens].some(token=>titleTokens.has(token))) continue;
+    likelyDuplicates.push({feedbackId:candidate.frontmatter.id,classification:'candidate'});
+  }
+  likelyDuplicates.sort((left,right)=>left.feedbackId.localeCompare(right.feedbackId));
+  likelyDuplicates.splice(MAX_DUPLICATE_CANDIDATES);
+
+  const proposedStatus=missingFacts.length>0?'needs-information':'triaged';
+  if(!TRIAGE_PROPOSAL_STATUSES.has(proposedStatus)) throw new Error('Invalid triage proposal status.');
+  return {
+    feedbackId:record.frontmatter.id,
+    currentStatus:record.frontmatter.status,
+    proposedStatus,
+    likelyDuplicates,
+    missingFacts,
+    affectedModules,
+    safety:{
+      inputTreatedAsUntrusted:true,
+      commandsExecuted:false,
+      networkFetched:false,
+      filesMutated:false,
+      gitMutated:false,
+      statusMutated:false,
+      authorityExpanded:false,
+      reviewRequired:true
+    }
+  };
 }
 
 function scanSections(body){
@@ -413,6 +486,16 @@ export function validateFeedbackRecord(record,{filePath=record?.filePath??'unkno
   }
   for(const field of STRING_ARRAY_FIELDS){
     validateStringArray(frontmatter[field],field,filePath,errors,{nonEmpty:field==='affected_modules'});
+  }
+  if(Array.isArray(frontmatter.affected_modules)){
+    if(frontmatter.affected_modules.length>MAX_AFFECTED_MODULES){
+      errors.push(makeError(filePath,'too-many-affected-modules','frontmatter.affected_modules',`affected_modules cannot contain more than ${MAX_AFFECTED_MODULES} items.`));
+    }
+    frontmatter.affected_modules.forEach((module,index)=>{
+      if(typeof module==='string'&&!AFFECTED_MODULE_PATTERN.test(module)){
+        errors.push(makeError(filePath,'invalid-affected-module',`frontmatter.affected_modules[${index}]`,'Affected modules must be bounded lowercase repository module identifiers.'));
+      }
+    });
   }
   validateNotifications(frontmatter.reporter_notification_refs,filePath,errors);
 
