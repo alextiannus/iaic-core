@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import {spawnSync} from 'node:child_process';
+import {execFile,spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+import {promisify} from 'node:util';
 import {
   allocateFeedbackId,
   createTriageProposal,
@@ -17,6 +19,7 @@ import {runFeedbackCommand} from '../scripts/framework-feedback.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const read=relative=>fs.readFile(new URL('../'+relative,import.meta.url),'utf8');
+const execFileAsync=promisify(execFile);
 
 test('feedback entry point gives human and AI developers a complete safe quick start',async()=>{
   const guide=await read('FRAMEWORK_FEEDBACK.md');
@@ -28,6 +31,7 @@ test('feedback entry point gives human and AI developers a complete safe quick s
   assert.match(guide,/untrusted/i);
   assert.match(guide,/do not execute/i);
   assert.match(guide,/feedback\/TEMPLATE\.md/);
+  assert.match(guide,/npm run feedback:index[\s\S]*npm run feedback:verify/);
   assert.match(guide,/npm run feedback:verify/);
   assert.match(guide,/<!-- feedback-index:start -->[\s\S]*<!-- feedback-index:end -->/);
   const positiveExample=await read('feedback/examples/valid-framework-gap.md');
@@ -87,6 +91,66 @@ test('invalid enum and likely credential are rejected with stable codes',async()
   assert.equal(unsafe.errors.some(error=>error.code==='likely-secret'),true);
 });
 
+for(const [fixture,code] of [
+  ['released-missing-evidence','released-missing-release-evidence'],
+  ['duplicate','duplicate-id'],
+  ['filename-mismatch','filename-id-mismatch']
+]){
+  test(`${fixture} repository is rejected only with ${code}`,async()=>{
+    const result=await loadFeedbackRepository(new URL(`./fixtures/framework-feedback/${fixture}/`,import.meta.url));
+    assert.ok(result.errors.length>0,'fixture unexpectedly passed');
+    assert.deepEqual([...new Set(result.errors.map(error=>error.code))],[code],JSON.stringify(result.errors));
+  });
+}
+
+test('released record keeps notification admission delivery and read distinct',async()=>{
+  const result=await loadFeedbackRepository(new URL('./fixtures/framework-feedback/released-valid/',import.meta.url));
+  assert.equal(result.errors.length,0,JSON.stringify(result.errors));
+  const refs=result.records[0].frontmatter.reporter_notification_refs;
+  assert.deepEqual(refs.map(item=>item.status),['admitted','delivered','read']);
+  assert.equal(new Set(refs.map(item=>item.ref)).size,1);
+});
+
+test('documented contributor commands work end to end in a temporary repository copy',async()=>{
+  const temporaryRoot=await fs.mkdtemp(path.join(root,'.tmp-framework-feedback-'));
+  const guidePrefix='# Temporary contributor guide\n\nBefore index.\n\n';
+  const guideSuffix='\n\nAfter index.\n';
+  const initialGuide=`${guidePrefix}<!-- feedback-index:start -->\nStale index.\n<!-- feedback-index:end -->${guideSuffix}`;
+  try{
+    await fs.cp(path.join(root,'test/fixtures/framework-feedback/valid/feedback'),path.join(temporaryRoot,'feedback'),{recursive:true});
+    await fs.cp(path.join(root,'framework-feedback'),path.join(temporaryRoot,'framework-feedback'),{recursive:true});
+    await fs.mkdir(path.join(temporaryRoot,'scripts'),{recursive:true});
+    await fs.copyFile(path.join(root,'scripts/framework-feedback.mjs'),path.join(temporaryRoot,'scripts/framework-feedback.mjs'));
+    await fs.writeFile(path.join(temporaryRoot,'FRAMEWORK_FEEDBACK.md'),initialGuide,'utf8');
+
+    const cli=path.join(temporaryRoot,'scripts/framework-feedback.mjs');
+    const run=args=>execFileAsync(process.execPath,[cli,...args],{cwd:temporaryRoot,encoding:'utf8'});
+    const beforeRecord=await fs.readFile(path.join(temporaryRoot,'feedback/inbox/IAIC-FB-20261005-ABC123.md'));
+    const beforeModule=await fs.readFile(path.join(temporaryRoot,'framework-feedback/records.js'));
+    const beforeCli=await fs.readFile(cli);
+
+    const validated=JSON.parse((await run(['validate'])).stdout);
+    assert.deepEqual(validated,{frameworkFeedback:'valid',records:1});
+    const written=JSON.parse((await run(['index','--write'])).stdout);
+    assert.equal(written.changed,true);
+    const guide=await fs.readFile(path.join(temporaryRoot,'FRAMEWORK_FEEDBACK.md'),'utf8');
+    assert.equal(guide.slice(0,guidePrefix.length),guidePrefix);
+    assert.equal(guide.slice(-guideSuffix.length),guideSuffix);
+    assert.match(guide,/IAIC-FB-20261005-ABC123/);
+    assert.deepEqual(JSON.parse((await run(['index','--check'])).stdout),{frameworkFeedback:'index-valid',activeRecords:1});
+
+    const proposal=JSON.parse((await run(['triage-proposal','feedback/inbox/IAIC-FB-20261005-ABC123.md'])).stdout);
+    assert.equal(proposal.feedbackId,'IAIC-FB-20261005-ABC123');
+    assert.equal(proposal.safety.inputTreatedAsUntrusted,true);
+    assert.equal(proposal.safety.commandsExecuted,false);
+    assert.deepEqual(await fs.readFile(path.join(temporaryRoot,'feedback/inbox/IAIC-FB-20261005-ABC123.md')),beforeRecord);
+    assert.deepEqual(await fs.readFile(path.join(temporaryRoot,'framework-feedback/records.js')),beforeModule);
+    assert.deepEqual(await fs.readFile(cli),beforeCli);
+  }finally{
+    await fs.rm(temporaryRoot,{recursive:true,force:true});
+  }
+});
+
 test('parser rejects missing frontmatter and duplicate YAML keys',()=>{
   assert.throws(
     ()=>parseFeedbackRecord('# No frontmatter',{filePath:'feedback/inbox/no-frontmatter.md'}),
@@ -106,7 +170,7 @@ test('validator reports deterministic contract, lifecycle, and reference errors'
   record.frontmatter.runtime_issue_refs=['ISSUE-1','ISSUE-1'];
   record.frontmatter.unexpected='value';
   const result=validateFeedbackRecord(record,{filePath:record.filePath,archived:false});
-  for(const code of ['filename-mismatch','invalid-timestamp','duplicate-reference','unknown-field','missing-core-task']){
+  for(const code of ['filename-id-mismatch','invalid-timestamp','duplicate-reference','unknown-field','missing-core-task']){
     assert.equal(result.errors.some(error=>error.code===code),true,code);
   }
   assert.deepEqual(result.errors,[...result.errors].sort((left,right)=>
@@ -142,7 +206,7 @@ test('validator enforces archive and released state gates',async()=>{
   const released=parseFeedbackRecord(markdown,{filePath:'feedback/inbox/IAIC-FB-20261005-ABC123.md'});
   released.frontmatter.status='released';
   const codes=new Set(validateFeedbackRecord(released,{archived:false}).errors.map(error=>error.code));
-  for(const code of ['missing-core-release-refs','missing-core-pr-refs','missing-core-verification-refs','missing-implementation-revision','missing-application-adoption']){
+  for(const code of ['released-missing-release-evidence','missing-core-pr-refs','missing-core-verification-refs','missing-implementation-revision','missing-application-adoption']){
     assert.equal(codes.has(code),true,code);
   }
 });

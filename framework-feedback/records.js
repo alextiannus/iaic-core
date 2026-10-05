@@ -453,10 +453,10 @@ export function validateFeedbackRecord(record,{filePath=record?.filePath??'unkno
 
   const locationParts=filePath.split('/');
   const expectedFilename=`${frontmatter.id}.md`;
-  const validLocation=archived
-    ? locationParts.length===4&&locationParts[0]==='feedback'&&locationParts[1]==='archive'&&/^\d{4}$/.test(locationParts[2])&&locationParts[3]===expectedFilename
-    : locationParts.length===3&&locationParts[0]==='feedback'&&locationParts[1]==='inbox'&&locationParts[2]===expectedFilename;
-  if(!validLocation){
+  const validDirectory=archived
+    ? locationParts.length===4&&locationParts[0]==='feedback'&&locationParts[1]==='archive'&&/^\d{4}$/.test(locationParts[2])
+    : locationParts.length===3&&locationParts[0]==='feedback'&&locationParts[1]==='inbox';
+  if(!validDirectory){
     errors.push(makeError(filePath,'invalid-record-location','filePath',archived
       ? 'Archived records must be stored at feedback/archive/YYYY/<id>.md.'
       : 'Active records must be stored at feedback/inbox/<id>.md.'));
@@ -476,7 +476,7 @@ export function validateFeedbackRecord(record,{filePath=record?.filePath??'unkno
   if(typeof frontmatter.id!=='string'||!ID_PATTERN.test(frontmatter.id)){
     errors.push(makeError(filePath,'invalid-id','frontmatter.id','id must match IAIC-FB-YYYYMMDD-XXXXXX.'));
   }else if(path.basename(filePath)!==`${frontmatter.id}.md`){
-    errors.push(makeError(filePath,'filename-mismatch','frontmatter.id','Filename must equal <id>.md.'));
+    errors.push(makeError(filePath,'filename-id-mismatch','frontmatter.id','Filename must equal <id>.md.'));
   }
   for(const field of STRING_FIELDS) validateString(frontmatter[field],field,filePath,errors);
   if(typeof frontmatter.title==='string'&&(frontmatter.title.length<8||frontmatter.title.length>120)){
@@ -525,7 +525,10 @@ export function validateFeedbackRecord(record,{filePath=record?.filePath??'unkno
   if(frontmatter.status==='released'){
     for(const field of ['core_release_refs','core_pr_refs','core_verification_refs']){
       if(!hasItems(frontmatter[field])){
-        errors.push(makeError(filePath,`missing-${field.replaceAll('_','-')}`,`frontmatter.${field}`,`Released records require ${field}.`));
+        const code=field==='core_release_refs'
+          ? 'released-missing-release-evidence'
+          : `missing-${field.replaceAll('_','-')}`;
+        errors.push(makeError(filePath,code,`frontmatter.${field}`,`Released records require ${field}.`));
       }
     }
     const releaseEvidence=record.sections?.get('Implementation and release evidence')??'';
