@@ -2,7 +2,7 @@
 
 **Route:** Submit one redacted Core Framework feedback record.
 
-12Eat.ai at revision `a13f91c` and Example Booking at revision `7bb42de` both need an observation that detects a recoverable failure to create or link the same Support issue without duplicating it. The behavior spans applications and joins the documented `observation` and `support` contracts.
+This is a synthetic routing example, not retained application evidence. 12Eat.ai at synthetic revision `fixture-12eat-observation-v1` and Example Booking at synthetic revision `fixture-booking-observation-v1` both need an observation that detects a recoverable failure to create or link the same Support issue without duplicating it. The behavior spans applications and joins the documented `observation` and `support` contracts.
 
 Minimal reproduction:
 

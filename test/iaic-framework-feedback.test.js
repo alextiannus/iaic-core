@@ -18,7 +18,9 @@ test('feedback entry point gives human and AI developers a complete safe quick s
   assert.match(guide,/feedback\/TEMPLATE\.md/);
   assert.match(guide,/npm run feedback:verify/);
   assert.match(guide,/<!-- feedback-index:start -->[\s\S]*<!-- feedback-index:end -->/);
-  await fs.access(new URL('../feedback/examples/valid-framework-gap.md',import.meta.url));
+  const positiveExample=await read('feedback/examples/valid-framework-gap.md');
+  assert.match(positiveExample,/synthetic|fixture/i);
+  assert.doesNotMatch(positiveExample,/a13f91c|7bb42de/);
   await fs.access(new URL('../feedback/examples/application-specific.md',import.meta.url));
   await fs.access(new URL('../feedback/examples/private-support.md',import.meta.url));
   await fs.access(new URL('../feedback/examples/unsafe-raw-log.md',import.meta.url));
