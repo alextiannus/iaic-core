@@ -67,3 +67,5 @@ Optional `planProvider({actor,task})` supplies current-authorized working progre
 on each assembly. `TaskPlans.read` is a Workspace-backed implementation. The plan
 is retained under the ordinary context size limit and is not an authorization or
 completion verdict. See [Task plans](../workspace/PLANS.md).
+
+Versioned Host access migration: [Access Profiles](ACCESS_PROFILES.md) provides explicit preview, approval-bound reconciliation, recovery and compensating revisions.
