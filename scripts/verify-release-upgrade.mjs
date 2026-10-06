@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 import assert from 'node:assert/strict';
 
 // Pinned real predecessor; advance this verified baseline for each candidate.
-const predecessor={tag:'v0.1.0-candidate.115',asset:'immedi-iaic-core-0.1.0-candidate.115.tgz',sha256:'551393959306e9ca304d4f684875bb6babc84cf3ac0ead55e87b3201c9d23d87'};
+const predecessor={tag:'v0.1.0-candidate.116',asset:'immedi-iaic-core-0.1.0-candidate.116.tgz',sha256:'e5831229efa0c341175dd7d13ee891383695bc5e95aa247a47ba18f1bb0f93a2'};
 const root=fileURLToPath(new URL('../',import.meta.url)),npm=process.env.npm_execpath;
 if(!npm)throw Error('Use npm run verify:release-upgrade');
 const current=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8'));

@@ -126,3 +126,12 @@ message resolver required. Original Issue schema unchanged. Remove the optional
 tools to roll back and retain conversation/Issue evidence. After verified .116
 publication, candidate.115 support ends 2026-10-19 23:59 UTC. See
 support/CONVERSATIONS.md for bounded input, authorization and model boundaries.
+
+## candidate.117 - versioned Access Profiles (2026-10-06)
+
+Optional Host-port module, no Core SQL migration. Applications supply atomic
+Context/revision/audit/receipt persistence and explicit current approval/policy
+checks. Removing the optional composition rolls back package integration; retain
+committed Host revisions and use approved compensation to undo a migration.
+After verified .117 publication, candidate.116 support ends 2026-10-20 23:59 UTC.
+Old Task bindings remain pinned. See context/ACCESS_PROFILES.md.
