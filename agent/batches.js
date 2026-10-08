@@ -5,10 +5,10 @@ export function pendingBatch(history){
  if(!event)return null;
  const {id,actions}=event.data;
  if(history.events.some(e=>e.kind==='action_batch_closed'&&e.data.id===id))return null;
- if(typeof id!=='string'||!Array.isArray(actions)||actions.length<2||actions.length>8)throw new Error('Invalid durable action batch');
+ if(typeof id!=='string'||!Array.isArray(actions)||actions.length<(event.data.meteredSingle===true?1:2)||actions.length>8)throw new Error('Invalid durable action batch');
  for(let i=0;i<actions.length;i++){
   const reference=id+':'+i,call=history.calls.find(c=>c.action_ref===reference);
-  if(!call)return {id,action:actions[i],reference};
+  if(!call)return {id,action:actions[i],reference,meteredSingle:event.data.meteredSingle===true};
   if(call.status==='failed')return {id,closeReason:'step_failed'};
   if(call.status!=='succeeded')throw new Error('Action batch has an unresolved original call');
  }

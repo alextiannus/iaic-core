@@ -40,3 +40,11 @@ CREATE TABLE IF NOT EXISTS iaic_token_reconciliations (
 ALTER TABLE iaic_token_calls ADD COLUMN IF NOT EXISTS budget jsonb;
 
 ALTER TABLE iaic_token_calls ADD COLUMN IF NOT EXISTS cost_basis jsonb;
+
+-- Usable responses survive independently of settlement and Task completion.
+CREATE TABLE IF NOT EXISTS iaic_token_results (
+ application_id text NOT NULL, subject_id text NOT NULL, request_id text NOT NULL,
+ response jsonb NOT NULL, provider_reference text, created_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(application_id,subject_id,request_id),
+ FOREIGN KEY(application_id,subject_id,request_id) REFERENCES iaic_token_calls
+);

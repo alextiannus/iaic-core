@@ -5,7 +5,7 @@ This module owns platform allowance accounting and the model-call admission/sett
 Read only these files for ordinary billing changes:
 
 - `token-ledger.js` and `schema.sql`: account projection, grants, reservations, immutable settlement, unknown-use holds, paged entries.
-- `metered-model.js`: wraps a provider's `next(request)` method; pre-reserves, settles measured usage, pauses unresolved attempts. BYOK has zero platform debit.
+- `metered-model.js`: wraps a provider's `next(request)` method; pre-reserves, settles measured usage, and defaults to pausing unresolved attempts. Optional `pendingUsage: 'continue'` preserves usable results while retaining billing holds; see [RESULT_CONTINUATION.md](RESULT_CONTINUATION.md). BYOK has zero platform debit.
 - `issuer.js` and `ISSUANCE.md`: trusted-source allowance issuance and its administrative integration.
 - `wallet.js`: authenticated read contract and tool descriptor; returns balances, paged public entries and pending holds. Internal evidence is omitted.
 

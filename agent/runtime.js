@@ -1,3 +1,5 @@
+import {pendingMeteredResult,resultReceipts} from './metered-results.js';
+import {normalizeAction} from './model-action.js';
 import {isModelReadinessError} from './model-readiness.js';
 import {capabilityVisible,assertModelHistory} from '../capabilities/visibility.js';
 import {modelFailureReason} from './model-failure.js';
@@ -171,8 +173,14 @@ export class AgentRuntime {
         assertModelHistory(history,this.dispatcher);
         if(history.calls.some(call=>['running','unknown'].includes(call.status))){await this.executor.finish(task.id,{status:'waiting',reason:'external_result'});break;}
         const batch=pendingBatch(history);
-        if(batch&&this.maxBatchCalls===1)throw fail('Pending batch requires its original enabled Runtime policy',503);
+        if(batch?.action&&!batch.meteredSingle&&this.maxBatchCalls===1)throw fail('Pending batch requires its original enabled Runtime policy',503);
         if(batch?.closeReason){await this.executor.append(task.id,'action_batch_closed',{id:batch.id,reason:batch.closeReason});continue;}
+        const retained=batch?null:pendingMeteredResult(history);
+        const resultRequestId=retained?.billing.requestId??null;
+        if(!batch&&!retained&&typeof model.recoverResult==='function'){
+          const recovered=await model.recoverResult({billingContext:{taskId:task.id,resultReceipts:resultReceipts(history)}});
+          if(recovered){await this.executor.append(task.id,'metered_result',recovered);continue;}
+        }
         let action=batch?.action;
         const allowedTools=this.taskTools(capability,task.input);
         const remainingByTool=remainingToolAttempts(capability.implementation.toolCallLimits,history.calls,allowedTools);
@@ -182,6 +190,8 @@ export class AgentRuntime {
         const invocationBatchBound=completionOnly?1:Math.min(this.maxBatchCalls,remainingToolCalls);
         if(batch&&completionOnly){await this.executor.finish(task.id,{status:'waiting',reason:'limit'});break;}
         if(!batch){
+        let response=retained;
+        if(!retained){
         if(turns>=this.maxTurns||(completionOnly&&history.events.some(event=>event.kind==='model_requested'&&event.data.completionOnly===true))){await this.executor.finish(task.id,{status:'waiting',reason:'limit'});break;}
         if(task.authority)await this.authority.checkContext({actor,task,history});
         const hostContext=task.trusted_context?await this.trustedContext.project({actor,task}):null;
@@ -199,9 +209,8 @@ export class AgentRuntime {
         await this.executor.append(task.id,'model_requested',{model:model.name,turn:turns+1,...(completionOnly?{completionOnly:true}:{})});
         const controller=new AbortController();let timer;
         const modelSignal=AbortSignal.any([controller.signal,executionSignal()].filter(Boolean));
-        let response;
         try{response=await Promise.race([
-          model.next({messages,tools,maxBatchCalls:invocationBatchBound,delegationSchema:completionOnly?null:this.delegations.schema(task),outputSchema:capability.output,billingContext:{taskId:task.id,turn:turns+1,capability:task.capability},signal:modelSignal}),
+          model.next({messages,tools,maxBatchCalls:invocationBatchBound,delegationSchema:completionOnly?null:this.delegations.schema(task),outputSchema:capability.output,billingContext:{taskId:task.id,turn:turns+1,capability:task.capability,resultReceipts:resultReceipts(history)},signal:modelSignal}),
           new Promise((_,reject)=>{timer=setTimeout(()=>{const error=Object.assign(new Error('Model response timed out'),{code:'MODEL_TIMEOUT'});controller.abort(error);reject(error);},this.modelTimeoutMs);})
         ]);}catch(error){
           clearTimeout(timer);
@@ -234,35 +243,45 @@ export class AgentRuntime {
           if(!['TOKEN_BALANCE_INSUFFICIENT','USAGE_RECONCILIATION_REQUIRED','MODEL_OUTPUT_LIMIT','INVALID_MODEL_ACTION','MODEL_TIMEOUT'].includes(error.code)&&!error.limitReached)error=Object.assign(new Error('Model provider failed'),{code:'MODEL_PROVIDER_ERROR'});
           throw error;
         }finally{clearTimeout(timer);}
-        await this.executor.append(task.id,'model_usage',{model:model.name,turn:turns+1,usage:response?.usage??null,failed:false});
+        await this.executor.append(task.id,'model_usage',{model:model.name,turn:turns+1,usage:response?.usage??null,failed:false,...(response?.billing?.resultAvailable?{billing:response.billing}:{})});
         modelSignal.throwIfAborted();
         if(Buffer.byteLength(JSON.stringify(response))>this.maxOutputBytes)throw Object.assign(new Error('Model output limit reached'),{code:'MODEL_OUTPUT_LIMIT'});
-        action=normalizeAction(response);
-        if(action.type==='batch'){
-          if(completionOnly||action.actions.length>this.maxBatchCalls||action.actions.length>this.maxCalls-history.calls.length){await this.executor.append(task.id,'feedback',{error:'Batch exceeds the current action budget; propose fewer calls.'});continue;}
-          await this.executor.append(task.id,'action_batch',{id:randomUUID(),actions:action.actions});continue;
+        if(response?.billing?.resultAvailable){await this.executor.append(task.id,'metered_result',response);continue;}
+        } // Retained responses are consumed without another model turn.
+        if(retained){
+          if(Buffer.byteLength(JSON.stringify(retained))>this.maxOutputBytes)throw Object.assign(new Error('Model output limit reached'),{code:'MODEL_OUTPUT_LIMIT'});
+          if(task.authority)await this.authority.checkContext({actor,task,history});
+          await this.context.revalidateHistory({history,actor,dispatcher:this.dispatcher});
         }
-        await this.executor.append(task.id,'model_response',{...action,usage:response.usage??null});
+        action=normalizeAction(response);
+        if(retained&&action.type==='call'){
+          await this.executor.append(task.id,'action_batch',{id:resultRequestId,actions:[action],meteredSingle:true,resultRequestId});continue;
+        }
+        if(action.type==='batch'){
+          if(completionOnly||action.actions.length>this.maxBatchCalls||action.actions.length>this.maxCalls-history.calls.length){await this.executor.append(task.id,'feedback',{error:'Batch exceeds the current action budget; propose fewer calls.',resultRequestId});continue;}
+          await this.executor.append(task.id,'action_batch',{id:resultRequestId??randomUUID(),actions:action.actions,...(resultRequestId?{resultRequestId}:{})});continue;
+        }
+        await this.executor.append(task.id,'model_response',{...action,usage:response.usage??null,...(resultRequestId?{resultRequestId,billing:response.billing}:{})});
         await this.checkExecution(actor,task);
         if(completionOnly&&!['finish','wait'].includes(action.type)){
           await this.executor.finish(task.id,{status:'waiting',reason:'limit'});break;
         }
         if(action.type==='delegate'){
           let intent;
-          try{intent=await this.delegations.prepare(actor,task,action.input);}catch(error){if(![400,403,409].includes(error.statusCode))throw error;await this.executor.append(task.id,'feedback',{error:'Delegation rejected: '+error.message});continue;}
-          await this.executor.delegate(task.id,intent);break;
+          try{intent=await this.delegations.prepare(actor,task,action.input);}catch(error){if(![400,403,409].includes(error.statusCode))throw error;await this.executor.append(task.id,'feedback',{error:'Delegation rejected: '+error.message,resultRequestId});continue;}
+          await this.executor.delegate(task.id,{...intent,resultRequestId});break;
         }
         if(action.type==='wait'){
           await this.executor.append(task.id,'feedback',{question:action.question});
-          await this.executor.finish(task.id,{status:'waiting',reason:'input'});break;
+          await this.executor.finish(task.id,{status:'waiting',reason:'input',resultRequestId});break;
         }
         if(action.type==='finish'){
           // Verifier is application code; model cannot modify it or its required scope.
           const verification=capability.validateOutput(action.result)?verificationResult(await capability.implementation.verify(task.input,action.result,{actor,history})):{verified:false,feedback:'The proposed result does not match the declared output schema. Correct its structure before submitting again.'};
           const valid=verification.verified;
           executionSignal()?.throwIfAborted();
-          await this.executor.append(task.id,'verification',verification);
-          if(valid){await this.executor.finish(task.id,{status:'succeeded',result:action.result});break;}
+          await this.executor.append(task.id,'verification',{...verification,...(resultRequestId?{resultRequestId}:{})});
+          if(valid){await this.executor.finish(task.id,{status:'succeeded',result:action.result,resultRequestId});break;}
           continue;
         }
         } // A pending batch consumes no additional model request.
@@ -330,13 +349,4 @@ export class AgentRuntime {
     return {drained:true,requiresTermination:false};
   }
   async stop(){this.retired=true;clearInterval(this.timer);this.timer=null;try{if(this.running)await this.running;}finally{if(this.executor)await this.executor.close();this.executor=null;}}
-}
-
-function normalizeAction(response){
-  if(response?.type==='batch'&&Array.isArray(response.actions)&&response.actions.length>=2&&response.actions.length<=8&&response.actions.every(a=>a?.type==='call'&&typeof a.name==='string'&&a.input&&typeof a.input==='object'&&!Array.isArray(a.input)))return {type:'batch',actions:response.actions.map(a=>({type:'call',name:a.name,input:a.input}))};
-  if(response?.type==='delegate'&&response.input&&typeof response.input==='object'&&!Array.isArray(response.input))return {type:'delegate',input:response.input};
-  if(response?.type==='call'&&typeof response.name==='string'&&response.input&&typeof response.input==='object'&&!Array.isArray(response.input))return {type:'call',name:response.name,input:response.input};
-  if(response?.type==='finish'&&response.result!==undefined)return {type:'finish',result:response.result};
-  if(response?.type==='wait'&&typeof response.question==='string'&&response.question.trim())return {type:'wait',question:response.question};
-  throw Object.assign(new Error('Model returned an invalid action'),{code:'INVALID_MODEL_ACTION'});
 }
