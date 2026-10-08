@@ -1,5 +1,7 @@
 # Candidate status and practical limits
 
+Candidate.118 (prepared 2026-10-09): optional durable usable-result continuation separates Task progress from pending model usage. Ledger holds remain charged against available allowance; retained actions recover through Runtime receipts, current authorization and domain verification. Includes a bounded independent reconciliation work projection. See billing/RESULT_CONTINUATION.md. Publication and 12Eat adoption are separate gates.
+
 Candidate.117 (prepared 2026-10-06): optional versioned Access Profile reconciliation with explicit diff/approval binding, stable-key partial recovery, immutable Context revisions and compensating rollback. Host ports own atomic policy/approval revalidation, persistence and application qualification. See context/ACCESS_PROFILES.md. This does not migrate production users or certify application integration.
 
 Candidate.115 (2026-10-05, released and redownload-verified): implements IAIC-FB-20261005-001A2B with Host-bound candidate observations and original-reporter notification/read evidence. Source kinds do not grant authority; the scheduled resolution consumer recovers admission, while Notifications and receiving-channel evidence remain the delivery/read authorities. See support/README.md and support/IMPLEMENTATION-001A2B.md. 12Eat adoption is separate; no autonomous engineering or broader conversational-classifier completion is claimed.

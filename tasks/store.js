@@ -283,20 +283,20 @@ class TaskExecutor {
     }
     return row;
   });}
-  delegate(taskId,{request,deadlineAt}){return this.transaction(async c=>{
+  delegate(taskId,{request,deadlineAt,resultRequestId=null}){return this.transaction(async c=>{
     const task=await this.active(c,taskId);
     if(task.delegation||task.handoff)throw conflict('Only one non-nested delegation is allowed');
     if((await c.query("SELECT 1 FROM iaic_calls WHERE task_id=$1 AND status IN ('prepared','running','unknown') LIMIT 1",[taskId])).rowCount)throw conflict('Uncertain calls prevent delegation');
     const intent={id:randomUUID(),request,deadlineAt};
     await c.query("UPDATE iaic_tasks SET status='waiting',waiting_reason='external_result',executor_token=NULL,delegation=$2,updated_at=now() WHERE id=$1",[taskId,intent]);
-    await event(c,taskId,'delegation_requested',{delegationId:intent.id});return intent;
+    await event(c,taskId,'delegation_requested',{delegationId:intent.id,...(resultRequestId?{resultRequestId}:{})});return intent;
   });}
-  finish(taskId,{status,result=null,reason=null,error=''}){return this.transaction(async c=>{
+  finish(taskId,{status,result=null,reason=null,error='',resultRequestId=null}){return this.transaction(async c=>{
     await this.active(c,taskId);
     if(!['succeeded','failed','waiting'].includes(status))throw conflict('Invalid executor task outcome');
     if(status==='succeeded'&&(await c.query("SELECT id FROM iaic_calls WHERE task_id=$1 AND status IN ('prepared','running','unknown') LIMIT 1",[taskId])).rowCount)throw conflict('Unresolved calls prevent task completion');
     await c.query('UPDATE iaic_tasks SET status=$2,result=$3,waiting_reason=$4,error=$5,updated_at=now() WHERE id=$1',[taskId,status,JSON.stringify(result),reason,error]);
-    await event(c,taskId,'outcome',{status,reason});
+    await event(c,taskId,'outcome',{status,reason,...(resultRequestId?{resultRequestId}:{})});
   });}
   append(taskId,kind,data){return this.transaction(async c=>{
     if(kind==='model_usage'){

@@ -135,3 +135,14 @@ checks. Removing the optional composition rolls back package integration; retain
 committed Host revisions and use approved compensation to undo a migration.
 After verified .117 publication, candidate.116 support ends 2026-10-20 23:59 UTC.
 Old Task bindings remain pinned. See context/ACCESS_PROFILES.md.
+
+## candidate.118 - usable results and independent reconciliation (2026-10-09)
+
+Adds iaic_token_results through TokenLedger.initialize(). Existing policies remain
+blocking unless a trusted Host selects pendingUsage: 'continue'. Roll out the new
+Runtime and ledger together and pin the Task version. Do not run old Runtime on
+Tasks containing metered_result or meteredSingle events: drain or retain the new
+worker for these Tasks. Rollback disables new admissions, retains response and
+accounting evidence, and routes already admitted Tasks to their original worker.
+After verified .118 publication, candidate.117 support ends 2026-10-23 23:59 UTC.
+No automatic historical Task migration or database response deletion is supplied.

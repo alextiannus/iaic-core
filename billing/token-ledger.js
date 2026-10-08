@@ -46,6 +46,31 @@ export class TokenLedger {
   if(!text(taskId))throw fail('Task identity required');
   return (await this.pool.query("SELECT 1 FROM iaic_token_calls WHERE application_id=$1 AND subject_id=$2 AND attribution->>'taskId'=$3 AND state IN ('reserved','unknown') LIMIT 1",[...identity(scope),taskId])).rowCount>0;
  }
+ // Only trusted Runtime history may supply result receipts.
+ async recoverResult(scope,{taskId,receipts=[],model,profile=null}){
+  if(!text(taskId)||!Array.isArray(receipts)||receipts.length>1000||!receipts.every(text))throw fail('Bounded trusted result receipts required');
+  const row=(await this.pool.query(`SELECT r.request_id AS "requestId",r.response,r.provider_reference AS "providerReference",c.attribution,c.state
+   FROM iaic_token_results r JOIN iaic_token_calls c USING(application_id,subject_id,request_id)
+   WHERE c.application_id=$1 AND c.subject_id=$2 AND c.attribution->>'taskId'=$3
+   AND NOT(r.request_id=ANY($4::text[])) ORDER BY r.created_at,r.request_id LIMIT 1`,[...identity(scope),taskId,receipts])).rows[0];
+  if(row&&(row.attribution.model!==model||(row.attribution.profile??null)!==profile))throw fail('Retained result requires original model binding',409);
+  return row??null;
+ }
+ async hasBlockingTask(scope,taskId){
+  if(!text(taskId))throw fail('Task identity required');
+  return (await this.pool.query(`SELECT 1 FROM iaic_token_calls c WHERE application_id=$1 AND subject_id=$2
+   AND attribution->>'taskId'=$3 AND state IN ('reserved','unknown')
+   AND NOT EXISTS(SELECT 1 FROM iaic_token_results r WHERE r.application_id=c.application_id AND r.subject_id=c.subject_id AND r.request_id=c.request_id) LIMIT 1`,[...identity(scope),taskId])).rowCount>0;
+ }
+ async reconciliationWork(scope,{after=null,limit=50}={}){
+  if(!Number.isInteger(limit)||limit<1||limit>100||(after!==null&&!text(after)))throw fail('Invalid reconciliation cursor');
+  return (await this.pool.query(`SELECT c.request_id AS "requestId",c.attribution,c.created_at AS "createdAt",c.state,c.reserved,
+   r.provider_reference AS "providerReference",(r.request_id IS NOT NULL) AS "resultAvailable",e.evidence
+   FROM iaic_token_calls c LEFT JOIN iaic_token_results r USING(application_id,subject_id,request_id)
+   LEFT JOIN iaic_token_entries e ON e.application_id=c.application_id AND e.subject_id=c.subject_id AND e.reference=c.request_id AND e.kind='unknown'
+   WHERE c.application_id=$1 AND c.subject_id=$2 AND c.state IN ('reserved','unknown')
+   AND ($3::text IS NULL OR c.request_id>$3) ORDER BY c.request_id LIMIT $4`,[...identity(scope),after,limit])).rows;
+ }
  async taskUsage(scope,taskId){
   if(!text(taskId))throw fail('Task identity required');
   const row=(await this.pool.query(`SELECT count(*)::text AS requests,
@@ -157,6 +182,7 @@ export class TokenLedger {
   const proof=document({outcome,providerReference,usage:outcome==='measured'?document(usage):null,failed,evidence:document(evidence)});
   return this.transaction(scope,async(client,account)=>{
    const call=await this.call(client,account,requestId);
+   if(outcome==='not_accepted'&&(await client.query('SELECT 1 FROM iaic_token_results WHERE application_id=$1 AND subject_id=$2 AND request_id=$3',[...account,requestId])).rowCount)throw fail('Non-acceptance contradicts a retained provider result',409);
    await client.query(`INSERT INTO iaic_token_reconciliations(application_id,source_id,subject_id,request_id,evidence)
     VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,[account[0],sourceId,account[1],requestId,proof]);
    const prior=(await client.query('SELECT subject_id,request_id,evidence FROM iaic_token_reconciliations WHERE application_id=$1 AND source_id=$2',[account[0],sourceId])).rows[0];
@@ -179,11 +205,23 @@ export class TokenLedger {
    return {sourceId,requestId,outcome,...result};
   });
  }
- async markUnknown(scope,{requestId,evidence}){
+ async markUnknown(scope,{requestId,evidence,result=null,providerReference=null}){
   const proof=document(evidence);
+  let response=null;
+  if(result!==null){
+   const encoded=JSON.stringify(result);
+   if(!encoded||Buffer.byteLength(encoded)>32000)throw fail('Bounded model result required');
+   response=JSON.parse(encoded);
+   if(providerReference!==null&&!text(providerReference))throw fail('Invalid provider reference');
+  }
   return this.transaction(scope,async(client,account)=>{
    const call=await this.call(client,account,requestId);
    if(!['reserved','unknown'].includes(call.state))throw fail('Call is already finalized',409);
+   if(response!==null){
+    await client.query('INSERT INTO iaic_token_results(application_id,subject_id,request_id,response,provider_reference) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING',[...account,requestId,response,providerReference]);
+    const prior=(await client.query('SELECT response,provider_reference FROM iaic_token_results WHERE application_id=$1 AND subject_id=$2 AND request_id=$3',[...account,requestId])).rows[0];
+    if(!isDeepStrictEqual(prior.response,response)||prior.provider_reference!==providerReference)throw fail('Retained response is immutable',409);
+   }
    await this.entry(client,account,'unknown',requestId,'0',proof);
    await client.query("UPDATE iaic_token_calls SET state='unknown' WHERE application_id=$1 AND subject_id=$2 AND request_id=$3",[...account,requestId]);
    return this.readBalance(client,account);
