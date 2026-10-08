@@ -16,11 +16,16 @@ with an allow-listed `code` and `nextAction`, never provider bodies or reasoning
 A Chat Completions `finish_reason=length`, Responses
 `incomplete_details.reason=max_output_tokens`, or Runtime response byte ceiling
 produces `model_output_limit`. The first two keep measured usage through the
-existing MeteredModel settlement. Missing or unconfirmed usage takes precedence:
-MeteredModel still holds it and returns `usage_reconciliation`. A timeout racing
+existing MeteredModel settlement. By default, missing or unconfirmed usage takes precedence:
+MeteredModel still holds it and returns `usage_reconciliation`. With the trusted
+Host policy `pendingUsage: 'continue'`, a durably retained usable result can
+continue through current authorization and domain verification while the hold
+remains pending. See [result continuation](../billing/RESULT_CONTINUATION.md).
+No-result failures still block. A timeout racing
 an in-flight gateway can appear as `model_timeout` before gateway accounting
 finishes: the diagnostic is **not** evidence that usage settled. A subsequent
-metered invocation remains blocked by the original reservation/unknown hold.
+metered invocation remains blocked by an unresolved reservation/unknown hold
+without a retained usable result (or by the explicit blocking policy).
 
 The existing bounded correction loop for invalid wire actions remains; once it
 exhausts its model-turn allowance the reason is `invalid_model_action` instead
