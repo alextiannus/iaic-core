@@ -90,6 +90,6 @@ Production application identities do not receive direct write access to this rep
 <!-- feedback-index:start -->
 | ID | Title | Category | Status | Source application | Updated |
 | --- | --- | --- | --- | --- | --- |
-| [IAIC-FB-20261006-7D9804](feedback/inbox/IAIC-FB-20261006-7D9804.md) | Preserve usable model results while usage reconciliation remains pending | framework-gap | verifying | 12Eat.ai | 2026-10-08T19:10:00Z |
+| [IAIC-FB-20261006-7D9804](feedback/inbox/IAIC-FB-20261006-7D9804.md) | Preserve usable model results while usage reconciliation remains pending | framework-gap | released | 12Eat.ai | 2026-10-08T20:00:00Z |
 | [IAIC-FB-20261005-001A2B](feedback/inbox/IAIC-FB-20261005-001A2B.md) | Standardize agent-discovered issues and trusted reporter follow-up | framework-gap | released | 12Eat.ai | 2026-10-05T12:43:20Z |
 <!-- feedback-index:end -->
