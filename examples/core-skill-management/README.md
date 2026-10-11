@@ -35,3 +35,13 @@ Reproduce the browser checks against the running demo with
 an installed browser, `PREVIEW_URL` to the local demo URL, and `SCREENSHOT_DIR` to
 an output directory. The script downloads only its own local test export.
 - `scripts/verify-examples.mjs`: complete example regression passed against the isolated PostgreSQL database using Node 20, after updating the existing dashboard example's title assertion.
+
+## Review and release validation (2026-10-12)
+
+Review found and fixed an Agent-specific revocation window after source reads,
+invalid null binding snapshots being marked complete, retained Agent labels and
+cached rows after errors/revocation, and missing immediate Skill revalidation on
+returning to the tab. Timestamp types are now checked before parsing. Added
+regressions passed; the complete module suite now passes 495 tests. The browser
+script also verifies failed-roster cache suppression, foreground revalidation and
+heading/export clearing. Candidate.119 adds no Runtime or database migration.

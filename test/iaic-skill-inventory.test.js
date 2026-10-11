@@ -40,3 +40,14 @@ test('invalid input, duplicates, future timestamps and invalid binding fail expl
 test('hung source is bounded and receives cancellation',async()=>{
  const {inventory}=fixture();inventory.timeoutMs=10;let signal;inventory.listCatalog=async input=>{signal=input.signal;return new Promise(()=>{});};await assert.rejects(inventory.list({}),{statusCode:504});assert.equal(signal.aborted,true);
 });
+test('missing Agent bindings are a source error, not a complete catalog-only response',async()=>{
+ const {state,inventory}=fixture();for(const value of [null,undefined,false]){state.bindings=value;await assert.rejects(inventory.list({},{agentId:'worker'}),{statusCode:502});}
+});
+test('Agent-specific access is checked again after snapshot reads even if skills permission remains',async()=>{
+ const {state,inventory}=fixture();let agentAllowed=true;
+ inventory.operations.authorize=(_actor,{operation})=>operation!=='agent'||agentAllowed;
+ state.afterRead=()=>{agentAllowed=false;};await assert.rejects(inventory.list({},{agentId:'worker'}),{statusCode:403});
+});
+test('snapshot timestamps must be strings, not coercible values',async()=>{
+ const {state,inventory}=fixture();state.catalog.observedAt=[new Date(now).toISOString()];await assert.rejects(inventory.list({}),{statusCode:502});
+});

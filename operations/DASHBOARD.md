@@ -147,3 +147,10 @@ for the distinction between descriptive hints and enforced authorization.
 
 Local verification: `node --test test/iaic-skill-inventory.test.js test/iaic-operations-dashboard.test.js`.
 A runnable, explicitly fixture-only example is in `examples/core-skill-management`.
+
+Review hardening for candidate.119: a requested Agent must return a valid bindings
+snapshot (null/undefined are errors), and its object-level permission is checked
+again after both source reads in addition to the Skill operation permission.
+Revocation clears Agent headings, cached rows, exports and feedback drafts; failed
+roster refreshes cannot be undone by client-side filtering. Returning to the tab
+revalidates both the roster and Skill inventory immediately.

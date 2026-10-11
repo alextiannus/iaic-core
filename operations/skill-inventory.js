@@ -6,6 +6,7 @@ const states=['all','installed','not-installed','enabled','blocked','unknown','u
 async function bounded(port,input,ms){let timer;const controller=new AbortController();try{return await Promise.race([Promise.resolve().then(()=>port({...input,signal:controller.signal})),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(fail('Skill source timeout',504));},ms);})]);}finally{clearTimeout(timer);}}
 function snapshot(value,kind,now){
  if(!value||!Array.isArray(value.items)||value.items.length>10000||typeof value.complete!=='boolean')throw fail('Invalid Skill snapshot');
+ if(typeof value.observedAt!=='string'||typeof value.validUntil!=='string')throw fail('Invalid Skill snapshot time');
  const at=Date.parse(value.observedAt),until=Date.parse(value.validUntil);
  if(!Number.isFinite(at)||!Number.isFinite(until)||at>now||until<at)throw fail('Invalid Skill snapshot time');
  const seen=new Set();
@@ -38,7 +39,7 @@ export class SkillInventory {
   const agent=agentId?(await this.operations.agent(actor,agentId)).agent:null;
   const context={actor,scope,agent};
   const [rawCatalog,rawBindings]=await Promise.all([bounded(this.listCatalog,context,this.timeoutMs),agent?bounded(this.readBindings,context,this.timeoutMs):null]);
-  const now=this.clock(),catalog=snapshot(rawCatalog,'catalog',now),bindings=rawBindings?snapshot(rawBindings,'bindings',now):null;
+  const now=this.clock(),catalog=snapshot(rawCatalog,'catalog',now),bindings=agent?snapshot(rawBindings,'bindings',now):null;
   const byId=new Map(bindings?.items.map(r=>[r.id,r])??[]);
   const items=catalog.items.map(skill=>({...skill,registered:true}));
   const catalogIds=new Set(items.map(s=>s.id));
@@ -61,6 +62,7 @@ export class SkillInventory {
   const binding=createHash('sha256').update(JSON.stringify([this.operations.namespace,scope,agentId,normalized,status,limit,revision])).digest('hex');
   const start=cursor?Number(this.cursors.open(cursor,binding)):0;
   if(!Number.isSafeInteger(start)||start<0||start>filtered.length)throw fail('Invalid Skill continuation',400);
+  if(agentId)await this.operations.unchanged(actor,scope,'agent',agentId);
   await this.operations.unchanged(actor,scope,'skills',agentId);
   const source=s=>s?{state:s.state,complete:s.complete,observedAt:s.observedAt,validUntil:s.validUntil}:null;
   return {schemaVersion:1,agentId,asOf:new Date(now).toISOString(),revision,complete:catalog.complete&&(!bindings||bindings.complete),sources:{catalog:source(catalog),bindings:source(bindings)},counts:{scope:'authorized-snapshot',supported:catalog.items.length,installed:bindings?.items.length??null,matched:filtered.length,blocked:agent?items.filter(x=>x.readiness==='blocked').length:null,updates:agent?items.filter(x=>x.updateAvailable).length:null},items:filtered.slice(start,start+limit),nextCursor:start+limit<filtered.length?this.cursors.seal(binding,String(start+limit)):null};

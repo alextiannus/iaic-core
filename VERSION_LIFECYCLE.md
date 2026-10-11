@@ -146,3 +146,14 @@ worker for these Tasks. Rollback disables new admissions, retains response and
 accounting evidence, and routes already admitted Tasks to their original worker.
 After verified .118 publication, candidate.117 support ends 2026-10-23 23:59 UTC.
 No automatic historical Task migration or database response deletion is supplied.
+
+## candidate.119 — Agent management and Skill inventory (2026-10-12)
+
+Optional metadata-only SkillInventory and management UI; no database or Runtime
+migration. Host adoption requires authorized catalog and Agent-binding snapshot
+ports plus explicit `skills` authorization. Installation, configuration and actual
+execution permissions remain Host-owned. Source failures stay errors and partial
+or stale evidence stays unknown. Roll back by removing the optional inventory
+port or restoring .118; no installation records or Task receipts are mutated.
+After verified .119 publication, candidate.118 support ends 2026-10-26 23:59 UTC.
+Release publication does not by itself upgrade a deployed Host application.
