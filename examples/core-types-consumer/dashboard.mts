@@ -14,3 +14,14 @@ export async function inventory(pool:DatabasePool){
  const identities=new AgentIdentityStore({pool});
  return {presence:await registry.presence('executor'),page:await registry.page({workspaceIds:['workspace']}),identities:await identities.page({definitionId:'job'})};
 }
+
+import {SkillInventory} from '@immedi/iaic-core/operations/skill-inventory.js';
+import type {Operations} from '@immedi/iaic-core/operations/service.js';
+export function skillInventory(operations:Operations<{subjectId:string}>,cursorKey:Uint8Array){
+ const snapshot={items:[],complete:true,observedAt:new Date().toISOString(),validUntil:new Date(Date.now()+60000).toISOString()};
+ const skills=new SkillInventory({operations,cursorKey,listCatalog:async()=>snapshot,readBindings:async()=>snapshot});
+ return skills.list({subjectId:'operator'},{agentId:'worker',status:'installed'});
+}
+import {SkillCatalog} from '@immedi/iaic-core/skills/catalog.js';
+export const metadataCatalog=new SkillCatalog({root:'/host/registered-skills',entries:[]});
+export const metadataSnapshot=async()=>({items:await metadataCatalog.list(),complete:true,observedAt:new Date().toISOString(),validUntil:new Date(Date.now()+60000).toISOString()});

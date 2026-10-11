@@ -2,11 +2,12 @@ import {readFile} from 'node:fs/promises';
 const fail=statusCode=>Object.assign(Error('Dashboard request rejected'),{statusCode});
 const headers={'Cache-Control':'no-store, private','Vary':'Cookie, Authorization','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"};
 /** Optional Node HTTP mount. Host supplies current session/operator authority. */
-export function createOperationsDashboard({operations,resolveObserver,authorizeOperator,basePath='/admin/agents',refreshMs=30000,feedback=null,authorizeMutation=null}) {
+export function createOperationsDashboard({operations,resolveObserver,authorizeOperator,basePath='/admin/agents',refreshMs=30000,feedback=null,authorizeMutation=null,skills=null}) {
  if(!operations||typeof operations.overview!=='function'||typeof operations.agent!=='function'||typeof resolveObserver!=='function'||typeof authorizeOperator!=='function')throw Error('Dashboard requires Operations and trusted current observer/operator ports');
  if(typeof basePath!=='string'||!/^\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+$/.test(basePath))throw Error('Invalid dashboard basePath');
  if(!Number.isInteger(refreshMs)||refreshMs<2000||refreshMs>60000)throw Error('Invalid dashboard refresh interval');
  if(feedback!==null&&(typeof feedback.list!=='function'||typeof feedback.report!=='function'||typeof authorizeMutation!=='function'))throw Error('Feedback requires current mutation authorization and list/report ports');
+ if(skills!==null&&typeof skills.list!=='function')throw Error('Skills requires a scoped inventory list port');
  const assets=new Map([['/app.js',['app.js','text/javascript; charset=utf-8']],['/style.css',['style.css','text/css; charset=utf-8']]]);
  const guard=async request=>{const observer=await resolveObserver(request);if(!observer||observer.actor==null)throw fail(401);if(typeof observer.binding!=='string'||!observer.binding||observer.binding.length>2000)throw fail(403);if(await authorizeOperator({actor:observer.actor,request})!==true)throw fail(403);return observer;};
  return async function dashboard(request,response) {
@@ -17,7 +18,17 @@ export function createOperationsDashboard({operations,resolveObserver,authorizeO
    const observer=await guard(request);
    if(request.method!=='GET'&&!(feedback&&request.method==='POST'&&url.pathname===basePath+'/api/feedback'))throw fail(405);
    const path=url.pathname.slice(basePath.length);let body,type='application/json; charset=utf-8';
-   if(path==='/api/config') {body=JSON.stringify({refreshMs,feedback:feedback!==null});}
+   if(path==='/api/config') {body=JSON.stringify({refreshMs,feedback:feedback!==null,...(skills?{skills:true}:{})});}
+   else if(path==='/api/skills'&&skills) {
+    const input={};
+    for(const key of url.searchParams.keys()){
+     if(!['agentId','query','status','limit','cursor'].includes(key)||url.searchParams.getAll(key).length!==1)throw fail(400);
+     const value=url.searchParams.get(key);
+     if(key==='limit'){if(!/^[1-9][0-9]*$/.test(value))throw fail(400);input.limit=Number(value);}else input[key]=value;
+    }
+    if(input.agentId)await operations.agent(observer.actor,input.agentId);
+    body=JSON.stringify(await skills.list(observer.actor,input));
+   }
    else if(path==='/api/feedback'&&feedback) {
     const id=url.searchParams.get('id');
     if([...url.searchParams.keys()].some(k=>k!=='id')||url.searchParams.getAll('id').length!==1||!id)throw fail(400);

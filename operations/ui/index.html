@@ -1,7 +1,15 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Agent 运行看板 · IAiC</title><link rel="stylesheet" href="__BASE__/style.css"><script defer src="__BASE__/app.js"></script></head>
-<body><header><div><span class="eyebrow">IAiC · 平台运维</span><h1>Agent 运行看板</h1></div><button id="refresh" type="button">刷新</button></header>
-<main><div class="toolbar"><p id="status" role="status" aria-live="polite">正在读取当前授权范围…</p><label>视图 <select id="view"><option value="space">工作空间</option><option value="list">列表</option></select></label></div>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Agent 管理中心 · IAiC</title><link rel="stylesheet" href="__BASE__/style.css"><script defer src="__BASE__/app.js"></script></head>
+<body><header><div><span class="eyebrow">IAiC · 平台运维</span><h1>Agent 管理中心</h1></div><button id="refresh" type="button">刷新</button></header>
+<main><p class="intro">检查 Agent 的工作状态、技能配置与运行依据。</p>
+<div class="toolbar"><label>搜索当前页 Agent <input id="agent-search" type="search" placeholder="名称、工作空间、身份"></label><label>状态 <select id="agent-filter"><option value="all">全部</option><option value="attention">需要关注</option><option value="working">工作中</option><option value="paused">已暂停</option></select></label></div>
+<div class="toolbar"><p id="status" role="status" aria-live="polite">正在读取当前授权范围…</p><label>视图 <select id="view"><option value="space">工作空间</option><option value="list">列表</option></select></label></div>
 <div class="layout"><section aria-label="获授权 Agent"><div id="agents"></div><nav aria-label="Agent 分页"><button id="previous" disabled type="button">上一页</button><span id="page">第 1 页</span><button id="next" disabled type="button">下一页</button></nav></section>
 <aside id="detail" aria-label="Agent 工作详情" aria-live="polite"><p>选择一个 Agent，查看当前工作和运行依据。</p></aside></div>
-<p class="footnote">运行观测 · 自动刷新（间隔由应用配置） · 数量仅代表当前页 · 未上报不表示正常</p></main></body></html>
+<section class="skill-panel" aria-labelledby="skills-heading">
+<div class="toolbar"><div><span class="eyebrow">SKILL INVENTORY</span><h2 id="skills-heading">系统技能目录</h2></div><button id="skill-system" type="button">查看系统全部技能</button></div>
+<p class="meta">已安装、已启用与可执行分别检查。工具声明不授予权限；实际执行仍由运行时授权。</p>
+<form id="skill-search-form" class="toolbar"><label>搜索全部技能 <input id="skill-search" type="search" maxlength="200" placeholder="名称、说明、来源"></label><label>筛选 <select id="skill-filter"><option value="all">全部</option><option value="installed">已安装</option><option value="not-installed">未安装</option><option value="enabled">已启用</option><option value="blocked">运行受限</option><option value="unknown">待核实</option><option value="update-available">版本不同</option><option value="unregistered">目录未收录</option></select></label><button type="submit">搜索</button><button id="skill-export" type="button" disabled>导出当前页</button></form>
+<p id="skill-status" role="status" aria-live="polite">正在检查技能目录连接…</p><div id="skill-summary" class="metrics"></div><div id="skills" class="skill-grid"></div>
+<nav aria-label="技能分页"><button id="skill-previous" type="button" disabled>上一页</button><span id="skill-page">第 1 页</span><button id="skill-next" type="button" disabled>下一页</button></nav>
+</section><p class="footnote">运行观测 · 自动刷新（间隔由应用配置） · 数量仅代表当前页 · 未上报不表示正常</p></main></body></html>

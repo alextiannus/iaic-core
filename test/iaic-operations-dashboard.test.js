@@ -43,3 +43,13 @@ test('optional feedback needs mutation authority, bounded input and existing Age
   allowed=false;assert.equal((await post('a',{'x-iaic-operations':'1'})).status,403);assert.equal(writes,1);
  }finally{server.closeAllConnections();await new Promise(r=>server.close(r));}
 });
+test('skill inventory routes share auth, reject ambiguous queries and suppress revoked results',async()=>{
+ let allowed=true,reads=0,afterRead=()=>{};
+ const handler=createOperationsDashboard({resolveObserver:async()=>({actor:{},binding:'session'}),authorizeOperator:()=>allowed,operations:{overview:async()=>({}),agent:async(_actor,id)=>{if(id==='hidden')throw Object.assign(Error('hidden'),{statusCode:403});return {}; }},skills:{list:async(_actor,input)=>{reads++;afterRead();return {items:[{name:'private-skill'}],input};}}});
+ const request=async url=>{let status,body;await handler({url,method:'GET'},{writeHead:s=>{status=s;},end:b=>{body=JSON.parse(b);}});return {status,body};};
+ assert.equal((await request('/admin/agents/api/config')).body.skills,true);
+ const success=await request('/admin/agents/api/skills?agentId=visible&query=test&limit=12');assert.equal(success.status,200);assert.equal(success.body.input.limit,12);
+ for(const query of ['agentId=a&agentId=b','query=a&query=b','limit=2e1','unknown=x'])assert.equal((await request('/admin/agents/api/skills?'+query)).status,400);
+ assert.equal((await request('/admin/agents/api/skills?agentId=hidden')).status,403);assert.equal(reads,1);
+ afterRead=()=>{allowed=false;};const denied=await request('/admin/agents/api/skills');assert.equal(denied.status,403);assert.doesNotMatch(JSON.stringify(denied.body),/private-skill/);
+});
