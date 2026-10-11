@@ -16,7 +16,7 @@ export interface Overview {schemaVersion:1;asOf:string;items:Array<{agent:AgentD
 export interface SourceContext<A> {actor:A;scope:string;agent:AgentDescriptor;signal:AbortSignal}
 export interface OperationsOptions<A> {
  namespace:string;cursorKey:Uint8Array;resolveScope(actor:A):string|Promise<string>;
- authorize(actor:A,request:{operation:'agents'|'agent'|'overview';id:string|null;scope:string}):boolean|Promise<boolean>;
+ authorize(actor:A,request:{operation:'agents'|'agent'|'overview'|'skills';id:string|null;scope:string}):boolean|Promise<boolean>;
  listAgents(request:{actor:A;scope:string;limit:number;after:string|null;signal:AbortSignal}):Promise<{items:AgentDescriptor[];next:string|null;complete:boolean}>;
  readAgent(request:{actor:A;scope:string;id:string;signal:AbortSignal}):Promise<AgentDescriptor>;
  sources:{tasks(context:SourceContext<A>):Promise<Envelope<TaskSummary>>;signals(context:SourceContext<A>):Promise<Envelope<RuntimeSignal>>;models(context:SourceContext<A>):Promise<Envelope<ModelUse>>;interactions(context:SourceContext<A>):Promise<Envelope<Interaction>>};
@@ -24,6 +24,8 @@ export interface OperationsOptions<A> {
 }
 export class Operations<A=unknown> {
  constructor(options:OperationsOptions<A>);
+ scope(actor:A,operation:'agents'|'agent'|'overview'|'skills',id?:string|null):Promise<string>;
+ unchanged(actor:A,scope:string,operation:'agents'|'agent'|'overview'|'skills',id?:string|null):Promise<void>;
  agents(actor:A,input?:PageInput):Promise<AgentPage>;
  agent(actor:A,id:string):Promise<AgentView>;
  overview(actor:A,input?:PageInput):Promise<Overview>;

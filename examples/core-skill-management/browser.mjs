@@ -1,0 +1,17 @@
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE??'playwright');
+import assert from 'node:assert/strict';
+const browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{})});const page=await browser.newPage({viewport:{width:1440,height:1100}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.goto(process.env.PREVIEW_URL??'http://127.0.0.1:4319/admin/agents');await page.waitForSelector('.skill-card');
+assert.equal(await page.locator('.skill-card').count(),2);
+await page.getByRole('button',{name:/研究助手/}).click();await page.waitForFunction(()=>document.getElementById('skills-heading').textContent.includes('研究助手'));
+assert.match(await page.locator('#skills').innerText(),/已安装/);
+await page.selectOption('#skill-filter','blocked');await page.waitForFunction(()=>document.querySelectorAll('.skill-card').length===1);assert.match(await page.locator('#skills').innerText(),/已停用/);
+await page.getByRole('button',{name:'查看系统全部技能'}).click();await page.waitForFunction(()=>document.querySelectorAll('.skill-card').length===2);
+await page.fill('#skill-search','core-real-delegation');await page.locator('#skill-search-form').getByRole('button',{name:'搜索',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.skill-card').length===1);
+await page.fill('#skill-search','');await page.locator('#skill-search-form').getByRole('button',{name:'搜索',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.skill-card').length===2);
+const downloadEvent=page.waitForEvent('download');await page.getByRole('button',{name:'导出当前页'}).click();assert.match((await downloadEvent).suggestedFilename(),/iaic-skills/);
+await page.fill('#agent-search','平台维护');assert.equal(await page.locator('.agent').count(),1);await page.fill('#agent-search','');
+await page.screenshot({path:(process.env.SCREENSHOT_DIR??'/tmp')+'/iaic-agent-desktop.png',fullPage:true});
+await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:(process.env.SCREENSHOT_DIR??'/tmp')+'/iaic-agent-mobile.png',fullPage:true});
+await page.route('**/api/skills*',route=>route.fulfill({status:403,contentType:'application/json',body:'{}'}));await page.getByRole('button',{name:'查看系统全部技能'}).click();await page.waitForFunction(()=>document.querySelectorAll('.skill-card').length===0&&document.querySelectorAll('.agent').length===0);
+assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,checks:['system catalog','agent installed skills','blocked filter','global search','JSON download','agent search','desktop','mobile no overflow','revocation clears both panels','no browser errors']}));await browser.close();

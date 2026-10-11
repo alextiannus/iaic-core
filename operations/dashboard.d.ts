@@ -4,6 +4,7 @@ export interface DashboardOptions<A> {
  operations:Pick<Operations<A>,'overview'|'agent'>;
  basePath?:string;
  refreshMs?:number;
+ skills?:Pick<import('./skill-inventory.js').SkillInventory<A>,'list'>|null;
  feedback?:{list(actor:A,input:{id:string}):Promise<Array<{id:string;state:string;summary:string}>>;report(actor:A,input:{id:string;requestKey:string;summary:string}):Promise<{id:string;state:string;summary:string}>}|null;
  authorizeMutation?(input:{actor:A;request:IncomingMessage}):boolean|Promise<boolean>;
  resolveObserver(request:IncomingMessage):Promise<{actor:A;binding:string}|null>;
